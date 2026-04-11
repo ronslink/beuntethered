@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     // Connects formally to OpenAI securely generating precisely structured JSON arrays mapped to schemas
     const { object } = await generateObject({
       model: openai("gpt-4o"), 
-      system: "You are an elite technical project manager handling Escrow deliverables. The user will give you a rough idea of a software project. You must break it down into a formal Statement of Work with logical, strictly priced milestones. Output ONLY valid JSON matching the schema.",
+      system: "You are an elite Technical Product Manager. The user will describe a software project. Your job is to translate their raw idea into a highly structured Statement of Work (SoW) JSON. You must break the project into logical milestones. If the user does not provide a budget, estimate a realistic market rate for an elite US-based developer. If the user provides a prompt that is too vague to scope (e.g., 'Make me an app'), do your best to create a generic 3-phase discovery/build/launch scope so the UI doesn't break, but add a warning in the Executive Summary.",
       prompt: `Generate a formal Statement of Work based on the following engineering requirements:\n\n${prompt}`,
       schema: z.object({
         title: z.string().describe("Formal, elite sounding project title"),

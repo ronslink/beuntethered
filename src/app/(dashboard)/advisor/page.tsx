@@ -123,6 +123,11 @@ export default function AIAdvisoryPage() {
 
            {/* Sleek Input Focus Box */}
            <div className="p-6 bg-surface-container-low/80 backdrop-blur-xl border-t border-outline-variant/20 relative z-10 w-full">
+              <div className="flex flex-wrap gap-2 mb-4">
+                 <button type="button" onClick={() => setPrompt("I am building a new web application. The core features I need are: [List features here]. My rough budget is [Budget] and I need it by [Timeline].")} className="text-[10px] uppercase font-bold tracking-widest px-3 py-1.5 rounded-full bg-surface/50 border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary/40 transition-colors">API Integration</button>
+                 <button type="button" onClick={() => setPrompt("I am building a new web application. The core features I need are: [List features here]. My rough budget is [Budget] and I need it by [Timeline].")} className="text-[10px] uppercase font-bold tracking-widest px-3 py-1.5 rounded-full bg-surface/50 border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary/40 transition-colors">New App MVP</button>
+                 <button type="button" onClick={() => setPrompt("I am building a new web application. The core features I need are: [List features here]. My rough budget is [Budget] and I need it by [Timeline].")} className="text-[10px] uppercase font-bold tracking-widest px-3 py-1.5 rounded-full bg-surface/50 border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:border-primary/40 transition-colors">Figma to Code</button>
+              </div>
               <form onSubmit={handleGenerate} className="relative group">
                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-2xl blur-lg transition duration-500 group-focus-within:from-primary/60 group-focus-within:to-secondary/60 opacity-0 group-focus-within:opacity-100"></div>
                  <div className="relative flex items-end gap-3 bg-surface border border-outline-variant/30 focus-within:border-primary/50 transition-colors rounded-2xl p-2 shadow-inner">
@@ -130,7 +135,7 @@ export default function AIAdvisoryPage() {
                      value={prompt}
                      onChange={(e) => setPrompt(e.target.value)}
                      disabled={isGenerating}
-                     placeholder="e.g. 'I'm building a Stripe integration for 3k, split across two phases. Need it formal.'"
+                     placeholder="e.g., I need a Next.js landing page with Stripe checkout. I have Figma designs ready. Budget is around $2k."
                      className="w-full bg-transparent border-none text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none min-h-[80px] p-3 text-sm focus:outline-none custom-scrollbar"
                    />
                    <button 
