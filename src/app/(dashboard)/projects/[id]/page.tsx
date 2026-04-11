@@ -1,0 +1,113 @@
+import { getCurrentUser } from "@/lib/session";
+import { prisma } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import AcceptBidButton from "@/components/marketplace/AcceptBidButton";
+
+export const dynamic = 'force-dynamic';
+
+export default async function ProjectReviewPage({ params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENT") redirect("/dashboard");
+
+  const project = await prisma.project.findUnique({
+    where: { id: params.id },
+    include: {
+      bids: {
+         include: { developer: true },
+         orderBy: { proposed_amount: 'asc' }
+      },
+      milestones: true
+    }
+  });
+
+  if (!project || project.client_id !== user.id) redirect("/dashboard");
+
+  // If constraints resolved, redirect safely to standard initialization payment layouts natively
+  if (project.status === "ACTIVE") {
+     redirect(`/command-center?id=${project.id}`);
+  }
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  };
+  
+  const totalEst = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
+
+  return (
+    <main className="lg:p-6 min-h-full pb-20 relative overflow-hidden">
+      <div className="absolute top-[-5%] left-[-10%] w-[600px] h-[600px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
+
+      <header className="mb-10 px-4 lg:px-0 relative z-10 w-full max-w-6xl">
+        <div className="flex items-center gap-2 mb-4">
+           <Link href="/dashboard" className="text-on-surface-variant hover:text-primary transition-colors flex items-center text-xs font-bold uppercase tracking-widest gap-1"><span className="material-symbols-outlined text-[14px]">arrow_back</span> Return Network Constraints</Link>
+        </div>
+        <div className="flex justify-between items-end gap-6 flex-wrap">
+          <div>
+            <p className="text-xs font-bold font-headline uppercase tracking-widest text-primary mb-2 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">gavel</span> Open Bidding Architecture Loop</p>
+            <h2 className="text-3xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface line-clamp-2">
+              {project.title}
+            </h2>
+            <p className="text-on-surface-variant font-medium mt-3 max-w-2xl leading-relaxed text-sm lg:text-base">Evaluating Expert Operations globally. Accept a valid structural architecture resolving strictly converting this layout actively into an Active Escrow pipeline instantly.</p>
+          </div>
+          <div className="bg-surface-container-low border border-outline-variant/30 px-6 py-4 rounded-2xl text-right shrink-0">
+             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Baseline AI Valuation Parameter</p>
+             <p className="text-2xl lg:text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(totalEst)}</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="px-4 lg:px-0 relative z-10 w-full max-w-6xl">
+        {project.bids.length === 0 ? (
+           <div className="bg-surface/50 backdrop-blur-3xl border border-outline-variant/30 rounded-3xl p-16 text-center text-on-surface-variant flex flex-col items-center shadow-lg">
+             <span className="material-symbols-outlined text-[80px] mb-6 opacity-30 text-primary/50">radar</span>
+             <h3 className="text-2xl font-bold font-headline text-on-surface">No Expert Connects Validated Yet</h3>
+             <p className="text-sm mt-3 max-w-sm leading-relaxed">The Marketplace network is scanning your Escrow parameters natively. High execution boundaries naturally take time parsing. Check back shortly.</p>
+           </div>
+        ) : (
+           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+             {project.bids.map(bid => (
+                <div key={bid.id} className="bg-surface/60 backdrop-blur-xl border border-outline-variant/30 rounded-3xl p-6 lg:p-8 hover:border-primary/40 focus-within:border-primary/40 transition-all duration-300 shadow-xl shadow-surface-variant/5 flex flex-col h-full relative overflow-hidden group">
+                   
+                   <div className="flex items-center gap-4 mb-6 relative z-10">
+                      <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(var(--color-primary),0.1)]">
+                         <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+                      </div>
+                      <div>
+                         <span className="block text-sm lg:text-base font-bold text-on-surface leading-tight mb-1">{bid.developer.name || "Untether Expert Node"}</span>
+                         <span className="block text-[10px] text-on-surface-variant uppercase tracking-widest font-bold bg-surface-container-high rounded-lg px-2 py-0.5 inline-block border border-outline-variant/20 shadow-inner">Architecturally Screened</span>
+                      </div>
+                   </div>
+
+                   <div className="space-y-4 mb-8 flex-1 relative z-10">
+                      <div className="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/20 relative group-hover:bg-primary/5 transition-colors duration-500">
+                         <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-1">Proposed Execution Map</p>
+                         <p className="text-3xl font-black text-on-surface text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">{formatCurrency(Number(bid.proposed_amount))}</p>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 flex-1">
+                           <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-1">Velocity Limits</p>
+                           <p className="text-sm font-bold text-on-surface">{bid.estimated_days} Delivery Target</p>
+                        </div>
+                      </div>
+                      <div className="pt-2">
+                         <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-2">Technical Implementation Matrix</p>
+                         <p className="text-xs text-on-surface leading-relaxed opacity-90 custom-scrollbar overflow-y-auto w-full min-h-[140px] max-h-[180px] bg-surface-container-low/50 p-4 rounded-xl border border-outline-variant/10 whitespace-pre-wrap">
+                           {bid.technical_approach}
+                         </p>
+                      </div>
+                   </div>
+
+                   <div className="relative z-10 mt-auto pt-4">
+                     {project.status === 'OPEN_BIDDING' && (
+                        <AcceptBidButton bidId={bid.id} projectId={project.id} />
+                     )}
+                   </div>
+                </div>
+             ))}
+           </div>
+        )}
+      </div>
+    </main>
+  );
+}
