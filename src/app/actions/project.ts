@@ -82,3 +82,94 @@ export async function createProjectFromSoW({
     return { success: false, error: error.message };
   }
 }
+
+export async function closeProject({
+  projectId,
+  facilitatorId,
+  rating,
+  feedback
+}: {
+  projectId: string;
+  facilitatorId: string;
+  rating: number;
+  feedback: string;
+}) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "CLIENT") throw new Error("Unauthorized Access Network");
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { milestones: true }
+    });
+
+    if (!project || project.client_id !== user.id) throw new Error("Invalid Auth Loop.");
+
+    const uncompletedMilestones = project.milestones.filter(m => m.status !== "APPROVED_AND_PAID" && m.status !== "DISPUTED");
+    if (project.billing_type === "FIXED_MILESTONE" && uncompletedMilestones.length > 0) {
+       throw new Error("Cannot close Escrow until all execution phases are approved & paid.");
+    }
+
+    await prisma.review.create({
+       data: {
+          project_id: projectId,
+          client_id: user.id,
+          facilitator_id: facilitatorId,
+          rating,
+          feedback
+       }
+    });
+
+    await prisma.project.update({
+       where: { id: projectId },
+       data: { status: "COMPLETED" }
+    });
+
+    const allExpertTimeEntries = await prisma.timeEntry.findMany({
+       where: { facilitator_id: facilitatorId }
+    });
+
+    let totalAlignmentScore = 0;
+    let totalAudits = 0;
+
+    allExpertTimeEntries.forEach(entry => {
+       if (entry.ai_audit_report) {
+          const report = entry.ai_audit_report as any;
+          if (report.alignment_score) {
+             totalAlignmentScore += Number(report.alignment_score);
+             totalAudits += 1;
+          }
+       }
+    });
+
+    const average_ai_audit_score = totalAudits > 0 ? (totalAlignmentScore / totalAudits) : 100; // Default to 100 if no audits
+
+    const allReviews = await prisma.review.findMany({
+       where: { facilitator_id: facilitatorId }
+    });
+    
+    const avgRating = allReviews.length > 0
+       ? allReviews.reduce((acc, r) => acc + r.rating, 0) / allReviews.length
+       : rating;
+
+    const trust_score = (average_ai_audit_score * 0.7) + ((avgRating / 5 * 100) * 0.3);
+
+    await prisma.user.update({
+       where: { id: facilitatorId },
+       data: {
+          average_ai_audit_score,
+          trust_score,
+          total_sprints_completed: { increment: 1 }
+       }
+    });
+
+    revalidatePath(`/command-center`);
+    revalidatePath(`/facilitators/${facilitatorId}`);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Critical Escrow Closure Fault:", error);
+    return { success: false, error: error.message };
+  }
+}
+

@@ -18,6 +18,12 @@ enum SubscriptionTier {
   BYOC_PRO
 }
 
+enum PlatformTier {
+  STANDARD
+  PRO
+  ELITE
+}
+
 model User {
   id                 String           @id @default(uuid())
   email              String           @unique
@@ -36,6 +42,11 @@ model User {
 
   hourly_rate        Decimal          @default(0)
   
+  platform_tier      PlatformTier     @default(STANDARD)
+  trust_score        Float            @default(0.0)
+  total_sprints_completed Int         @default(0)
+  average_ai_audit_score Float        @default(0.0)
+  
   projects_created          Project[] @relation("CreatedProjects")
   projects_as_client        Project[] @relation("ClientProjects")
   milestones_as_facilitator Milestone[]
@@ -45,6 +56,8 @@ model User {
   accounts                  Account[]
   sessions                  Session[]
   time_entries              TimeEntry[]
+  reviews_received          Review[] @relation("ReviewsReceived")
+  reviews_given             Review[] @relation("ReviewsGiven")
 }
 
 enum BillingType {
@@ -82,6 +95,7 @@ model Project {
   squad_proposals SquadProposal[]
   change_orders   ChangeOrder[]
   messages        Message[]
+  reviews         Review[]
 }
 
 enum BidStatus {
@@ -197,6 +211,20 @@ model Message {
   project   Project    @relation(fields: [project_id], references: [id])
   milestone Milestone? @relation(fields: [milestone_id], references: [id])
   sender  User?   @relation(fields: [sender_id], references: [id])
+}
+
+model Review {
+  id             String  @id @default(uuid())
+  project_id     String
+  client_id      String
+  facilitator_id String
+  rating         Int
+  feedback       String  @db.Text
+  created_at     DateTime @default(now())
+
+  project     Project @relation(fields: [project_id], references: [id])
+  client      User    @relation("ReviewsGiven", fields: [client_id], references: [id])
+  facilitator User    @relation("ReviewsReceived", fields: [facilitator_id], references: [id])
 }
 
 // --- NEXTAUTH REQUIRED MODELS ---
