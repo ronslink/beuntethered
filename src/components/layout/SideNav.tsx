@@ -35,6 +35,10 @@ export function SideNav({ role }: { role?: string }) {
             <span className="material-symbols-outlined shrink-0" style={{ fontVariationSettings: pathname === '/wallet' ? "'FILL' 1" : "'FILL' 0" }}>account_balance_wallet</span>
             <span className="uppercase tracking-widest text-[10px] font-bold">Wallet</span>
           </Link>
+          <Link href="/insights" className={getLinkClass("/insights")}>
+            <span className="material-symbols-outlined shrink-0" style={{ fontVariationSettings: pathname === '/insights' ? "'FILL' 1" : "'FILL' 0" }}>insights</span>
+            <span className="uppercase tracking-widest text-[10px] font-bold">Insights</span>
+          </Link>
           <Link href="/advisor" className={getLinkClass("/advisor")}>
             <span className="material-symbols-outlined shrink-0" style={{ fontVariationSettings: pathname === '/advisor' ? "'FILL' 1" : "'FILL' 0" }}>psychology</span>
             <span className="uppercase tracking-widest text-[10px] font-bold">AI Advisor</span>

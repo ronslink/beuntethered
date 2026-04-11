@@ -43,10 +43,9 @@ export default async function WalletPage() {
       <header className="relative mb-12">
         <div className="flex items-end justify-between flex-wrap gap-8">
           <div className="space-y-4">
-            <h2 className="text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface leading-tight">
-              Global Platform <br />
-              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Wallet & Earnings</span>
-            </h2>
+            <h1 className="text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface leading-tight">
+              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Wallet & Payouts</span>
+            </h1>
           </div>
 
           <div className="flex gap-4">

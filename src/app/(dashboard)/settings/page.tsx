@@ -10,62 +10,72 @@ export default async function SettingsPage() {
       <div className="absolute top-[0%] right-[10%] w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
 
       <header className="mb-10 lg:mb-16 max-w-4xl relative z-10">
-        <h2 className="text-3xl md:text-5xl font-black font-headline tracking-tighter text-on-surface">
+        <h1 className="text-3xl md:text-5xl font-black font-headline tracking-tighter text-on-surface">
           Platform <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Preferences</span>
-        </h2>
+        </h1>
         <p className="text-on-surface-variant font-medium mt-3 text-lg">Manage your account protocols, API keys, and notification payloads.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
-        {/* Left Nav (Static for MVP) */}
-        <nav className="lg:col-span-3 space-y-2">
-          <button className="w-full text-left px-5 py-4 rounded-xl bg-surface-container-low border border-primary/20 text-primary font-bold shadow-inner">
-             Profile Configuration
-          </button>
-          <button className="w-full text-left px-5 py-4 rounded-xl text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors">
-             Billing & Payouts
-          </button>
-          <button className="w-full text-left px-5 py-4 rounded-xl text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors">
-             Security Logs
-          </button>
-        </nav>
-
         {/* Setting Panels */}
-        <section className="lg:col-span-9 space-y-8">
+        <section className="lg:col-span-12 xl:col-span-10 space-y-8">
            
+           {/* Profile Section */}
            <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-              <h3 className="text-xl font-bold text-on-surface font-headline mb-6 border-b border-outline-variant/20 pb-4">Identity Verification</h3>
+              <h3 className="text-xl font-bold text-on-surface font-headline mb-6 border-b border-outline-variant/20 pb-4">Personal Profile</h3>
               
-              <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Account Email</label>
                     <input type="text" disabled value={user.email || ''} className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-medium cursor-not-allowed opacity-70" />
                  </div>
-                 
                  <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Assigned Role</label>
-                    <div className="flex items-center gap-3">
-                       <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase ${user.role === 'DEVELOPER' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-secondary/10 text-secondary border border-secondary/20'}`}>
-                          {user.role || 'GUEST'}
-                       </span>
+                    <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Professional Title</label>
+                    <input type="text" placeholder="e.g. Senior Software Engineer" className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-medium focus:border-primary/50 outline-none transition-colors" />
+                 </div>
+              </div>
+           </div>
+
+           {/* Financial Integration */}
+           <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <h3 className="text-xl font-bold text-on-surface font-headline mb-6 border-b border-outline-variant/20 pb-4">Financial Integration</h3>
+              <p className="text-on-surface-variant text-sm mb-6 max-w-2xl">Access your full Stripe dashboard to manage connected bank accounts, review tax documents natively, and map Escrow routing logic.</p>
+              
+              <button disabled className="bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors px-6 py-3 rounded-xl flex items-center gap-3 border border-outline-variant/30 opacity-70 cursor-not-allowed">
+                  <span className="material-symbols-outlined text-primary">account_balance</span>
+                  <span className="font-bold font-headline text-sm tracking-widest uppercase">Manage Stripe Dashboard</span>
+              </button>
+           </div>
+
+           {/* Notifications */}
+           <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <h3 className="text-xl font-bold text-on-surface font-headline mb-6 border-b border-outline-variant/20 pb-4">Email Notifications</h3>
+              
+              <div className="space-y-6">
+                 <div className="flex items-center justify-between">
+                    <div>
+                        <p className="font-bold text-on-surface">Escrow Updates</p>
+                        <p className="text-xs text-on-surface-variant mt-1">Receive secure payloads when funds are verified and locked.</p>
+                    </div>
+                    <div className="w-12 h-6 bg-primary rounded-full relative cursor-pointer border border-primary/20">
+                        <div className="w-5 h-5 bg-on-primary rounded-full absolute right-0.5 top-0.5 shadow-sm"></div>
+                    </div>
+                 </div>
+
+                 <div className="flex items-center justify-between">
+                    <div>
+                        <p className="font-bold text-on-surface">New Marketplace Bids</p>
+                        <p className="text-xs text-on-surface-variant mt-1">Instantly alert me when an Expert pitches against my open scope.</p>
+                    </div>
+                    <div className="w-12 h-6 bg-surface-container-high rounded-full relative cursor-pointer border border-outline-variant/30">
+                        <div className="w-5 h-5 bg-on-surface-variant rounded-full absolute left-0.5 top-0.5 shadow-sm"></div>
                     </div>
                  </div>
               </div>
            </div>
 
-           <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] opacity-50 relative overflow-hidden">
-              <div className="absolute inset-0 bg-surface/40 backdrop-blur-[2px] z-10 flex items-center justify-center">
-                 <span className="bg-surface-container-low border border-outline-variant/30 px-6 py-2 rounded-full text-sm font-bold tracking-widest text-on-surface-variant uppercase shadow-lg">Component Locked</span>
-              </div>
-              <h3 className="text-xl font-bold text-on-surface font-headline mb-6 border-b border-outline-variant/20 pb-4">Stripe Webhooks</h3>
-              <div className="h-24 border-2 border-dashed border-outline-variant/30 rounded-xl flex items-center justify-center">
-                 <span className="text-on-surface-variant/50 material-symbols-outlined text-4xl">api</span>
-              </div>
-           </div>
-
         </section>
       </div>
-
     </main>
   );
 }
