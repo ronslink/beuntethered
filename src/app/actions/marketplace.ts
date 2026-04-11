@@ -16,6 +16,7 @@ export async function postProjectToMarketplace(sowData: any) {
         ai_generated_sow: sowData.executiveSummary,
         is_byoc: false, // Automatically pushes to Marketplace constraints
         status: "OPEN_BIDDING",
+        creator_id: user.id,
         client_id: user.id, // Posting client anchors the project permanently
         milestones: {
           create: sowData.milestones.map((m: any) => ({

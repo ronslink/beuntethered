@@ -34,6 +34,7 @@ model User {
   anthropic_key      String?
   preferred_llm      String           @default("gpt-4o-mini")
 
+  projects_created          Project[] @relation("CreatedProjects")
   projects_as_client        Project[] @relation("ClientProjects")
   milestones_as_facilitator Milestone[]
   squad_members             SquadMember[]
@@ -53,13 +54,16 @@ enum ProjectStatus {
 
 model Project {
   id               String        @id @default(uuid())
-  client_id        String
+  creator_id       String
+  client_id        String?
   title            String
   ai_generated_sow String        @db.Text
   is_byoc          Boolean       @default(false)
+  invite_token     String?       @unique
   status           ProjectStatus @default(DRAFT)
 
-  client    User  @relation("ClientProjects", fields: [client_id], references: [id])
+  creator   User  @relation("CreatedProjects", fields: [creator_id], references: [id])
+  client    User? @relation("ClientProjects", fields: [client_id], references: [id])
 
   bids            Bid[]
   milestones      Milestone[]

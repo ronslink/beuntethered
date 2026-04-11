@@ -55,6 +55,7 @@ async function main() {
       ai_generated_sow: 'Deep architecture evaluation optimizing for minimal sub-10ms latency thresholds via optimized neural caching paths.',
       is_byoc: true,
       status: 'ACTIVE',
+      creator_id: developer.id,
       client_id: client1.id,
     }
   })
@@ -66,6 +67,7 @@ async function main() {
       ai_generated_sow: 'Front-end slicing of blockchain state via robust real-time SVG charting constraints. Bidding sourced via Untether Platform.',
       is_byoc: false,
       status: 'ACTIVE',
+      creator_id: client2.id,
       client_id: client2.id,
     }
   })
