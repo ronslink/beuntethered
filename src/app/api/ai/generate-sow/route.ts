@@ -5,8 +5,8 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/session";
 import { getDynamicAIProvider } from "@/lib/ai-router";
 
-// Vercel deployment: max duration for Edge function execution limits to 60 seconds giving LLMs time
-export const maxDuration = 60; 
+// Vercel deployment: max duration for server execution limits to 300 seconds extending complex LLM mapping time
+export const maxDuration = 300; 
 
 export async function POST(req: Request) {
   try {
