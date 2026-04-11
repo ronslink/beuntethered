@@ -1,9 +1,9 @@
-import { requireSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 export default async function InsightsPage() {
-  const session = await requireSession();
-  if (!session?.user) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
 
   return (
     <main className="p-6 md:p-10 lg:p-14 min-h-[calc(100vh-80px)] flex flex-col items-center justify-center relative">

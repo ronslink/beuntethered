@@ -1,9 +1,9 @@
-import { requireSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {
-  const session = await requireSession();
-  if (!session?.user) redirect("/api/auth/signin");
+  const user = await getCurrentUser();
+  if (!user) redirect("/api/auth/signin");
 
   return (
     <main className="p-6 md:p-10 lg:p-14 min-h-[calc(100vh-80px)] flex flex-col relative">
@@ -39,7 +39,7 @@ export default async function SettingsPage() {
               <div className="space-y-6">
                  <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Account Email</label>
-                    <input type="text" disabled value={session.user.email || ''} className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-medium cursor-not-allowed opacity-70" />
+                    <input type="text" disabled value={user.email || ''} className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-medium cursor-not-allowed opacity-70" />
                  </div>
                  
                  <div>
