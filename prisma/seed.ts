@@ -23,7 +23,7 @@ async function main() {
     data: {
       email: 'expert@beuntethered.io',
       name: 'Erik Vens (Expert)',
-      role: 'DEVELOPER',
+      role: 'FACILITATOR',
       stripe_account_id: 'acct_1MockStripeConnected123',
     }
   })

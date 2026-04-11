@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function MarketplacePage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "DEVELOPER") redirect("/dashboard");
+  if (!user || user.role !== "FACILITATOR") redirect("/dashboard");
 
   // Track OPEN_BIDDING filtering BYOC bypasses specifically
   const openProjects = await prisma.project.findMany({

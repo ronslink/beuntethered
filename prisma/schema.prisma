@@ -7,7 +7,7 @@ datasource db {
 }
 
 enum Role {
-  DEVELOPER
+  FACILITATOR
   CLIENT
 }
 
@@ -17,8 +17,8 @@ enum SubscriptionTier {
 }
 
 model User {
-  id                 String  @id @default(uuid())
-  email              String  @unique
+  id                 String           @id @default(uuid())
+  email              String           @unique
   emailVerified      DateTime?
   image              String?
   name               String?
@@ -26,7 +26,7 @@ model User {
   stripe_account_id  String? // for payouts via Connect
   stripe_customer_id String? // for billing via Stripe
   subscription_tier  SubscriptionTier @default(FREE)
-  
+
   projects_as_client    Project[] @relation("ClientProjects")
   projects_as_developer Project[] @relation("DeveloperProjects")
   bids                  Bid[]
@@ -44,21 +44,21 @@ enum ProjectStatus {
 }
 
 model Project {
-  id                 String  @id @default(uuid())
-  client_id          String
-  developer_id       String?
-  title              String
-  ai_generated_sow   String  @db.Text
-  is_byoc            Boolean @default(false)
-  status             ProjectStatus @default(DRAFT)
+  id               String        @id @default(uuid())
+  client_id        String
+  developer_id     String?
+  title            String
+  ai_generated_sow String        @db.Text
+  is_byoc          Boolean       @default(false)
+  status           ProjectStatus @default(DRAFT)
 
-  client             User      @relation("ClientProjects", fields: [client_id], references: [id])
-  developer          User?     @relation("DeveloperProjects", fields: [developer_id], references: [id])
-  
-  bids               Bid[]
-  milestones         Milestone[]
-  change_orders      ChangeOrder[]
-  messages           Message[]
+  client    User  @relation("ClientProjects", fields: [client_id], references: [id])
+  developer User? @relation("DeveloperProjects", fields: [developer_id], references: [id])
+
+  bids          Bid[]
+  milestones    Milestone[]
+  change_orders ChangeOrder[]
+  messages      Message[]
 }
 
 enum BidStatus {
@@ -68,17 +68,17 @@ enum BidStatus {
 }
 
 model Bid {
-  id                     String  @id @default(uuid())
+  id                     String    @id @default(uuid())
   project_id             String
   developer_id           String
   proposed_amount        Decimal
   estimated_days         Int
-  technical_approach     String  @db.Text
-  ai_translation_summary String  @db.Text
+  technical_approach     String    @db.Text
+  ai_translation_summary String    @db.Text
   status                 BidStatus @default(PENDING)
 
-  project                Project @relation(fields: [project_id], references: [id])
-  developer              User    @relation(fields: [developer_id], references: [id])
+  project   Project @relation(fields: [project_id], references: [id])
+  developer User    @relation(fields: [developer_id], references: [id])
 }
 
 enum MilestoneStatus {
@@ -90,14 +90,14 @@ enum MilestoneStatus {
 }
 
 model Milestone {
-  id                       String  @id @default(uuid())
+  id                       String          @id @default(uuid())
   project_id               String
   title                    String
   amount                   Decimal
   status                   MilestoneStatus @default(PENDING)
   stripe_payment_intent_id String?
 
-  project                  Project @relation(fields: [project_id], references: [id])
+  project Project @relation(fields: [project_id], references: [id])
 }
 
 enum ChangeOrderStatus {
@@ -107,41 +107,41 @@ enum ChangeOrderStatus {
 }
 
 model ChangeOrder {
-  id          String  @id @default(uuid())
+  id          String            @id @default(uuid())
   project_id  String
   description String
   added_cost  Decimal
   status      ChangeOrderStatus @default(PROPOSED)
 
-  project     Project @relation(fields: [project_id], references: [id])
+  project Project @relation(fields: [project_id], references: [id])
 }
 
 model Message {
-  id                 String  @id @default(uuid())
-  project_id         String
-  sender_id          String?
-  content            String  @db.Text
-  is_system_message  Boolean @default(false)
+  id                String  @id @default(uuid())
+  project_id        String
+  sender_id         String?
+  content           String  @db.Text
+  is_system_message Boolean @default(false)
 
-  project            Project @relation(fields: [project_id], references: [id])
-  sender             User?   @relation(fields: [sender_id], references: [id])
+  project Project @relation(fields: [project_id], references: [id])
+  sender  User?   @relation(fields: [sender_id], references: [id])
 }
 
 // --- NEXTAUTH REQUIRED MODELS ---
 
 model Account {
-  id                 String  @id @default(uuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -154,7 +154,7 @@ model Session {
   userId       String
   expires      DateTime
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {

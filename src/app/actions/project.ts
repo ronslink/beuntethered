@@ -16,7 +16,7 @@ export async function createProjectFromSoW({
 }) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "DEVELOPER") throw new Error("Unauthorized to perform this sequence. Only developers can scaffold BYOC structures.");
+    if (!user || user.role !== "FACILITATOR") throw new Error("Unauthorized to perform this sequence. Only facilitators can scaffold BYOC structures.");
 
     // 1. Establish strict client routing. Mock creation if non-existent for test flows.
     let client = await prisma.user.findUnique({ where: { email: clientEmail } });
@@ -35,7 +35,7 @@ export async function createProjectFromSoW({
       data: {
         title: sowData.title,
         ai_generated_sow: sowData.executiveSummary,
-        is_byoc: true, // Auto-locked to True denoting Developer originate
+        is_byoc: true, // Auto-locked to True denoting Facilitator originate
         status: "DRAFT",
         developer_id: user.id,
         client_id: client.id,
@@ -60,7 +60,7 @@ export async function createProjectFromSoW({
         html: `
           <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #1a1a1a;">
             <h2 style="color: #6366f1;">Secure Escrow Initialization</h2>
-            <p>Your expert developer has prepared a secure Statement of Work for you on Untether.</p>
+            <p>Your expert facilitator has prepared a secure Statement of Work for you on Untether.</p>
             <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
               <h3 style="margin-top:0;">${sowData.title}</h3>
               <p style="color: #475569; font-size: 14px;">${sowData.executiveSummary}</p>

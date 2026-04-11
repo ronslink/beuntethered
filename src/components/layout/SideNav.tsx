@@ -44,7 +44,7 @@ export function SideNav({ role }: { role?: string }) {
             <span className="uppercase tracking-widest text-[10px] font-bold">AI Advisor</span>
           </Link>
           
-          {role === 'DEVELOPER' && (
+          {role === 'FACILITATOR' && (
             <Link href="/marketplace" className={getLinkClass("/marketplace")}>
               <span className="material-symbols-outlined shrink-0" style={{ fontVariationSettings: pathname === '/marketplace' ? "'FILL' 1" : "'FILL' 0" }}>storefront</span>
               <span className="uppercase tracking-widest text-[10px] font-bold">Marketplace</span>

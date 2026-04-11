@@ -20,7 +20,7 @@ export async function submitBid({
 }) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "DEVELOPER") throw new Error("Only strictly configured Experts can submit Marketplace parameter bids.");
+    if (!user || user.role !== "FACILITATOR") throw new Error("Only strictly configured Experts can submit Marketplace parameter bids.");
 
     // Enforce duplication execution constraint logically
     const existingBid = await prisma.bid.findFirst({
@@ -58,7 +58,7 @@ export async function submitBid({
           html: `
             <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #1a1a1a;">
               <h2 style="color: #6366f1;">Marketplace Execution Alert</h2>
-              <p>An expert developer has formally submitted a bid resolving your Scope of Work.</p>
+              <p>An expert facilitator has formally submitted a bid resolving your Scope of Work.</p>
               <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
                 <h3 style="margin-top:0;">Proposed Valuation: $${proposedAmount}</h3>
                 <p style="color: #475569; font-size: 14px;">${technicalApproach}</p>
@@ -182,7 +182,7 @@ export async function acceptBid(bidId: string) {
            html: `
              <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #1a1a1a;">
                 <h2 style="color: #6366f1;">Marketplace Execution Update</h2>
-                <p>Update on <strong>${acceptedBid?.project.title}</strong>: The client has decided to vigorously move forward with another developer securely resolving this Escrow node.</p>
+                <p>Update on <strong>${acceptedBid?.project.title}</strong>: The client has decided to vigorously move forward with another facilitator securely resolving this Escrow node.</p>
                 <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
                    <p style="color: #475569; font-size: 14px;">Keep analyzing logic boundaries and placing constraint bids across the active Marketplace board natively!</p>
                 </div>

@@ -35,7 +35,7 @@ export const authOptions: NextAuthOptions = {
       type: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        role: { label: "Role (CLIENT/DEVELOPER)", type: "text" }
+        role: { label: "Role (CLIENT/FACILITATOR)", type: "text" }
       },
       async authorize(credentials) {
         if (!credentials?.email) return null;
@@ -49,7 +49,7 @@ export const authOptions: NextAuthOptions = {
           user = await prisma.user.create({
             data: {
               email: credentials.email,
-              role: credentials.role === "DEVELOPER" ? "DEVELOPER" : "CLIENT",
+              role: credentials.role === "FACILITATOR" ? "FACILITATOR" : "CLIENT",
               name: credentials.email.split('@')[0],
             }
           });
