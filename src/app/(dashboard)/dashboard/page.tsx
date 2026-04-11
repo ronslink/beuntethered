@@ -13,7 +13,7 @@ export default async function ExpertDashboard() {
 
   // Bind full DB context evaluating Project payloads recursively evaluating Milestones 
   const projects = await prisma.project.findMany({
-    where: { developer_id: user.id },
+    where: { milestones: { some: { facilitator_id: user.id } } },
     include: {
       client: true,
       milestones: {

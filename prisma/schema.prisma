@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
 }
 
 enum Role {
@@ -26,13 +28,15 @@ model User {
   stripe_account_id  String? // for payouts via Connect
   stripe_customer_id String? // for billing via Stripe
   subscription_tier  SubscriptionTier @default(FREE)
+  expertise_embedding Unsupported("vector(1536)")?
 
-  projects_as_client    Project[] @relation("ClientProjects")
-  projects_as_developer Project[] @relation("DeveloperProjects")
-  bids                  Bid[]
-  messages              Message[]
-  accounts              Account[]
-  sessions              Session[]
+  projects_as_client        Project[] @relation("ClientProjects")
+  milestones_as_facilitator Milestone[]
+  squad_members             SquadMember[]
+  bids                      Bid[]
+  messages                  Message[]
+  accounts                  Account[]
+  sessions                  Session[]
 }
 
 enum ProjectStatus {
@@ -46,19 +50,18 @@ enum ProjectStatus {
 model Project {
   id               String        @id @default(uuid())
   client_id        String
-  developer_id     String?
   title            String
   ai_generated_sow String        @db.Text
   is_byoc          Boolean       @default(false)
   status           ProjectStatus @default(DRAFT)
 
   client    User  @relation("ClientProjects", fields: [client_id], references: [id])
-  developer User? @relation("DeveloperProjects", fields: [developer_id], references: [id])
 
-  bids          Bid[]
-  milestones    Milestone[]
-  change_orders ChangeOrder[]
-  messages      Message[]
+  bids            Bid[]
+  milestones      Milestone[]
+  squad_proposals SquadProposal[]
+  change_orders   ChangeOrder[]
+  messages        Message[]
 }
 
 enum BidStatus {
@@ -92,12 +95,36 @@ enum MilestoneStatus {
 model Milestone {
   id                       String          @id @default(uuid())
   project_id               String
+  facilitator_id           String?
   title                    String
   amount                   Decimal
   status                   MilestoneStatus @default(PENDING)
   stripe_payment_intent_id String?
 
+  project       Project       @relation(fields: [project_id], references: [id])
+  facilitator   User?         @relation(fields: [facilitator_id], references: [id])
+  squad_members SquadMember[]
+}
+
+model SquadProposal {
+  id              String        @id @default(uuid())
+  project_id      String
+  pitch_to_client String        @db.Text
+  status          BidStatus     @default(PENDING)
+
   project Project @relation(fields: [project_id], references: [id])
+  members SquadMember[]
+}
+
+model SquadMember {
+  id                String @id @default(uuid())
+  squad_proposal_id String
+  facilitator_id    String
+  milestone_id      String
+
+  squad_proposal SquadProposal @relation(fields: [squad_proposal_id], references: [id])
+  facilitator    User          @relation(fields: [facilitator_id], references: [id])
+  milestone      Milestone     @relation(fields: [milestone_id], references: [id])
 }
 
 enum ChangeOrderStatus {

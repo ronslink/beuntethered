@@ -51,11 +51,10 @@ async function main() {
   // Project A: BYOC Flow
   const projectA = await prisma.project.create({
     data: {
-      title: 'Neural Interface Optimization Phase',
+      title: 'API Gateway Integration',
       ai_generated_sow: 'Deep architecture evaluation optimizing for minimal sub-10ms latency thresholds via optimized neural caching paths.',
       is_byoc: true,
       status: 'ACTIVE',
-      developer_id: developer.id,
       client_id: client1.id,
     }
   })
@@ -67,7 +66,6 @@ async function main() {
       ai_generated_sow: 'Front-end slicing of blockchain state via robust real-time SVG charting constraints. Bidding sourced via Untether Platform.',
       is_byoc: false,
       status: 'ACTIVE',
-      developer_id: developer.id,
       client_id: client2.id,
     }
   })
@@ -109,7 +107,7 @@ async function main() {
   await prisma.milestone.create({
     data: {
       project_id: projectB.id,
-      title: 'Real-time Chain Streaming',
+      title: 'Full-Stack Web App Migration',
       amount: 3200.00,
       status: 'DISPUTED',
     }

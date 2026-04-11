@@ -19,7 +19,8 @@ export async function POST(req: Request) {
     const milestone = await prisma.milestone.findUnique({
       where: { id: milestoneId, status: "FUNDED_IN_ESCROW" },
       include: { 
-        project: { include: { developer: true } }
+        project: true,
+        facilitator: true 
       }
     });
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid state. Milestone not funded in Escrow or client mismatch." }, { status: 400 });
     }
 
-    const developerId = milestone.project.developer?.stripe_account_id;
+    const developerId = milestone.facilitator?.stripe_account_id;
     if (!developerId) {
       return NextResponse.json({ error: "Expert Connect onboarding incomplete. Escrow constrained." }, { status: 400 });
     }

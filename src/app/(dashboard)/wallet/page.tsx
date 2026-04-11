@@ -12,7 +12,7 @@ export default async function WalletPage() {
   // Calculate live database metrics resolving Escrow states automatically
   const milestones = await prisma.milestone.findMany({
     where: {
-      project: { developer_id: user.id }
+      facilitator_id: user.id
     },
     include: { project: true },
     orderBy: { id: "desc" }

@@ -37,13 +37,13 @@ export async function createProjectFromSoW({
         ai_generated_sow: sowData.executiveSummary,
         is_byoc: true, // Auto-locked to True denoting Facilitator originate
         status: "DRAFT",
-        developer_id: user.id,
         client_id: client.id,
         milestones: {
           create: sowData.milestones.map((m: any) => ({
             title: m.title,
             amount: m.amount,
-            status: "PENDING"
+            status: "PENDING",
+            facilitator_id: user.id
           }))
         }
       }

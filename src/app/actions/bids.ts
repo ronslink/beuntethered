@@ -135,8 +135,15 @@ export async function acceptBid(bidId: string) {
       await tx.project.update({
         where: { id: projectId },
         data: {
-          developer_id: bid.developer_id,
           status: "ACTIVE"
+        }
+      });
+      
+      // 5. Connect all underlying milestones to the winning expert
+      await tx.milestone.updateMany({
+        where: { project_id: projectId },
+        data: {
+          facilitator_id: bid.developer_id
         }
       });
     });

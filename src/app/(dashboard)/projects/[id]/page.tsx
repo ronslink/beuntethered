@@ -3,6 +3,7 @@ import { prisma } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AcceptBidButton from "@/components/marketplace/AcceptBidButton";
+import AcceptSquadButton from "@/components/marketplace/AcceptSquadButton";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,14 @@ export default async function ProjectReviewPage({ params }: { params: { id: stri
          include: { developer: true },
          orderBy: { proposed_amount: 'asc' }
       },
-      milestones: true
+      milestones: true,
+      squad_proposals: {
+         include: {
+            members: {
+               include: { facilitator: true, milestone: true }
+            }
+         }
+      }
     }
   });
 
@@ -58,7 +66,44 @@ export default async function ProjectReviewPage({ params }: { params: { id: stri
       </header>
 
       <div className="px-4 lg:px-0 relative z-10 w-full max-w-6xl">
-        {project.bids.length === 0 ? (
+         {project.squad_proposals.map(squad => (
+            <div key={squad.id} className="bg-surface-container-low border-2 border-primary/40 rounded-3xl p-8 shadow-[0_10px_40px_rgba(var(--color-primary),0.1)] relative overflow-hidden mb-8 group animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all pointer-events-none -translate-y-1/2 translate-x-1/4"></div>
+               
+               <div className="flex items-center gap-3 mb-6 relative z-10">
+                 <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>groups</span>
+                 <h3 className="text-xl md:text-2xl font-black font-headline text-on-surface tracking-tight uppercase">AI Assembled Dream Team</h3>
+               </div>
+               
+               <div className="bg-surface/50 backdrop-blur-xl border border-outline-variant/30 rounded-2xl p-6 mb-8 relative z-10">
+                 <p className="text-[10px] uppercase font-bold tracking-widest text-primary mb-2">Architectural Pitch</p>
+                 <p className="text-sm font-medium leading-relaxed text-on-surface opacity-90">{squad.pitch_to_client}</p>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 relative z-10">
+                 {squad.members.map(member => (
+                    <div key={member.id} className="bg-surface border border-outline-variant/20 rounded-2xl p-5 flex items-start gap-4 hover:border-primary/30 transition-colors">
+                       <div className="w-12 h-12 rounded-full lg:w-14 lg:h-14 bg-surface-variant flex items-center justify-center shrink-0 border border-outline-variant/30 overflow-hidden text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[24px]">person</span>
+                       </div>
+                       <div className="flex-1 overflow-hidden">
+                         <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1 opacity-80 truncate">{member.milestone.title}</p>
+                         <p className="text-sm font-bold text-on-surface leading-tight mb-1 truncate">{member.facilitator.name || "Untether Expert"}</p>
+                         <p className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-md inline-block uppercase tracking-widest border border-primary/20">{formatCurrency(Number(member.milestone.amount))}</p>
+                       </div>
+                    </div>
+                 ))}
+               </div>
+               
+               <div className="max-w-md relative z-10">
+                 {project.status === 'OPEN_BIDDING' && (
+                    <AcceptSquadButton squadId={squad.id} projectId={project.id} />
+                 )}
+               </div>
+            </div>
+         ))}
+
+        {project.bids.length === 0 && project.squad_proposals.length === 0 ? (
            <div className="bg-surface/50 backdrop-blur-3xl border border-outline-variant/30 rounded-3xl p-16 text-center text-on-surface-variant flex flex-col items-center shadow-lg">
              <span className="material-symbols-outlined text-[80px] mb-6 opacity-30 text-primary/50">radar</span>
              <h3 className="text-2xl font-bold font-headline text-on-surface">No Expert Connects Validated Yet</h3>
