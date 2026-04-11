@@ -1,43 +1,53 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createProjectFromSoW } from "@/app/actions/project";
+import { experimental_useObject as useObject } from "@ai-sdk/react";
+import { z } from "zod";
 
 export default function AIAdvisoryPage() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [sowData, setSowData] = useState<any>(null);
+  const [loadingStatus, setLoadingStatus] = useState("");
+
+  const SOWSchema = z.object({
+    title: z.string(),
+    executiveSummary: z.string(),
+    milestones: z.array(z.object({
+      title: z.string(),
+      description: z.string(),
+      acceptance_criteria: z.string(),
+      amount: z.number()
+    })),
+    totalAmount: z.number()
+  });
+
+  const { object: sowData, submit, isLoading: isGenerating, error } = useObject({
+    api: '/api/ai/generate-sow',
+    schema: SOWSchema,
+  });
   
   // Validation loop constraints
   const [clientEmail, setClientEmail] = useState("");
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
 
+  useEffect(() => {
+    if (isGenerating && !sowData) {
+      setLoadingStatus("Agent 1: Architecting baseline structure...");
+      const timer = setTimeout(() => {
+        setLoadingStatus("Agent 2: Enforcing granular Escrow constraints...");
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [isGenerating, sowData]);
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
 
-    setIsGenerating(true);
-    setSowData(null);
-
-    try {
-      const response = await fetch("/api/ai/generate-sow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-
-      setSowData(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsGenerating(false);
-    }
+    submit({ prompt });
   };
 
   const handleApproveProject = () => {
@@ -161,17 +171,40 @@ export default function AIAdvisoryPage() {
              <span className="material-symbols-outlined text-6xl" style={{ fontVariationSettings: "'FILL' 0" }}>description</span>
            </div>
 
-           {isGenerating ? (
+           {!sowData && isGenerating ? (
              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface/50 backdrop-blur-2xl transition-all duration-500">
                 <div className="relative flex items-center justify-center mb-8">
                   <div className="absolute w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse delay-75"></div>
                   <div className="absolute w-32 h-32 bg-secondary/30 rounded-full blur-2xl animate-pulse delay-150"></div>
-                  <span className="material-symbols-outlined text-6xl text-on-surface animate-spin" style={{ animationDuration: '4s' }}>model_training</span>
+                  
+                  {loadingStatus.includes("Agent 1") ? (
+                    <span className="material-symbols-outlined text-6xl text-primary animate-pulse shadow-primary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-6xl text-secondary animate-bounce shadow-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>precision_manufacturing</span>
+                  )}
                 </div>
-                <h3 className="text-2xl font-bold font-headline text-on-surface bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-[gradient_2s_linear_infinite] bg-clip-text text-transparent">
-                  Synthesizing Contract Vectors...
+                
+                {/* Glowing neon UI Skeleton bounding box mapping over initial wait states natively */}
+                <div className="w-full max-w-sm px-8">
+                   <div className="h-6 w-3/4 bg-primary/20 rounded-full mx-auto animate-pulse mb-6 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/40 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+                   </div>
+                   <div className="space-y-4">
+                     <div className="h-3 w-full bg-secondary/10 rounded-full relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-secondary/30 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                     </div>
+                     <div className="h-3 w-5/6 bg-secondary/10 rounded-full mx-auto relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-secondary/30 to-transparent -translate-x-full animate-[shimmer_2s_infinite_0.5s]"></div>
+                     </div>
+                   </div>
+                </div>
+
+                <h3 className="text-2xl font-bold font-headline mt-8 text-on-surface bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-[gradient_2s_linear_infinite] bg-clip-text text-transparent">
+                  {loadingStatus}
                 </h3>
-                <p className="text-on-surface-variant text-sm mt-3 font-medium uppercase tracking-widest text-center max-w-xs">Applying Institutional Escrow Constraints</p>
+                <p className="text-on-surface-variant text-[10px] mt-3 font-bold uppercase tracking-widest text-center max-w-xs animate-pulse opacity-70">
+                  Executing Double-Pass Architectural Synthesis
+                </p>
              </div>
            ) : sowData ? (
              <div className="relative z-10 w-full h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -186,13 +219,13 @@ export default function AIAdvisoryPage() {
                 <div className="space-y-8 flex-1 overflow-y-auto pr-4 custom-scrollbar">
                    <div className="space-y-4">
                      <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">Executive Summary</h4>
-                     <p className="text-on-surface leading-loose text-sm md:text-base font-medium opacity-90">{sowData.executiveSummary}</p>
+                     <p className="text-on-surface leading-loose text-sm md:text-base font-medium opacity-90">{sowData.executiveSummary || 'Structuring...'}</p>
                    </div>
                    
                    <div className="space-y-4 pt-4 pb-4">
                      <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">Escrow Delivery Milestones</h4>
                      <div className="space-y-3">
-                       {sowData.milestones.map((m: any, idx: number) => (
+                       {sowData.milestones?.filter((m: any) => m && m.title).map((m: any, idx: number) => (
                          <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border border-outline-variant/30 bg-surface-container-low/30 backdrop-blur-sm hover:border-primary/30 transition-all hover:bg-surface-container-high/40 gap-4">
                            <div className="flex items-start gap-4">
                              <div className="w-10 h-10 mt-1 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 shadow-[0_0_10px_var(--color-primary)]">
@@ -200,10 +233,16 @@ export default function AIAdvisoryPage() {
                              </div>
                              <div>
                                <span className="font-bold text-on-surface text-sm md:text-base block mb-1">{m.title}</span>
-                               <span className="text-[11px] md:text-xs text-on-surface-variant font-medium opacity-80 block max-w-lg">{m.description}</span>
+                               <span className="text-[11px] md:text-xs text-on-surface-variant font-medium opacity-80 block max-w-lg mb-2">{m.description || '...'}</span>
+                               {m.acceptance_criteria && (
+                                 <div className="bg-surface/50 border border-outline-variant/20 rounded-lg p-2 max-w-lg">
+                                   <p className="text-[9px] uppercase font-bold tracking-widest text-secondary mb-1">Acceptance Criteria</p>
+                                   <p className="text-[10px] md:text-[11px] text-on-surface-variant leading-relaxed">{m.acceptance_criteria}</p>
+                                 </div>
+                               )}
                              </div>
                            </div>
-                           <span className="font-black text-on-surface text-lg md:text-xl tracking-tight shrink-0">{formatCurrency(m.amount)}</span>
+                           <span className="font-black text-on-surface text-lg md:text-xl tracking-tight shrink-0">{m.amount ? formatCurrency(m.amount) : 'Parsing...'}</span>
                          </div>
                        ))}
                      </div>
@@ -213,7 +252,7 @@ export default function AIAdvisoryPage() {
                 <div className="border-t border-outline-variant/20 pt-8 mt-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-30 bg-surface py-2 rounded-xl">
                    <div className="shrink-0">
                      <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">Total Verified Valuation</p>
-                     <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">{formatCurrency(sowData.totalAmount)}</p>
+                     <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">{sowData.totalAmount ? formatCurrency(sowData.totalAmount) : 'Pending...'}</p>
                    </div>
                    
                    <div className="flex flex-col xl:flex-row items-center gap-4 w-full md:w-auto mt-4 md:mt-0">

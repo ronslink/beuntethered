@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { generateText, streamObject } from "ai";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/session";
 import { getDynamicAIProvider } from "@/lib/ai-router";
@@ -21,43 +20,36 @@ export async function POST(req: Request) {
 
     const dynamicModel = await getDynamicAIProvider(user.id);
 
-    const SOWSchema = {
-      title: "Formal, elite sounding project title",
-      executiveSummary: "High-level, technical summary of the implementation goal and strategic roadmap.",
-      milestones: [{
-        title: "Name of the milestone phase",
-        description: "What specific deliverables are included in this drop",
-        amount: "Numeric dollar value assigned securely mapping down to the phase (e.g. 5000)"
-      }],
-      totalAmount: "Numeric total cumulative cost sum of all milestones (e.g. 5000)"
-    };
-
-    const { text } = await generateText({
+    // Pass 1: The Raw Drafter (Fast & Cheap)
+    const { text: roughDraft } = await generateText({
       model: dynamicModel, 
-      system: "You are an elite Technical Product Manager. The user will describe a software project. Your job is to translate their raw idea into a highly structured Statement of Work (SoW) JSON. You must break the project into logical milestones. If the user does not provide a budget, estimate a realistic market rate for an elite US-based developer. If the user provides a prompt that is too vague to scope (e.g., 'Make me an app'), do your best to create a generic 3-phase discovery/build/launch scope so the UI doesn't break, but add a warning in the Executive Summary. Return ONLY valid JSON matching exactly the requested structure without any extra markdown.",
-      prompt: `Generate a formal Statement of Work JSON exactly conforming to this architectural schema:\n${JSON.stringify(SOWSchema, null, 2)}\n\nBased on the following engineering requirements:\n\n${prompt}`,
+      system: "You are a Technical Product Manager.",
+      prompt: `The user wants to build: ${prompt}. Write a rough, 3-phase project outline. Focus only on high-level features.`,
     });
 
-    // Strip all thinking nodes completely bypassing reasoning models limits natively
-    let rawJson = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-    if (rawJson.startsWith('```json')) {
-      rawJson = rawJson.replace(/^```json\n/, '').replace(/\n```$/, '').trim();
-    } else if (rawJson.startsWith('```')) {
-      rawJson = rawJson.replace(/^```\n/, '').replace(/\n```$/, '').trim();
-    }
-    
-    // Fallback extraction natively using brace detection bound architecture
-    const jsonStart = rawJson.indexOf('{');
-    const jsonEnd = rawJson.lastIndexOf('}');
-    if (jsonStart !== -1 && jsonEnd !== -1) {
-       rawJson = rawJson.substring(jsonStart, jsonEnd + 1);
-    }
+    const SOWSchema = z.object({
+      title: z.string().describe("Formal, elite sounding project title"),
+      executiveSummary: z.string().describe("High-level, technical summary of the implementation goal and strategic roadmap."),
+      milestones: z.array(z.object({
+        title: z.string().describe("Name of the milestone phase"),
+        description: z.string().describe("What specific deliverables are included in this drop"),
+        acceptance_criteria: z.string().describe("Strict binary rules that must be met to trigger Escrow release"),
+        amount: z.number().describe("Dollar value assigned securely mapping down to the phase")
+      })).describe("The strictly priced breaking down of deliverables"),
+      totalAmount: z.number().describe("The total cumulative cost sum of all milestones")
+    });
 
-    const object = JSON.parse(rawJson);
+    // Pass 2: The Structural Enforcer (Strict JSON Stream)
+    const result = await streamObject({
+      model: dynamicModel, 
+      system: "You are an Elite Staff Engineer and Escrow Architect. I will provide a rough project outline. You must break these tasks down significantly further. Translate them into highly granular technical milestones, add strict `acceptance_criteria` for Escrow release, and apply lean MVP pricing ($500-$3000 per phase).",
+      prompt: `Here is the rough outline to expand and format: ${roughDraft}`,
+      schema: SOWSchema,
+    });
 
-    return NextResponse.json(object);
+    return result.toTextStreamResponse();
   } catch (error: any) {
     console.error("AI Generation Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }
