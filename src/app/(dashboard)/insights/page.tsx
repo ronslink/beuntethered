@@ -1,28 +1,125 @@
 import { getCurrentUser } from "@/lib/session";
+import { prisma } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import ClientInsights from "@/components/dashboard/insights/client/ClientInsights";
+import FacilitatorInsights from "@/components/dashboard/insights/facilitator/FacilitatorInsights";
 
-export default async function InsightsPage() {
+export default async function InsightsTrafficController() {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 
-  return (
-    <main className="p-6 md:p-10 lg:p-14 min-h-[calc(100vh-80px)] flex flex-col items-center justify-center relative">
-      <div className="absolute top-[0%] left-[20%] w-[500px] h-[500px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none"></div>
+  // ============================================================================
+  // EXECUTIVE CLIENT ROI PIPELINE
+  // ============================================================================
+  if (user.role === "CLIENT") {
+     const clientProjects = await prisma.project.findMany({
+        where: { client_id: user.id },
+        include: {
+           milestones: { include: { time_entries: true } }
+        }
+     });
 
-      <div className="bg-surface/50 backdrop-blur-3xl border border-outline-variant/30 rounded-3xl p-12 max-w-2xl text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative z-10">
-        <span className="material-symbols-outlined text-6xl text-on-surface-variant/50 mb-6 block">insights</span>
-        <h2 className="text-3xl md:text-5xl font-black font-headline tracking-tighter text-on-surface mb-4">
-          Market <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Insights</span>
-        </h2>
-        <p className="text-on-surface-variant text-lg mb-8 leading-relaxed">
-          Aggregating your Escrow payout history, component velocity, and open market bidding analytics. 
-          Advanced visualization dashboards are deploying soon.
-        </p>
-        <div className="inline-flex items-center gap-3 px-6 py-3 bg-surface-container-low border border-outline-variant/30 rounded-full">
-           <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-           <span className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Model Training Active</span>
-        </div>
-      </div>
-    </main>
-  );
+     let totalSpend = 0;
+     let activeExposure = 0;
+     let validAudits = 0;
+     let totalAuditScore = 0;
+     let sprintClears = 0;
+
+     // Escrow Aggregation
+     clientProjects.forEach(project => {
+        // Calculate bounds dynamically matching exact Prisma limits
+        const projMax = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
+        totalSpend += projMax;
+
+        if (project.status === "ACTIVE") {
+           activeExposure += projMax;
+        }
+
+        // Deep Extract AI Vectors globally passing through Milestones
+        project.milestones.forEach(m => {
+           if (m.status === "APPROVED_AND_PAID") sprintClears++;
+
+           m.time_entries.forEach(entry => {
+              if (entry.ai_audit_report) {
+                 const report = entry.ai_audit_report as any;
+                 if (report && report.alignment_score) {
+                    totalAuditScore += Number(report.alignment_score);
+                    validAudits++;
+                 }
+              }
+           });
+        });
+     });
+
+     const avgQuality = validAudits > 0 ? (totalAuditScore / validAudits) : 0;
+
+     return (
+       <ClientInsights 
+         totalSpend={totalSpend}
+         activeExposure={activeExposure}
+         avgCodeQuality={avgQuality}
+         totalSprintClears={sprintClears}
+       />
+     );
+
+  // ============================================================================
+  // EXPERT FACILITATOR TELEMETRY FLOW
+  // ============================================================================
+  } else if (user.role === "FACILITATOR") {
+     
+     const expert = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+           milestones_as_facilitator: {
+              where: { status: "APPROVED_AND_PAID" }
+           },
+           time_entries: {
+              where: { status: "APPROVED" } // Using APPROVED time logs for hourly retainers
+           }
+        }
+     });
+
+     if (!expert) redirect("/dashboard");
+
+     // Initialize 6-month array structure locking boundaries dynamically using native date loops
+     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+     const revenueMap: { [key: string]: number } = {};
+     
+     const d = new Date();
+     for (let i = 5; i >= 0; i--) {
+        const monthIndex = new Date(d.getFullYear(), d.getMonth() - i, 1).getMonth();
+        revenueMap[monthNames[monthIndex]] = 0; // Initialize exact sequence locking bounds natively
+     }
+
+     // Mapping Historical Data dynamically
+     expert.milestones_as_facilitator.forEach(m => {
+        // Fallback or exact mapping natively
+        const monthKey = monthNames[new Date().getMonth()]; // MVP simulation mapping current scale uniformly
+        if (revenueMap[monthKey] !== undefined) revenueMap[monthKey] += Number(m.amount);
+     });
+
+     expert.time_entries.forEach(e => {
+        const monthKey = monthNames[e.created_at.getMonth()];
+        const calculatedRate = Number(e.hours) * Number(expert.hourly_rate); // Bounding hourly vectors safely
+        if (revenueMap[monthKey] !== undefined) revenueMap[monthKey] += calculatedRate;
+     });
+
+     // Structure map correctly into Recharts format safely ensuring array limits
+     const revenueData = Object.keys(revenueMap).map(k => ({
+        name: k,
+        revenue: revenueMap[k]
+     }));
+
+     return (
+        <FacilitatorInsights 
+           trustScore={expert.trust_score}
+           totalSprints={expert.total_sprints_completed}
+           avgAuditScore={expert.average_ai_audit_score}
+           revenueData={revenueData}
+        />
+     );
+  }
+
+  // Fallback layout preserving Next router bounds
+  return null;
 }
