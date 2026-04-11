@@ -45,8 +45,8 @@ export default async function SettingsPage() {
                  <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Assigned Role</label>
                     <div className="flex items-center gap-3">
-                       <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase ${session.user.role === 'DEVELOPER' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-secondary/10 text-secondary border border-secondary/20'}`}>
-                          {session.user.role || 'GUEST'}
+                       <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase ${user.role === 'DEVELOPER' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-secondary/10 text-secondary border border-secondary/20'}`}>
+                          {user.role || 'GUEST'}
                        </span>
                     </div>
                  </div>
