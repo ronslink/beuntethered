@@ -58,9 +58,9 @@ export function SideNav({ role }: { role?: string }) {
               Post Project
             </Link>
           ) : (
-            <button className="w-full py-3 px-4 bg-primary text-on-primary font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 opacity-90 hover:opacity-100 hover:-translate-y-0.5 active:scale-95 transition-all">
+            <Link href="/advisor" className="block w-full text-center py-3 px-4 bg-primary text-on-primary font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 opacity-90 hover:opacity-100 hover:-translate-y-0.5 active:scale-95 transition-all">
               New Project
-            </button>
+            </Link>
           )}
         </div>
       </div>
