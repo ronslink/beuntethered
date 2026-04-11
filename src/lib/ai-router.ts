@@ -13,7 +13,7 @@ export async function getDynamicAIProvider(userId: string) {
     if (!user) {
       const moonshot = createOpenAI({ 
          apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
-         baseURL: 'https://api.moonshot.cn/v1'
+         baseURL: 'https://api.kimi.com/coding/v1'
       });
       return moonshot.chat('moonshot-v1-8k');
     }
@@ -33,7 +33,7 @@ export async function getDynamicAIProvider(userId: string) {
     // Default: Moonshot Kimi Native Test Implementation
     const moonshot = createOpenAI({ 
        apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
-       baseURL: 'https://api.moonshot.cn/v1'
+       baseURL: 'https://api.kimi.com/coding/v1'
     });
     return moonshot.chat('moonshot-v1-8k');
     
@@ -41,7 +41,7 @@ export async function getDynamicAIProvider(userId: string) {
     console.error("Critical AI Routing Fault:", error);
     const fallback = createOpenAI({ 
        apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
-       baseURL: 'https://api.moonshot.cn/v1'
+       baseURL: 'https://api.kimi.com/coding/v1'
     });
     return fallback.chat('moonshot-v1-8k');
   }
