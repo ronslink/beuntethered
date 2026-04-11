@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
 
-export async function GET(req: Request, { params }: { params: { token: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
   try {
+    const params = await props.params;
     const user = await getCurrentUser();
     // Enforce authentication natively before overriding Escrow boundaries
     if (!user) {

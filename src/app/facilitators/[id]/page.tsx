@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
-export default async function FacilitatorDossier({ params }: { params: { id: string } }) {
+export default async function FacilitatorDossier(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const facilitator = await prisma.user.findFirst({
     where: { id: params.id, role: "FACILITATOR" },
     include: {

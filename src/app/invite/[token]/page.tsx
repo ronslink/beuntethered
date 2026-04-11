@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 
-export default async function BYOCMagicLinkClaim({ params }: { params: { token: string } }) {
+export default async function BYOCMagicLinkClaim(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const user = await getCurrentUser();
 
   const project = await prisma.project.findUnique({

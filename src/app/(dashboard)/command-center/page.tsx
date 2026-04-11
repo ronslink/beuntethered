@@ -7,7 +7,8 @@ import ClientTimeTracker from "@/components/tracker/ClientTimeTracker";
 import IntegrationsTab from "@/components/dashboard/IntegrationsTab";
 import ProjectCompletionModal from "@/components/dashboard/ProjectCompletionModal";
 
-export default async function ProjectCommandCenter({ searchParams }: { searchParams: { id?: string, tab?: string } }) {
+export default async function ProjectCommandCenter(props: { searchParams: Promise<{ id?: string, tab?: string }> }) {
+  const searchParams = await props.searchParams;
   const user = await getCurrentUser();
   if (!user || !searchParams.id) redirect("/dashboard");
 
