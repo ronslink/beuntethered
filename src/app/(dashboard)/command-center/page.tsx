@@ -1,4 +1,28 @@
-export default function ProjectCommandCenter() {
+import { getCurrentUser } from "@/lib/session";
+import { prisma } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import FacilitatorTimeTracker from "@/components/tracker/FacilitatorTimeTracker";
+import ClientTimeTracker from "@/components/tracker/ClientTimeTracker";
+
+export default async function ProjectCommandCenter({ searchParams }: { searchParams: { id?: string } }) {
+  const user = await getCurrentUser();
+  if (!user || !searchParams.id) redirect("/dashboard");
+
+  const project = await prisma.project.findUnique({
+    where: { id: searchParams.id },
+    include: {
+      milestones: {
+        include: { time_entries: true }
+      }
+    }
+  });
+
+  if (!project) redirect("/dashboard");
+  
+  const allEntries = project.milestones.flatMap(m => m.time_entries);
+  const pendingHours = allEntries.filter(e => e.status === "PENDING" && e.facilitator_id === user.id).reduce((acc, e) => acc + Number(e.hours), 0);
+  const activeMilestone = project.milestones.find(m => m.status !== "APPROVED_AND_PAID") || project.milestones[0];
+
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full">
       {/* Background Ambient Light */}
@@ -101,6 +125,30 @@ export default function ProjectCommandCenter() {
                 <span className="px-3 py-1 rounded-full bg-surface-variant text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Upcoming</span>
               </div>
             </div>
+          </div>
+
+          <div className="pt-10">
+            {user.role === "FACILITATOR" ? (
+               <FacilitatorTimeTracker 
+                  milestoneId={activeMilestone?.id || ""}
+                  pendingHours={pendingHours}
+                  limitHours={project.unreviewed_hours_limit}
+               />
+            ) : (
+               <ClientTimeTracker 
+                  entries={allEntries}
+               />
+            )}
+
+            {user.role === "CLIENT" && allEntries.length > 0 && allEntries.every(e => e.status !== "PENDING") && (
+                <div className="mt-8 bg-surface-container-low border border-primary/30 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between shadow-lg shadow-primary/5 gap-4">
+                   <div>
+                      <h4 className="text-lg font-bold text-on-surface">Sprint Array Mastered</h4>
+                      <p className="text-xs text-on-surface-variant max-w-sm mt-1">Previous 20-hour block approved and disbursed securely. Top up Escrow mathematically to unlock Expert execution boundaries globally.</p>
+                   </div>
+                   <button className="whitespace-nowrap shrink-0 bg-primary text-on-primary font-bold px-6 py-3 rounded-xl uppercase tracking-widest text-[10px] hover:-translate-y-0.5 transition-all shadow-[0_8px_20px_rgba(var(--color-primary),0.3)]">Fund Next Sprint</button>
+                </div>
+            )}
           </div>
         </section>
 

@@ -34,6 +34,8 @@ model User {
   anthropic_key      String?
   preferred_llm      String           @default("gpt-4o-mini")
 
+  hourly_rate        Decimal          @default(0)
+  
   projects_created          Project[] @relation("CreatedProjects")
   projects_as_client        Project[] @relation("ClientProjects")
   milestones_as_facilitator Milestone[]
@@ -42,6 +44,7 @@ model User {
   messages                  Message[]
   accounts                  Account[]
   sessions                  Session[]
+  time_entries              TimeEntry[]
 }
 
 enum ProjectStatus {
@@ -59,6 +62,7 @@ model Project {
   title            String
   ai_generated_sow String        @db.Text
   is_byoc          Boolean       @default(false)
+  unreviewed_hours_limit Int     @default(20)
   invite_token     String?       @unique
   status           ProjectStatus @default(DRAFT)
 
@@ -113,6 +117,27 @@ model Milestone {
   facilitator   User?         @relation(fields: [facilitator_id], references: [id])
   squad_members SquadMember[]
   messages      Message[]
+  time_entries  TimeEntry[]
+}
+
+enum TimeEntryStatus {
+  PENDING
+  APPROVED
+  DISPUTED
+}
+
+model TimeEntry {
+  id                String          @id @default(uuid())
+  milestone_id      String
+  facilitator_id    String
+  hours             Decimal
+  proof_url         String?         @db.Text
+  proof_description String?         @db.Text
+  status            TimeEntryStatus @default(PENDING)
+  created_at        DateTime        @default(now())
+
+  milestone   Milestone @relation(fields: [milestone_id], references: [id])
+  facilitator User      @relation(fields: [facilitator_id], references: [id])
 }
 
 model SquadProposal {
