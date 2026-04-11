@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createProjectFromSoW } from "@/app/actions/project";
 
@@ -12,7 +12,7 @@ export default function AIAdvisoryPage() {
   
   // Validation loop constraints
   const [clientEmail, setClientEmail] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -40,20 +40,20 @@ export default function AIAdvisoryPage() {
     }
   };
 
-  const handleApproveProject = async () => {
+  const handleApproveProject = () => {
     if (!clientEmail || !clientEmail.includes('@')) return;
-    setIsSaving(true);
     
-    const res = await createProjectFromSoW({ sowData, clientEmail });
-    if (res.success) {
-      setToastMessage("Project Created. Magic Link generated for client.");
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 2000);
-    } else {
-      setIsSaving(false);
-      alert(res.error);
-    }
+    startTransition(async () => {
+      const res = await createProjectFromSoW({ sowData, clientEmail });
+      if (res.success) {
+        setToastMessage("Project Created. Magic Link generated for client.");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 2000);
+      } else {
+        alert(res.error);
+      }
+    });
   }
 
   const formatCurrency = (val: number) => {
@@ -222,10 +222,10 @@ export default function AIAdvisoryPage() {
                      />
                      <button 
                         onClick={handleApproveProject}
-                        disabled={isSaving || !clientEmail.includes('@')}
-                        className={`w-full xl:w-auto flex justify-center items-center gap-2 px-8 py-4 rounded-xl font-bold font-headline text-sm tracking-widest uppercase transition-all duration-300 ${isSaving || !clientEmail.includes('@') ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed' : 'bg-primary text-on-primary shadow-[0_8px_20px_rgba(var(--color-primary),0.3)] hover:shadow-primary/50 hover:-translate-y-1 active:translate-y-0 active:scale-95'}`}
+                        disabled={isPending || !clientEmail.includes('@')}
+                        className={`w-full xl:w-auto flex justify-center items-center gap-2 px-8 py-4 rounded-xl font-bold font-headline text-sm tracking-widest uppercase transition-all duration-300 ${isPending || !clientEmail.includes('@') ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80 shadow-none' : 'bg-primary text-on-primary shadow-[0_8px_20px_rgba(var(--color-primary),0.3)] hover:shadow-primary/50 hover:-translate-y-1 active:translate-y-0 active:scale-95'}`}
                      >
-                       {isSaving ? (
+                       {isPending ? (
                           <>
                            <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
                            <span>Deploying...</span>
