@@ -1,6 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { openai as defaultOpenAI } from '@ai-sdk/openai';
 import { prisma } from './auth';
 
 export async function getDynamicAIProvider(userId: string) {
@@ -11,7 +10,13 @@ export async function getDynamicAIProvider(userId: string) {
     });
 
     // Native unauthenticated route intercept
-    if (!user) return defaultOpenAI('gpt-4o-mini');
+    if (!user) {
+      const moonshot = createOpenAI({ 
+         apiKey: 'sk-kimi-XfTcbaWFM6YQf7E0X4w89OTjWtIZ35fB7IiRVSnPVOPRzJfG9yhOBQEzulhwoL1t',
+         baseURL: 'https://api.moonshot.cn/v1'
+      });
+      return moonshot('moonshot-v1-8k');
+    }
 
     // Route 1: Anthropic Custom Node Mapping
     if (user.preferred_llm === 'claude-3-5-sonnet' && user.anthropic_key) {
@@ -25,10 +30,19 @@ export async function getDynamicAIProvider(userId: string) {
       return customOpenAI('gpt-4o');
     }
 
-    // Route 3: Secure Platform Fallback constraints protecting Global limits
-    return defaultOpenAI('gpt-4o-mini');
+    // Default: Moonshot Kimi Native Test Implementation
+    const moonshot = createOpenAI({ 
+       apiKey: 'sk-kimi-XfTcbaWFM6YQf7E0X4w89OTjWtIZ35fB7IiRVSnPVOPRzJfG9yhOBQEzulhwoL1t',
+       baseURL: 'https://api.moonshot.cn/v1'
+    });
+    return moonshot('moonshot-v1-8k');
+    
   } catch (error) {
     console.error("Critical AI Routing Fault:", error);
-    return defaultOpenAI('gpt-4o-mini'); // Fallback natively to cheap compute on crash
+    const fallback = createOpenAI({ 
+       apiKey: 'sk-kimi-XfTcbaWFM6YQf7E0X4w89OTjWtIZ35fB7IiRVSnPVOPRzJfG9yhOBQEzulhwoL1t',
+       baseURL: 'https://api.moonshot.cn/v1'
+    });
+    return fallback('moonshot-v1-8k');
   }
 }
