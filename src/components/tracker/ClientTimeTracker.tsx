@@ -6,6 +6,7 @@ import { approveTimesheet, disputeTimeEntry } from "@/app/actions/time";
 export default function ClientTimeTracker({ entries }: { entries: any[] }) {
   const [isPending, startTransition] = useTransition();
   const [acknowledged, setAcknowledged] = useState(false);
+  const [runningAudioId, setRunningAudioId] = useState<string | null>(null);
 
   const pendingEntries = entries.filter(e => e.status === "PENDING");
   const unreviewedHoursSum = pendingEntries.reduce((acc, e) => acc + Number(e.hours), 0);
@@ -43,6 +44,24 @@ export default function ClientTimeTracker({ entries }: { entries: any[] }) {
           alert(res.error);
        }
     });
+  };
+
+  const handleRunAudit = async (id: string) => {
+    setRunningAudioId(id);
+    try {
+      const response = await fetch("/api/ai/audit-code", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ timeEntryId: id }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      // Let the natural revalidation cycle or full page refresh pull the structural UI
+      window.location.reload(); 
+    } catch (e: any) {
+      alert(`AI Execution Error: ${e.message}`);
+      setRunningAudioId(null);
+    }
   };
 
   return (
@@ -84,10 +103,64 @@ export default function ClientTimeTracker({ entries }: { entries: any[] }) {
 
                    <p className="text-sm text-on-surface opacity-90 leading-relaxed font-medium">{e.proof_description}</p>
                    
-                   {e.proof_url && (
-                      <a href={e.proof_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary hover:text-primary-container bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-md transition-colors w-fit">
-                         <span className="material-symbols-outlined text-[14px]">link</span> Review Link
-                      </a>
+                   <div className="flex flex-wrap gap-3 items-center">
+                     {e.proof_url && (
+                        <a href={e.proof_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary hover:text-primary-container bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-md transition-colors w-fit">
+                           <span className="material-symbols-outlined text-[14px]">link</span> Review Link
+                        </a>
+                     )}
+                     
+                     {e.proof_url && e.proof_url.includes("github.com") && !e.ai_audit_report && e.status === "PENDING" && (
+                        <button onClick={() => handleRunAudit(e.id)} disabled={runningAudioId === e.id} className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-tertiary hover:text-tertiary-container bg-tertiary/10 hover:bg-tertiary/20 border border-tertiary/30 px-3 py-1.5 rounded-md transition-all shadow-[0_0_10px_rgba(var(--color-tertiary),0.2)] hover:shadow-tertiary/40 disabled:opacity-50">
+                           {runningAudioId === e.id ? <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> : <span className="text-[14px]">⚡</span>}
+                           {runningAudioId === e.id ? 'Running Sonnet Models...' : 'Run AI Technical Audit'}
+                        </button>
+                     )}
+                   </div>
+
+                   {e.ai_audit_report && (
+                      <div className="mt-4 p-5 bg-surface-container-low/80 border border-tertiary/30 rounded-2xl relative overflow-hidden shadow-xl shadow-tertiary/5 animate-in fade-in slide-in-from-top-2">
+                         <div className="absolute top-0 right-0 w-32 h-32 bg-tertiary/10 rounded-full blur-2xl pointer-events-none"></div>
+                         
+                         <div className="flex flex-col sm:flex-row gap-6 items-start relative z-10">
+                            <div className="shrink-0 flex flex-col items-center">
+                               {(() => {
+                                  const score = (e.ai_audit_report as any).alignment_score || 0;
+                                  const color = score > 80 ? 'text-primary' : score < 50 ? 'text-error' : 'text-on-surface-variant';
+                                  const ringColor = score > 80 ? 'border-primary/40 shadow-[0_0_15px_rgba(var(--color-primary),0.3)]' : score < 50 ? 'border-error/40 shadow-[0_0_15px_rgba(var(--color-error),0.3)]' : 'border-outline-variant/30';
+                                  
+                                  return (
+                                    <div className={`w-16 h-16 rounded-full border-[3px] ${ringColor} flex items-center justify-center bg-surface mb-2 transition-all`}>
+                                       <span className={`text-xl font-black ${color}`}>{score}</span>
+                                    </div>
+                                  );
+                               })()}
+                               <span className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">Alignment</span>
+                            </div>
+                            
+                            <div className="flex-1 space-y-3">
+                               <h4 className="text-sm font-bold text-on-surface flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-tertiary text-[16px]">psychology</span>
+                                  AI Code Auditor Report
+                               </h4>
+                               <p className="text-xs text-on-surface leading-relaxed opacity-90">{String((e.ai_audit_report as any).summary)}</p>
+                               
+                               {Array.isArray((e.ai_audit_report as any).red_flags) && (e.ai_audit_report as any).red_flags.length > 0 && (
+                                  <div className="pt-2">
+                                     <p className="text-[10px] font-bold uppercase tracking-widest text-error mb-1">Detected Risk Flags</p>
+                                     <ul className="space-y-1">
+                                        {(e.ai_audit_report as any).red_flags.map((flag: string, i: number) => (
+                                           <li key={i} className="text-[11px] text-error/90 flex items-start gap-1.5 bg-error/5 p-2 rounded-lg border border-error/10">
+                                              <span className="material-symbols-outlined text-[14px]">warning</span>
+                                              <span>{flag}</span>
+                                           </li>
+                                        ))}
+                                     </ul>
+                                  </div>
+                               )}
+                            </div>
+                         </div>
+                      </div>
                    )}
                 </div>
 

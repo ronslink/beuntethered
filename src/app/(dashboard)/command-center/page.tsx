@@ -1,10 +1,12 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import FacilitatorTimeTracker from "@/components/tracker/FacilitatorTimeTracker";
 import ClientTimeTracker from "@/components/tracker/ClientTimeTracker";
+import IntegrationsTab from "@/components/dashboard/IntegrationsTab";
 
-export default async function ProjectCommandCenter({ searchParams }: { searchParams: { id?: string } }) {
+export default async function ProjectCommandCenter({ searchParams }: { searchParams: { id?: string, tab?: string } }) {
   const user = await getCurrentUser();
   if (!user || !searchParams.id) redirect("/dashboard");
 
@@ -22,6 +24,10 @@ export default async function ProjectCommandCenter({ searchParams }: { searchPar
   const allEntries = project.milestones.flatMap(m => m.time_entries);
   const pendingHours = allEntries.filter(e => e.status === "PENDING" && e.facilitator_id === user.id).reduce((acc, e) => acc + Number(e.hours), 0);
   const activeMilestone = project.milestones.find(m => m.status !== "APPROVED_AND_PAID") || project.milestones[0];
+
+  const activeTab = searchParams.tab || 'war-room';
+  const isRetainer = project.billing_type === "HOURLY_RETAINER";
+  const isHubLocked = isRetainer && !project.github_repo_url;
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full">
@@ -64,8 +70,25 @@ export default async function ProjectCommandCenter({ searchParams }: { searchPar
         </div>
       </header>
 
-      {/* Command Center Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+      {/* Tab Navigation */}
+      <div className="flex border-b border-outline-variant/30 mb-8 overflow-x-auto custom-scrollbar px-4 lg:px-0 relative z-10 w-full max-w-6xl">
+         <Link href={`/command-center?id=${project.id}&tab=war-room`} className={`px-8 py-4 font-bold font-headline uppercase tracking-widest text-sm whitespace-nowrap transition-all border-b-2 ${activeTab === 'war-room' ? 'border-primary text-primary bg-primary/5 shadow-[inset_0_-2px_10px_rgba(var(--color-primary),0.1)]' : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low/50'}`}>
+            Execution War Room
+         </Link>
+         <Link href={`/command-center?id=${project.id}&tab=integrations`} className={`px-8 py-4 font-bold font-headline uppercase tracking-widest text-sm whitespace-nowrap transition-all border-b-2 flex items-center gap-2 ${activeTab === 'integrations' ? 'border-primary text-primary bg-primary/5 shadow-[inset_0_-2px_10px_rgba(var(--color-primary),0.1)]' : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low/50'}`}>
+            <span className="material-symbols-outlined text-[16px]">integration_instructions</span>
+            Project Integrations
+         </Link>
+      </div>
+
+      {activeTab === 'integrations' ? (
+         <div className="px-4 lg:px-0 relative z-10 w-full max-w-6xl">
+            <IntegrationsTab project={project} />
+         </div>
+      ) : (
+         <div className="w-full relative">
+            {/* Command Center Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 px-4 lg:px-0 relative z-10 w-full max-w-6xl">
         
         {/* Milestone Tracking (Left Column) */}
         <section className="col-span-1 md:col-span-8 space-y-6">
@@ -129,11 +152,22 @@ export default async function ProjectCommandCenter({ searchParams }: { searchPar
 
           <div className="pt-10">
             {user.role === "FACILITATOR" ? (
-               <FacilitatorTimeTracker 
-                  milestoneId={activeMilestone?.id || ""}
-                  pendingHours={pendingHours}
-                  limitHours={project.unreviewed_hours_limit}
-               />
+               isHubLocked ? (
+                  <div className="bg-error/10 border border-error/50 p-8 rounded-3xl flex flex-col items-center justify-center text-center shadow-lg shadow-error/5 animate-in fade-in slide-in-from-bottom-4">
+                     <span className="material-symbols-outlined text-5xl text-error mb-4 drop-shadow-[0_0_15px_rgba(var(--color-error),0.4)]" style={{ fontVariationSettings: "'FILL' 1" }}>shield_locked</span>
+                     <h3 className="text-2xl font-black font-headline text-error tracking-tight uppercase mb-2">Native Execution Locked</h3>
+                     <p className="text-sm text-error/90 max-w-lg mb-8 leading-relaxed font-medium">To strictly enforce our 20-Hour Sprint limits organically, you must securely map a direct Github Repository URL in the Integrations loop before processing Time Logs.</p>
+                     <Link href={`/command-center?id=${project.id}&tab=integrations`} className="bg-gradient-to-br from-error to-error/80 text-on-error hover:bg-error-container font-black uppercase tracking-widest text-xs px-8 py-4 rounded-xl shadow-[0_8px_20px_rgba(var(--color-error),0.3)] transition-all hover:shadow-error/50 hover:-translate-y-1 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px]">link</span> Route to Integrations Hub
+                     </Link>
+                  </div>
+               ) : (
+                  <FacilitatorTimeTracker 
+                     milestoneId={activeMilestone?.id || ""}
+                     pendingHours={pendingHours}
+                     limitHours={project.unreviewed_hours_limit}
+                  />
+               )
             ) : (
                <ClientTimeTracker 
                   entries={allEntries}
@@ -234,7 +268,9 @@ export default async function ProjectCommandCenter({ searchParams }: { searchPar
           </div>
         </aside>
 
-      </div>
+            </div>
+         </div>
+      )}
       
       {/* Floating Action Component (Bottom) */}
       <div className="fixed bottom-12 left-1/2 -translate-x-1/2 w-full max-w-2xl px-6 z-50 hidden lg:block">

@@ -47,6 +47,11 @@ model User {
   time_entries              TimeEntry[]
 }
 
+enum BillingType {
+  FIXED_MILESTONE
+  HOURLY_RETAINER
+}
+
 enum ProjectStatus {
   DRAFT
   OPEN_BIDDING
@@ -62,7 +67,10 @@ model Project {
   title            String
   ai_generated_sow String        @db.Text
   is_byoc          Boolean       @default(false)
+  billing_type     BillingType   @default(FIXED_MILESTONE)
   unreviewed_hours_limit Int     @default(20)
+  github_repo_url  String?
+  github_access_token String?
   invite_token     String?       @unique
   status           ProjectStatus @default(DRAFT)
 
@@ -133,6 +141,7 @@ model TimeEntry {
   hours             Decimal
   proof_url         String?         @db.Text
   proof_description String?         @db.Text
+  ai_audit_report   Json?
   status            TimeEntryStatus @default(PENDING)
   created_at        DateTime        @default(now())
 
