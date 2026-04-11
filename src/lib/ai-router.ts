@@ -12,7 +12,7 @@ export async function getDynamicAIProvider(userId: string) {
     // Native unauthenticated route intercept
     if (!user) {
       const moonshot = createOpenAI({ 
-         apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
+         apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
          baseURL: 'https://api.minimaxi.chat/v1',
          fetch: async (url, options) => {
            if (options?.body && typeof options.body === 'string') {
@@ -49,7 +49,7 @@ export async function getDynamicAIProvider(userId: string) {
 
     // Default: Moonshot Kimi Native Test Implementation
     const moonshot = createOpenAI({ 
-       apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
+       apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
        baseURL: 'https://api.minimaxi.chat/v1',
        fetch: async (url, options) => {
          if (options?.body && typeof options.body === 'string') {
@@ -74,7 +74,7 @@ export async function getDynamicAIProvider(userId: string) {
   } catch (error) {
     console.error("Critical AI Routing Fault:", error);
     const fallback = createOpenAI({ 
-       apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
+       apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
        baseURL: 'https://api.minimaxi.chat/v1',
        fetch: async (url, options) => {
          if (options?.body && typeof options.body === 'string') {
