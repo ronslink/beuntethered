@@ -104,6 +104,7 @@ model Milestone {
   project       Project       @relation(fields: [project_id], references: [id])
   facilitator   User?         @relation(fields: [facilitator_id], references: [id])
   squad_members SquadMember[]
+  messages      Message[]
 }
 
 model SquadProposal {
@@ -146,11 +147,13 @@ model ChangeOrder {
 model Message {
   id                String  @id @default(uuid())
   project_id        String
+  milestone_id      String?
   sender_id         String?
   content           String  @db.Text
   is_system_message Boolean @default(false)
 
-  project Project @relation(fields: [project_id], references: [id])
+  project   Project    @relation(fields: [project_id], references: [id])
+  milestone Milestone? @relation(fields: [milestone_id], references: [id])
   sender  User?   @relation(fields: [sender_id], references: [id])
 }
 
