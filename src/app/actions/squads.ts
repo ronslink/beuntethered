@@ -8,8 +8,6 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getDynamicAIProvider } from "@/lib/ai-router";
 
-// Ensure Edge execution ceiling permits generation loops reliably natively 
-export const maxDuration = 60;
 
 export async function assembleSquad(projectId: string) {
   try {
