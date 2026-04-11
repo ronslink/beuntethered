@@ -13,7 +13,7 @@ export async function getDynamicAIProvider(userId: string) {
     if (!user) {
       const moonshot = createOpenAI({ 
          apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
-         baseURL: 'https://api.kimi.com/coding/v1',
+         baseURL: 'https://api.minimaxi.chat/v1',
          fetch: async (url, options) => {
            if (options?.body && typeof options.body === 'string') {
              try {
@@ -32,7 +32,7 @@ export async function getDynamicAIProvider(userId: string) {
            return fetch(url, options as RequestInit);
          }
       });
-      return moonshot.chat('moonshot-v1-8k');
+      return moonshot.chat('MiniMax-M2.5');
     }
 
     // Route 1: Anthropic Custom Node Mapping
@@ -50,7 +50,7 @@ export async function getDynamicAIProvider(userId: string) {
     // Default: Moonshot Kimi Native Test Implementation
     const moonshot = createOpenAI({ 
        apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
-       baseURL: 'https://api.kimi.com/coding/v1',
+       baseURL: 'https://api.minimaxi.chat/v1',
        fetch: async (url, options) => {
          if (options?.body && typeof options.body === 'string') {
            try {
@@ -69,13 +69,13 @@ export async function getDynamicAIProvider(userId: string) {
          return fetch(url, options as RequestInit);
        }
     });
-    return moonshot.chat('moonshot-v1-8k');
+    return moonshot.chat('MiniMax-M2.5');
     
   } catch (error) {
     console.error("Critical AI Routing Fault:", error);
     const fallback = createOpenAI({ 
        apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
-       baseURL: 'https://api.kimi.com/coding/v1',
+       baseURL: 'https://api.minimaxi.chat/v1',
        fetch: async (url, options) => {
          if (options?.body && typeof options.body === 'string') {
            try {
@@ -94,6 +94,6 @@ export async function getDynamicAIProvider(userId: string) {
          return fetch(url, options as RequestInit);
        }
     });
-    return fallback.chat('moonshot-v1-8k');
+    return fallback.chat('MiniMax-M2.5');
   }
 }
