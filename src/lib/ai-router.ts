@@ -32,7 +32,7 @@ export async function getDynamicAIProvider(userId: string) {
            return fetch(url, options as RequestInit);
          }
       });
-      return moonshot.chat('MiniMax-M2.5');
+      return moonshot.chat('MiniMax-M2.7');
     }
 
     // Route 1: Anthropic Custom Node Mapping
@@ -69,7 +69,7 @@ export async function getDynamicAIProvider(userId: string) {
          return fetch(url, options as RequestInit);
        }
     });
-    return moonshot.chat('MiniMax-M2.5');
+    return moonshot.chat('MiniMax-M2.7');
     
   } catch (error) {
     console.error("Critical AI Routing Fault:", error);
@@ -94,6 +94,6 @@ export async function getDynamicAIProvider(userId: string) {
          return fetch(url, options as RequestInit);
        }
     });
-    return fallback.chat('MiniMax-M2.5');
+    return fallback.chat('MiniMax-M2.7');
   }
 }
