@@ -12,9 +12,9 @@ export function SideNav({ role }: { role?: string }) {
   return (
     <aside className="hidden md:flex flex-col py-8 px-6 space-y-8 h-screen w-64 fixed left-0 top-0 bg-surface/50 backdrop-blur-3xl z-40 border-r border-outline-variant/30 shadow-[4px_0_24px_rgba(0,0,0,0.01)]">
       <div className="pt-20">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
+        <div className="flex items-center gap-5 mb-10 overflow-hidden">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden relative">
+            <span className="material-symbols-outlined text-primary text-sm absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
           </div>
           <div>
             <h3 className="text-xl font-bold text-on-surface font-headline leading-tight">Untether</h3>
