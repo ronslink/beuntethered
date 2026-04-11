@@ -15,7 +15,7 @@ export async function getDynamicAIProvider(userId: string) {
          apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
          baseURL: 'https://api.moonshot.cn/v1'
       });
-      return moonshot('moonshot-v1-8k');
+      return moonshot.chat('moonshot-v1-8k');
     }
 
     // Route 1: Anthropic Custom Node Mapping
@@ -35,7 +35,7 @@ export async function getDynamicAIProvider(userId: string) {
        apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
        baseURL: 'https://api.moonshot.cn/v1'
     });
-    return moonshot('moonshot-v1-8k');
+    return moonshot.chat('moonshot-v1-8k');
     
   } catch (error) {
     console.error("Critical AI Routing Fault:", error);
@@ -43,6 +43,6 @@ export async function getDynamicAIProvider(userId: string) {
        apiKey: process.env.MOONSHOT_API_KEY || 'dummy_key',
        baseURL: 'https://api.moonshot.cn/v1'
     });
-    return fallback('moonshot-v1-8k');
+    return fallback.chat('moonshot-v1-8k');
   }
 }
