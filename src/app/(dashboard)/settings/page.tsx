@@ -1,9 +1,17 @@
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 
+import { prisma } from "@/lib/auth";
+import BYOKSettingsClient from "@/components/settings/BYOKSettingsClient";
+
 export default async function SettingsPage() {
-  const user = await getCurrentUser();
+  const sessionUser = await getCurrentUser();
+  if (!sessionUser) redirect("/api/auth/signin");
+
+  const user = await prisma.user.findUnique({ where: { id: sessionUser.id } });
   if (!user) redirect("/api/auth/signin");
+
+  const maskKey = (key?: string | null) => key ? `sk-...${key.slice(-4)}` : '';
 
   return (
     <main className="p-6 md:p-10 lg:p-14 min-h-[calc(100vh-80px)] flex flex-col relative">
@@ -35,6 +43,13 @@ export default async function SettingsPage() {
                  </div>
               </div>
            </div>
+
+            {/* BYOK Settings Inject */}
+            <BYOKSettingsClient 
+               initialPreferred={user.preferred_llm}
+               hasOpenAI={maskKey(user.openai_key)}
+               hasAnthropic={maskKey(user.anthropic_key)}
+            />
 
            {/* Financial Integration */}
            <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">

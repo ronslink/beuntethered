@@ -29,6 +29,10 @@ model User {
   stripe_customer_id String? // for billing via Stripe
   subscription_tier  SubscriptionTier @default(FREE)
   expertise_embedding Unsupported("vector(1536)")?
+  
+  openai_key         String?
+  anthropic_key      String?
+  preferred_llm      String           @default("gpt-4o-mini")
 
   projects_as_client        Project[] @relation("ClientProjects")
   milestones_as_facilitator Milestone[]

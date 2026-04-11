@@ -6,6 +6,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateObject, embed } from "ai";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { getDynamicAIProvider } from "@/lib/ai-router";
 
 // Ensure Edge execution ceiling permits generation loops reliably natively 
 export const maxDuration = 60;
@@ -50,9 +51,11 @@ export async function assembleSquad(projectId: string) {
        };
     }
 
+    const dynamicModel = await getDynamicAIProvider(user.id);
+
     // Step B & C: Synthesis bridging constraints into the Vercel AI prompt explicitly capping the limit 
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: dynamicModel,
       system: "You are an AI Project Manager. Review the milestones and the provided pool of Facilitators. Select exactly ONE Facilitator for each milestone to form a 'Squad'. Your primary constraint is that the sum of their individual costs MUST NOT exceed the client's total budget. Output a JSON object containing the squad_members and a pitch_to_client explaining why this specific team is perfect.",
       prompt: `Project: ${project.title}\nTotal Escrow Allocated: $${totalBudget}\n\nCandidate Arrays grouped identically by Milestone ID:\n${JSON.stringify(candidatePools, null, 2)}`,
       schema: z.object({
