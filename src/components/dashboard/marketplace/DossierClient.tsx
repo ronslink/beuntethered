@@ -191,6 +191,19 @@ export default function DossierClient({
                             <span className="text-xs font-bold text-primary">{m.estimated_duration_days} days estimated</span>
                           </div>
                         )}
+                        {m.deliverables && m.deliverables.length > 0 && (
+                          <div className="mt-4 space-y-1.5">
+                            <p className="text-[10px] uppercase tracking-widest font-bold text-secondary mb-2">Features & Deliverables</p>
+                            {m.deliverables.map((d: string, dIdx: number) => (
+                              <div key={dIdx} className="flex items-start gap-2">
+                                <span className="w-5 h-5 rounded bg-secondary/10 border border-secondary/20 flex items-center justify-center shrink-0 mt-0.5">
+                                  <span className="material-symbols-outlined text-[12px] text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>check_small</span>
+                                </span>
+                                <p className="text-sm text-on-surface-variant leading-relaxed">{d}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -133,6 +133,7 @@ model Milestone {
   title                    String
   description              String?         @db.Text
   acceptance_criteria      String[]
+  deliverables             String[]
   estimated_duration_days  Int?
   amount                   Decimal
   status                   MilestoneStatus @default(PENDING)

@@ -25,6 +25,9 @@ export async function postProjectToMarketplace(sowData: any) {
             acceptance_criteria: m.acceptance_criteria 
               ? (Array.isArray(m.acceptance_criteria) ? m.acceptance_criteria : [m.acceptance_criteria])
               : [],
+            deliverables: m.deliverables && Array.isArray(m.deliverables) 
+              ? m.deliverables.filter((d: string) => d.trim().length > 0)
+              : [],
             estimated_duration_days: m.estimated_duration_days || null,
             amount: m.amount,
             status: "PENDING"

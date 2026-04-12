@@ -57,6 +57,7 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
     title: m.title,
     description: m.description,
     acceptance_criteria: m.acceptance_criteria,
+    deliverables: m.deliverables,
     estimated_duration_days: m.estimated_duration_days,
     amount: Number(m.amount),
     status: m.status,
