@@ -173,7 +173,7 @@ export default function ProjectCreationWizard() {
   };
 
   return (
-    <main className="lg:p-6 min-h-[calc(100vh-80px)] flex flex-col relative w-full overflow-hidden">
+    <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-5rem)] flex flex-col relative overflow-hidden">
       {/* Background Ambient Light */}
       <div className="absolute top-[0%] left-[20%] w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
 
@@ -211,7 +211,7 @@ export default function ProjectCreationWizard() {
          </div>
       </div>
 
-      <div className="flex-1 w-full max-w-5xl mx-auto px-4 pb-20 relative z-10">
+      <div className="flex-1 w-full mx-auto pb-32 relative z-10">
          
          {/* ========================================================== */}
          {/* STEP 1: INTAKE & MODE TOGGLE                               */}
@@ -225,7 +225,7 @@ export default function ProjectCreationWizard() {
                  <p className="text-on-surface-variant font-medium mt-3 max-w-2xl mx-auto">Drop your raw technical constraints below. The Two-Pass Scoping Engine will map the vectors structurally.</p>
                </header>
 
-               <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 shadow-xl relative overflow-hidden">
+               <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 shadow-xl relative overflow-hidden max-w-4xl mx-auto">
                   
                   {isGenerating ? (
                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-3xl transition-all duration-500">
@@ -243,7 +243,7 @@ export default function ProjectCreationWizard() {
                      </div>
                   ) : (
                      <form onSubmit={handleGenerate} className="space-y-6">
-                        <div className="flex bg-surface-container rounded-xl p-1 w-full max-w-md mx-auto">
+                        <div className="flex bg-surface-container rounded-xl p-1 w-full max-w-md mx-auto mb-6">
                            <button type="button" onClick={() => setMode("EXECUTION")} className={`flex-1 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${mode === "EXECUTION" ? 'bg-surface shadow text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}>
                               Execution Build
                            </button>
@@ -258,7 +258,7 @@ export default function ProjectCreationWizard() {
                              value={prompt}
                              onChange={(e) => setPrompt(e.target.value)}
                              placeholder="e.g. 'I need a full-stack Next.js app with pgvector bindings for 5k, split across two phases.'"
-                             className="w-full h-48 bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-2xl p-6 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-lg focus:outline-none relative z-10 custom-scrollbar shadow-inner"
+                             className="w-full h-[400px] bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-2xl p-8 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-lg lg:text-xl focus:outline-none relative z-10 custom-scrollbar shadow-inner leading-relaxed"
                            />
                         </div>
 
@@ -315,7 +315,7 @@ export default function ProjectCreationWizard() {
                <div className="w-full min-h-[600px] max-h-[80vh] overflow-y-auto custom-scrollbar pr-4 space-y-8">
                   {/* Header — Editable Title & Summary */}
                   <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto space-y-3">
-                 <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
+                 <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center gap-2">
                    <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
                    Interactive Timeline Canvas
                  </p>
@@ -323,7 +323,7 @@ export default function ProjectCreationWizard() {
                     type="text" 
                     value={editableSoW.title || ''}
                     onChange={(e) => updateSoWField('title', e.target.value)}
-                    className="text-3xl font-extrabold text-on-surface font-headline leading-snug bg-transparent border-b-2 border-transparent hover:border-outline-variant/30 focus:border-primary/50 text-center w-full focus:outline-none transition-colors"
+                    className="text-3xl font-extrabold text-on-surface font-headline leading-snug bg-transparent border-b-2 border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
                     placeholder="Project Title"
                  />
                  <textarea 
@@ -383,7 +383,7 @@ export default function ProjectCreationWizard() {
                </div>
 
                {/* ===== PHASE CARDS WITH FEATURE EDITOR ===== */}
-               <div className="flex flex-col gap-6">
+               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
                  {milestones.map((m: any, idx: number) => {
                     const color = phaseColors[idx % phaseColors.length];
                     return (
@@ -477,29 +477,6 @@ export default function ProjectCreationWizard() {
                   })}
                 </div>
               </div>
-
-               {/* ===== STICKY ACTION BAR ===== */}
-               <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-xl border-t border-outline-variant/20 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
-                  <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-                     <button onClick={() => setStep(1)} className="text-on-surface-variant font-bold text-sm uppercase tracking-widest hover:text-on-surface transition-colors hidden md:block">
-                        <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Intake</span>
-                     </button>
-                     <div className="hidden md:flex items-center gap-3 text-xs text-on-surface-variant font-bold">
-                        <span>{milestones.length} phases</span>
-                        <span className="w-1 h-1 rounded-full bg-outline-variant/40"></span>
-                        <span>{totalDays} days</span>
-                        <span className="w-1 h-1 rounded-full bg-outline-variant/40"></span>
-                        <span>{milestones.reduce((acc: number, m: any) => acc + (m.deliverables?.length || 0), 0)} features</span>
-                     </div>
-                     <button 
-                        onClick={() => setStep(3)} 
-                        className="bg-on-surface text-surface px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-[0_10px_25px_rgba(0,0,0,0.3)] active:scale-95"
-                     >
-                        Approve Timeline & Set Escrow Pricing
-                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                     </button>
-                  </div>
-               </div>
             </div>
             );
          })()}
@@ -548,15 +525,10 @@ export default function ProjectCreationWizard() {
                      </div>
                   </div>
 
-                  <div className="flex justify-between items-center pt-8">
-                     <button onClick={() => setStep(2)} className="text-on-surface-variant font-bold text-sm uppercase tracking-widest hover:text-on-surface">Go Back</button>
-                     <button onClick={loadConciergeSquad} className="bg-surface text-on-surface border-2 border-primary px-8 py-4 rounded-xl font-bold text-sm uppercase tracking-widest flex items-center gap-2 hover:bg-primary hover:text-on-primary transition-all shadow-lg active:scale-95">
-                        Assemble Squad <span className="material-symbols-outlined text-[18px]">group_add</span>
-                     </button>
-                  </div>
-               </div>
-            </div>
-         )}
+                   </div>
+                </div>
+             </div>
+          )}
 
 
          {/* ========================================================== */}
@@ -629,30 +601,64 @@ export default function ProjectCreationWizard() {
                         })}
                      </div>
 
-                     <div className="flex flex-col items-center pt-10 pb-4">
-                        <button 
-                           onClick={handlePostToMarketplace}
-                           disabled={isPending}
-                           className={`w-full max-w-sm py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-sm uppercase tracking-widest transition-all shadow-[0_15px_30px_rgba(var(--color-primary),0.3)] ${isPending ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80 shadow-none' : 'bg-on-surface text-surface hover:-translate-y-1 active:scale-95'}`}
-                        >
-                           {isPending ? (
-                              <>
-                               <span className="material-symbols-outlined animate-spin text-[18px]">refresh</span>
-                               <span>Executing Bounds...</span>
-                              </>
-                           ) : selectedFacilitators.length > 0 ? (
-                              <>Dispatch Invite & Post Array <span className="material-symbols-outlined text-[18px]">send</span></>
-                           ) : (
-                              <>Post to Open Marketplace</>
-                           )}
-                        </button>
-                        <button onClick={() => setStep(3)} className="mt-6 text-xs font-bold tracking-widest uppercase text-on-surface-variant hover:text-on-surface">Return to Ledger</button>
                      </div>
                   </div>
                )}
             </div>
          )}
       </div>
+
+      {/* ===== UNIVERSAL STICKY FOOTER ===== */}
+      {step > 1 && (
+         <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md border-t border-outline-variant/30 shadow-[0_-10px_30px_rgba(0,0,0,0.2)]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+               <button 
+                  onClick={() => setStep(step - 1)} 
+                  className="text-on-surface-variant font-bold text-sm uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-1.5"
+               >
+                  <span className="material-symbols-outlined text-[16px]">arrow_back</span> 
+                  Go Back
+               </button>
+               
+               <div className="flex items-center gap-4">
+                  {step === 2 && (
+                     <button 
+                        onClick={() => setStep(3)} 
+                        className="bg-on-surface text-surface px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-lg active:scale-95"
+                     >
+                        Approve Timeline & Set Pricing <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                     </button>
+                  )}
+                  {step === 3 && (
+                     <button 
+                        onClick={loadConciergeSquad} 
+                        className="bg-primary text-on-primary px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-lg active:scale-95"
+                     >
+                        Assemble Squad <span className="material-symbols-outlined text-[18px]">group_add</span>
+                     </button>
+                  )}
+                  {step === 4 && (
+                     <button 
+                        onClick={handlePostToMarketplace}
+                        disabled={isPending}
+                        className={`px-8 py-4 rounded-xl flex items-center gap-3 font-black text-sm uppercase tracking-widest transition-all shadow-[0_15px_30px_rgba(var(--color-primary),0.3)] ${isPending ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80 shadow-none' : 'bg-on-surface text-surface hover:-translate-y-1 active:scale-95'}`}
+                     >
+                        {isPending ? (
+                           <>
+                            <span className="material-symbols-outlined animate-spin text-[18px]">refresh</span>
+                            <span>Executing Bounds...</span>
+                           </>
+                        ) : selectedFacilitators.length > 0 ? (
+                           <>Dispatch Invite & Post Array <span className="material-symbols-outlined text-[18px]">send</span></>
+                        ) : (
+                           <>Post to Open Marketplace</>
+                        )}
+                     </button>
+                  )}
+               </div>
+            </div>
+         </div>
+      )}
     </main>
   );
 }
