@@ -595,9 +595,15 @@ export default function ProjectCreationWizard() {
                ) : (
                   <div className="space-y-10">
                      <div className="text-center max-w-2xl mx-auto">
-                       <span className="px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold uppercase tracking-widest border border-secondary/20 mb-4 inline-block">pgvector MATCH COMPLETE</span>
-                       <h3 className="text-4xl font-extrabold text-on-surface font-headline leading-snug">Elite Facilitators Located</h3>
-                       <p className="text-on-surface-variant mt-3 text-sm">We've identified 3 Elite operators whose historical project vectors strictly match your Escrow payload mathematically.</p>
+                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border mb-4 inline-block ${squad.length > 0 ? 'bg-secondary/10 text-secondary border-secondary/20' : 'bg-surface-variant/20 text-on-surface-variant border-outline-variant/30'}`}>pgvector MATCH COMPLETE</span>
+                       <h3 className="text-4xl font-extrabold text-on-surface font-headline leading-snug">
+                         {squad.length > 0 ? 'Elite Facilitators Located' : 'No Immediate Match Found'}
+                       </h3>
+                       <p className="text-on-surface-variant mt-3 text-sm">
+                         {squad.length > 0 
+                           ? `We've identified ${squad.length} Elite operators whose historical project vectors strictly match your Escrow payload mathematically.`
+                           : `Your unique constraint matrix returned no available matching Elite engineers in the exclusive pool. You can still dispatch this to the Open Marketplace to gather external bids.`}
+                       </p>
                      </div>
 
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
