@@ -26,6 +26,7 @@ export default function ProjectCreationWizard() {
 
   // Mutator to structurally lock down edits natively overwriting stream states
   const [editableSoW, setEditableSoW] = useState<any>(null);
+  const [activePhaseIndex, setActivePhaseIndex] = useState(0);
 
   useEffect(() => {
     if (sowData && !isGenerating) {
@@ -115,6 +116,7 @@ export default function ProjectCreationWizard() {
     setIsGenerating(true);
     setSowData(null);
     setEditableSoW(null);
+    setActivePhaseIndex(0);
 
     try {
       const response = await fetch("/api/ai/generate-sow", {
@@ -315,167 +317,181 @@ export default function ProjectCreationWizard() {
                <div className="w-full min-h-[600px] max-h-[80vh] overflow-y-auto custom-scrollbar pr-4 space-y-8">
                   {/* Header — Editable Title & Summary */}
                   <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto space-y-3">
-                 <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center gap-2">
+                 <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
                    <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
-                   Interactive Timeline Canvas
+                   {activePhaseIndex < milestones.length ? `Phase ${activePhaseIndex + 1} Editor` : 'Master Timeline Canvas'}
                  </p>
                  <input 
                     type="text" 
                     value={editableSoW.title || ''}
                     onChange={(e) => updateSoWField('title', e.target.value)}
-                    className="text-3xl font-extrabold text-on-surface font-headline leading-snug bg-transparent border-b-2 border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
+                    className="text-3xl font-extrabold text-on-surface font-headline leading-snug bg-transparent border-b-2 border-transparent hover:border-outline-variant/30 focus:border-primary/50 text-center w-full focus:outline-none transition-colors"
                     placeholder="Project Title"
                  />
                  <textarea 
                     value={editableSoW.executiveSummary || ''}
                     onChange={(e) => updateSoWField('executiveSummary', e.target.value)}
-                    rows={2}
-                    className="text-sm text-on-surface-variant w-full bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-primary/30 rounded-lg p-2 text-center resize-none focus:outline-none focus:ring-0 transition-colors"
+                    rows={6}
+                    className="text-base text-slate-200 leading-loose w-full bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-primary/30 rounded-lg p-2 text-center resize-none focus:outline-none focus:ring-0 transition-colors custom-scrollbar"
                     placeholder="Executive summary..."
                  />
                </div>
 
-               {/* ===== GANTT CHART VISUALIZER ===== */}
-               <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-2xl p-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-secondary/5 blur-3xl rounded-full pointer-events-none"></div>
-                  
-                  <div className="flex items-center justify-between mb-4 relative z-10">
-                     <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Project Timeline</p>
-                     <p className="text-xs font-bold text-on-surface">{totalDays} days total</p>
-                  </div>
+               {activePhaseIndex === milestones.length ? (
+                 <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
+                   {/* ===== MASTER TIMELINE REVIEW (GANTT CHART) ===== */}
+                   <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-2xl p-8 relative overflow-hidden shadow-xl">
+                      <div className="absolute top-0 right-0 w-40 h-40 bg-secondary/5 blur-3xl rounded-full pointer-events-none"></div>
+                      
+                      <div className="flex items-center justify-between mb-8 relative z-10">
+                         <div>
+                           <h3 className="text-xl font-bold font-headline text-on-surface">Timeline Aggregate Review</h3>
+                           <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mt-1">{milestones.length} Phases Parsed</p>
+                         </div>
+                         <div className="text-right">
+                           <p className="text-3xl font-black text-secondary">{totalDays} <span className="text-sm text-on-surface-variant font-bold">Days</span></p>
+                         </div>
+                      </div>
 
-                  <div className="space-y-2 relative z-10">
-                     {(() => {
-                        let currentStartDays = 0;
-                        return milestones.map((m: any, idx: number) => {
-                           const days = Number(m.estimated_duration_days) || 0;
-                           const widthPct = totalDays > 0 ? (days / totalDays) * 100 : 100 / milestones.length;
-                           const leftOffsetPct = totalDays > 0 ? (currentStartDays / totalDays) * 100 : idx * (100 / milestones.length);
-                           const color = phaseColors[idx % phaseColors.length];
-                           
-                           currentStartDays += days;
-                           
-                           return (
-                              <div key={idx} className="flex items-center gap-3 group">
-                                 <span className="text-[10px] font-bold text-on-surface-variant w-8 shrink-0 text-right">P{idx + 1}</span>
-                                 <div className="flex-1 h-9 bg-surface-container-low rounded-lg relative border border-outline-variant/10">
-                                    <div 
-                                       className="h-full rounded-lg flex items-center px-4 transition-all duration-500 ease-out absolute top-0 bottom-0 min-w-fit z-10 hover:z-20 hover:scale-[1.02] shadow-sm cursor-default"
-                                       style={{ left: `${leftOffsetPct}%`, width: `${widthPct}%`, backgroundColor: color, opacity: 0.9 }}
-                                    >
-                                       <span className="text-[10px] font-black text-white whitespace-nowrap drop-shadow-md">
-                                          {m.title} — {days}d
-                                       </span>
-                                    </div>
+                      <div className="space-y-3 relative z-10">
+                         {(() => {
+                            let currentStartDays = 0;
+                            return milestones.map((m: any, idx: number) => {
+                               const days = Number(m.estimated_duration_days) || 0;
+                               const widthPct = totalDays > 0 ? (days / totalDays) * 100 : 100 / milestones.length;
+                               const leftOffsetPct = totalDays > 0 ? (currentStartDays / totalDays) * 100 : idx * (100 / milestones.length);
+                               const color = phaseColors[idx % phaseColors.length];
+                               
+                               currentStartDays += days;
+                               
+                               return (
+                                  <div key={idx} className="flex items-center gap-4 group">
+                                     <span className="text-xs font-bold text-on-surface-variant w-8 shrink-0 text-right">P{idx + 1}</span>
+                                     <div className="flex-1 h-12 bg-surface-container-low rounded-xl relative border border-outline-variant/10 shadow-inner overflow-hidden">
+                                        <div 
+                                           className="h-full rounded-xl flex items-center px-4 transition-all duration-500 ease-out absolute top-0 bottom-0 min-w-fit z-10 hover:z-20 hover:scale-[1.01] shadow-md cursor-default"
+                                           style={{ left: `${leftOffsetPct}%`, width: `${widthPct}%`, backgroundColor: color, opacity: 0.9 }}
+                                        >
+                                           <span className="text-xs font-black text-white whitespace-nowrap drop-shadow-md">
+                                              {m.title} — {days}d
+                                           </span>
+                                        </div>
+                                     </div>
+                                  </div>
+                               );
+                            });
+                         })()}
+                      </div>
+
+                      {/* Day markers */}
+                      <div className="flex justify-between mt-6 px-12 relative z-10">
+                         <span className="text-[10px] text-on-surface-variant font-bold">Day 0</span>
+                         {totalDays > 0 && <span className="text-[10px] text-on-surface-variant font-bold">Day {Math.round(totalDays / 2)}</span>}
+                         <span className="text-[10px] text-on-surface-variant font-bold">Day {totalDays}</span>
+                      </div>
+                   </div>
+                 </div>
+               ) : (
+                 <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
+                   {/* ===== FOCUS PHASE EDITOR ===== */}
+                   {(() => {
+                      const idx = activePhaseIndex;
+                      const m = milestones[idx] || {};
+                      const color = phaseColors[idx % phaseColors.length];
+                      return (
+                        <div className="bg-surface/50 border border-outline-variant/30 rounded-3xl overflow-hidden shadow-xl">
+                           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-6 p-8 border-b border-outline-variant/20 relative" style={{ borderTopWidth: '4px', borderTopColor: color }}>
+                              <div className="absolute top-0 right-0 w-32 h-32 blur-3xl pointer-events-none opacity-20" style={{ backgroundColor: color }}></div>
+                              <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shrink-0 shadow-inner z-10 border border-white/5" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
+                                 {idx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-3 z-10">
+                                 <input 
+                                    type="text" 
+                                    value={m.title || ''}
+                                    onChange={(e) => updateMilestoneField(idx, 'title', e.target.value)}
+                                    className="text-2xl lg:text-3xl font-black font-headline text-on-surface bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
+                                    placeholder="Phase title"
+                                 />
+                                 <textarea 
+                                    value={m.description || ''}
+                                    onChange={(e) => updateMilestoneField(idx, 'description', e.target.value)}
+                                    rows={2}
+                                    className="w-full resize-none overflow-hidden text-wrap break-words text-sm text-slate-300 leading-relaxed bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-primary/30 py-1 focus:outline-none transition-colors"
+                                    placeholder="Phase description..."
+                                 />
+                              </div>
+                              <div className="shrink-0 w-32 md:w-40 z-10">
+                                 <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">Duration Extent</label>
+                                 <div className="flex items-center relative">
+                                    <input 
+                                       type="number" min={1}
+                                       value={m.estimated_duration_days || ''} 
+                                       onChange={(e) => updateMilestoneField(idx, 'estimated_duration_days', Number(e.target.value))}
+                                       className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl p-4 text-on-surface focus:border-primary/50 focus:ring-0 text-xl font-black shadow-inner pr-12 transition-colors"
+                                    />
+                                    <span className="absolute right-4 text-sm font-bold text-on-surface-variant pointer-events-none">Days</span>
                                  </div>
                               </div>
-                           );
-                        });
-                     })()}
-                  </div>
+                           </div>
+                        
+                           <div className="p-8 space-y-6 bg-surface-container-lowest">
+                              <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2 border-b border-outline-variant/10 pb-4">
+                                 <span className="material-symbols-outlined text-[18px]">rule_folder</span>
+                                 Deliverables & Features Space ({m.deliverables?.length || 0})
+                              </p>
+                              
+                              <div className="space-y-4">
+                                 {m.deliverables?.map((d: string, dIdx: number) => (
+                                    <div key={dIdx} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 group/item animate-in fade-in slide-in-from-bottom-2 duration-300 p-2 rounded-xl hover:bg-surface-container-low transition-colors">
+                                       <span className="w-8 h-8 rounded-lg bg-surface border border-outline-variant/20 flex items-center justify-center shrink-0 shadow-sm">
+                                          <span className="material-symbols-outlined text-[16px]" style={{ color, fontVariationSettings: "'FILL' 1" }}>done_all</span>
+                                       </span>
+                                       <textarea 
+                                          value={d}
+                                          onChange={(e) => updateDeliverable(idx, dIdx, e.target.value)}
+                                          rows={2}
+                                          placeholder="Describe this feature output..."
+                                          className="flex-1 w-full resize-none overflow-hidden text-wrap break-words bg-transparent border border-transparent hover:border-outline-variant/30 focus:border-primary/50 focus:bg-surface rounded-xl p-3 text-base text-slate-200 focus:ring-0 focus:outline-none transition-all shadow-sm placeholder:text-on-surface-variant/40"
+                                       />
+                                       <button 
+                                          onClick={() => removeDeliverable(idx, dIdx)}
+                                          className="w-10 h-10 rounded-xl flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-opacity bg-error/10 text-error hover:bg-error hover:text-white"
+                                          title="Remove feature"
+                                       >
+                                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                                       </button>
+                                    </div>
+                                 ))}
+                              </div>
+                              
+                              <button 
+                                 onClick={() => addDeliverable(idx)}
+                                 className="w-full mt-4 py-4 rounded-xl border-2 border-dashed border-outline-variant/20 text-on-surface-variant hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm font-bold shadow-sm"
+                              >
+                                 <span className="material-symbols-outlined text-[20px]">add</span>
+                                 Add Dedicated Feature Vector
+                              </button>
+                           </div>
 
-                  {/* Day markers */}
-                  <div className="flex justify-between mt-3 px-11 relative z-10">
-                     <span className="text-[9px] text-on-surface-variant font-bold">Day 0</span>
-                     {totalDays > 0 && <span className="text-[9px] text-on-surface-variant font-bold">Day {Math.round(totalDays / 2)}</span>}
-                     <span className="text-[9px] text-on-surface-variant font-bold">Day {totalDays}</span>
-                  </div>
-               </div>
-
-               {/* ===== PHASE CARDS WITH FEATURE EDITOR ===== */}
-               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                 {milestones.map((m: any, idx: number) => {
-                    const color = phaseColors[idx % phaseColors.length];
-                    return (
-                    <div key={idx} className="h-fit bg-surface/50 border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:border-outline-variant/50 transition-colors">
-                       {/* Phase Header Bar */}
-                       <div className="flex items-center gap-4 p-5 border-b border-outline-variant/20" style={{ borderLeftWidth: '4px', borderLeftColor: color }}>
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
-                             {idx + 1}
-                          </div>
-                          <div className="flex-1 min-w-0 space-y-1">
-                             <input 
-                                type="text" 
-                                value={m.title || ''}
-                                onChange={(e) => updateMilestoneField(idx, 'title', e.target.value)}
-                                className="text-lg font-bold font-headline text-on-surface bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
-                                placeholder="Phase title"
-                             />
-                             <textarea 
-                                value={m.description || ''}
-                                onChange={(e) => updateMilestoneField(idx, 'description', e.target.value)}
-                                rows={1}
-                                className="w-full resize-none overflow-hidden text-wrap break-words text-xs text-on-surface-variant bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-primary/30 py-1 focus:outline-none transition-colors"
-                                placeholder="Phase description..."
-                             />
-                          </div>
-                          <div className="shrink-0 w-28">
-                             <label className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant block mb-1">Days</label>
-                             <input 
-                                type="number" min={1}
-                                value={m.estimated_duration_days || ''} 
-                                onChange={(e) => updateMilestoneField(idx, 'estimated_duration_days', Number(e.target.value))}
-                                className="w-full bg-surface border border-outline-variant/30 rounded-lg p-2.5 text-on-surface focus:border-primary/50 focus:ring-0 text-sm font-black shadow-inner text-center"
-                             />
-                          </div>
-                       </div>
-                       
-                       {/* Deliverables Feature List */}
-                       <div className="p-5 space-y-2">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3 flex items-center gap-1.5">
-                             <span className="material-symbols-outlined text-[14px]">checklist</span>
-                             Features & Deliverables ({m.deliverables?.length || 0})
-                          </p>
-                          
-                          {m.deliverables?.map((d: string, dIdx: number) => (
-                             <div key={dIdx} className="flex items-center gap-2 group/item animate-in fade-in duration-200">
-                                <span className="w-5 h-5 rounded bg-surface-container-low border border-outline-variant/20 flex items-center justify-center shrink-0">
-                                   <span className="material-symbols-outlined text-[12px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_small</span>
-                                </span>
-                                <textarea 
-                                   value={d}
-                                   onChange={(e) => updateDeliverable(idx, dIdx, e.target.value)}
-                                   rows={1}
-                                   placeholder="Describe this feature..."
-                                   className="flex-1 w-full resize-none overflow-hidden text-wrap break-words bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 py-1.5 text-sm text-on-surface focus:ring-0 focus:outline-none transition-colors placeholder:text-on-surface-variant/30"
-                                />
-                                <button 
-                                   onClick={() => removeDeliverable(idx, dIdx)}
-                                   className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-error/10 hover:text-error text-on-surface-variant"
-                                   title="Remove feature"
-                                >
-                                   <span className="material-symbols-outlined text-[16px]">close</span>
-                                </button>
-                             </div>
-                          ))}
-                          
-                          {/* Add Feature Button */}
-                          <button 
-                             onClick={() => addDeliverable(idx)}
-                             className="w-full mt-2 py-2 rounded-lg border border-dashed border-outline-variant/30 text-on-surface-variant hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-1.5 text-xs font-bold"
-                          >
-                             <span className="material-symbols-outlined text-[16px]">add</span>
-                             Add Feature
-                          </button>
-                       </div>
-
-                       {/* Acceptance Criteria — Editable */}
-                       <div className="px-5 pb-4">
-                          <div className="bg-surface-container-low p-3 rounded-xl border border-secondary/15">
-                             <p className="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">Escrow Acceptance Rules</p>
-                             <textarea 
-                                value={m.acceptance_criteria || ''}
-                                onChange={(e) => updateMilestoneField(idx, 'acceptance_criteria', e.target.value)}
-                                rows={2}
-                                className="w-full text-[11px] text-on-surface-variant leading-relaxed bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-secondary/40 focus:outline-none resize-none transition-colors"
-                                placeholder="Define strict binary rules for Escrow release..."
-                             />
-                          </div>
-                       </div>
-                     </div>
-                     );
-                  })}
-                </div>
+                           <div className="p-8 border-t border-outline-variant/20 bg-surface/30">
+                              <div className="bg-surface-container p-5 rounded-2xl border border-secondary/20 shadow-inner">
+                                 <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-3 flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">verified_user</span> Escrow Acceptance Matrix</p>
+                                 <textarea 
+                                    value={m.acceptance_criteria || ''}
+                                    onChange={(e) => updateMilestoneField(idx, 'acceptance_criteria', e.target.value)}
+                                    rows={3}
+                                    className="w-full text-sm text-slate-300 leading-relaxed bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-secondary/40 focus:bg-surface rounded-xl p-3 focus:outline-none resize-none transition-all shadow-sm"
+                                    placeholder="Define strict binary rules for Escrow release to trigger payment mapping..."
+                                 />
+                              </div>
+                           </div>
+                        </div>
+                      );
+                   })()}
+                 </div>
+               )}
+            </div>
               </div>
             </div>
             );
@@ -609,15 +625,26 @@ export default function ProjectCreationWizard() {
          <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md border-t border-outline-variant/30 shadow-[0_-10px_30px_rgba(0,0,0,0.2)]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
                <button 
-                  onClick={() => setStep(step - 1)} 
+                  onClick={() => {
+                     if (step === 2 && activePhaseIndex > 0) setActivePhaseIndex(activePhaseIndex - 1);
+                     else setStep(step - 1);
+                  }} 
                   className="text-on-surface-variant font-bold text-sm uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-1.5"
                >
                   <span className="material-symbols-outlined text-[16px]">arrow_back</span> 
-                  Go Back
+                  {step === 2 && activePhaseIndex > 0 ? "Previous Phase" : "Go Back"}
                </button>
                
                <div className="flex items-center gap-4">
-                  {step === 2 && (
+                  {step === 2 && activePhaseIndex < (editableSoW?.milestones?.length || 0) && (
+                     <button 
+                        onClick={() => setActivePhaseIndex(activePhaseIndex + 1)} 
+                        className="bg-primary text-on-primary px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-lg active:scale-95"
+                     >
+                        {activePhaseIndex === (editableSoW?.milestones?.length || 0) - 1 ? 'Review Master Timeline' : 'Next Phase'} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                     </button>
+                  )}
+                  {step === 2 && activePhaseIndex === (editableSoW?.milestones?.length || 0) && (
                      <button 
                         onClick={() => setStep(3)} 
                         className="bg-on-surface text-surface px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-lg active:scale-95"
