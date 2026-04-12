@@ -4,8 +4,6 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { postProjectToMarketplace } from "@/app/actions/marketplace";
 import { fetchRecommendedSquad } from "@/app/actions/concierge";
-import { experimental_useObject as useObject } from "@ai-sdk/react";
-import { z } from "zod";
 import Link from 'next/link';
 
 export default function ProjectCreationWizard() {
@@ -16,31 +14,14 @@ export default function ProjectCreationWizard() {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<"EXECUTION" | "DISCOVERY">("EXECUTION");
   const [loadingStatus, setLoadingStatus] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [sowData, setSowData] = useState<any>(null);
   
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
   const [squad, setSquad] = useState<any[]>([]);
   const [selectedFacilitators, setSelectedFacilitators] = useState<string[]>([]);
   const [isSquadLoading, setIsSquadLoading] = useState(false);
-
-  // The Exact Epic Structure Mapping Natively
-  const SOWSchema = z.object({
-    title: z.string(),
-    executiveSummary: z.string(),
-    milestones: z.array(z.object({
-      title: z.string(),
-      description: z.string(),
-      acceptance_criteria: z.string(),
-      amount: z.number(),
-      estimated_duration_days: z.number().optional()
-    })),
-    totalAmount: z.number()
-  });
-
-  const { object: sowData, submit, isLoading: isGenerating, error } = useObject({
-    api: '/api/ai/generate-sow',
-    schema: SOWSchema,
-  });
 
   // Mutator to structurally lock down edits natively overwriting stream states
   const [editableSoW, setEditableSoW] = useState<any>(null);
@@ -87,7 +68,27 @@ export default function ProjectCreationWizard() {
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
-    submit({ prompt, mode }); // Passes mode parameter mapped directly for Pass 1 branching
+
+    setIsGenerating(true);
+    setSowData(null);
+    setEditableSoW(null);
+
+    try {
+      const response = await fetch("/api/ai/generate-sow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, mode }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      setSowData(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const loadConciergeSquad = async () => {

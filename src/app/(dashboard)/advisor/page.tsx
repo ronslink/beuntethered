@@ -3,30 +3,13 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createProjectFromSoW } from "@/app/actions/project";
-import { experimental_useObject as useObject } from "@ai-sdk/react";
-import { z } from "zod";
 
 export default function AIAdvisoryPage() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [loadingStatus, setLoadingStatus] = useState("");
-
-  const SOWSchema = z.object({
-    title: z.string(),
-    executiveSummary: z.string(),
-    milestones: z.array(z.object({
-      title: z.string(),
-      description: z.string(),
-      acceptance_criteria: z.string(),
-      amount: z.number()
-    })),
-    totalAmount: z.number()
-  });
-
-  const { object: sowData, submit, isLoading: isGenerating, error } = useObject({
-    api: '/api/ai/generate-sow',
-    schema: SOWSchema,
-  });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [sowData, setSowData] = useState<any>(null);
   
   // Validation loop constraints
   const [clientEmail, setClientEmail] = useState("");
@@ -47,7 +30,25 @@ export default function AIAdvisoryPage() {
     e.preventDefault();
     if (!prompt.trim()) return;
 
-    submit({ prompt });
+    setIsGenerating(true);
+    setSowData(null);
+
+    try {
+      const response = await fetch("/api/ai/generate-sow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      setSowData(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleApproveProject = () => {

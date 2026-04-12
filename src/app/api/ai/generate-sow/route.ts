@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateText, streamObject } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/session";
 import { getDynamicAIProvider } from "@/lib/ai-router";
@@ -33,29 +33,52 @@ export async function POST(req: Request) {
       prompt: drafterPrompt,
     });
 
-    const SOWSchema = z.object({
-      title: z.string().describe("Formal, elite sounding project title"),
-      executiveSummary: z.string().describe("High-level, technical summary of the implementation goal and strategic roadmap."),
-      milestones: z.array(z.object({
-        title: z.string().describe("Name of the milestone phase"),
-        description: z.string().describe("What specific deliverables are included in this drop"),
-        acceptance_criteria: z.string().describe("Strict binary rules that must be met to trigger Escrow release"),
-        amount: z.number().describe("Dollar value assigned securely mapping down to the phase")
-      })).describe("The strictly priced breaking down of deliverables"),
-      totalAmount: z.number().describe("The total cumulative cost sum of all milestones")
-    });
+    const schemaDescription = `Return a JSON object with exactly this structure:
+{
+  "title": "Formal project title",
+  "executiveSummary": "High-level technical summary",
+  "milestones": [
+    {
+      "title": "Phase name",
+      "description": "What deliverables are included",
+      "acceptance_criteria": "Strict rules for Escrow release",
+      "estimated_duration_days": 14,
+      "amount": 1500
+    }
+  ],
+  "totalAmount": 4500
+}
+Return ONLY the JSON object. No markdown, no extra text.`;
 
-    // Pass 2: The Structural Enforcer (Strict JSON Stream)
-    const result = await streamObject({
+    // Pass 2: The Structural Enforcer (generateText to handle <think> traces)
+    const { text: rawPass2 } = await generateText({
       model: dynamicModel, 
-      system: "You are an Elite Staff Engineer and Escrow Architect. I will provide a rough project outline. You must break these tasks down significantly further. Translate them into highly granular technical milestones, add strict `acceptance_criteria` for Escrow release, and apply lean MVP pricing ($500-$3000 per phase).",
-      prompt: `Here is the rough outline to expand and format: ${roughDraft}`,
-      schema: SOWSchema,
+      system: `You are an Elite Staff Engineer and Escrow Architect. I will provide a rough project outline. You must break these tasks down significantly further. Translate them into highly granular technical milestones, add strict acceptance_criteria for Escrow release, and apply lean MVP pricing ($500-$3000 per phase). ${schemaDescription}`,
+      prompt: `Here is the rough outline to expand and format:\n\n${roughDraft}`,
     });
 
-    return result.toTextStreamResponse();
+    // Strip <think> reasoning traces from M2.7 output
+    let cleaned = rawPass2.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    
+    // Strip markdown code fences
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    
+    // Extract JSON object via brace detection
+    const jsonStart = cleaned.indexOf('{');
+    const jsonEnd = cleaned.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+       cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+    }
+
+    const parsed = JSON.parse(cleaned);
+    return NextResponse.json(parsed);
+
   } catch (error: any) {
     console.error("AI Generation Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
