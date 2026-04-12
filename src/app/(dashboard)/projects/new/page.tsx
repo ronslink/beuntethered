@@ -492,10 +492,9 @@ export default function ProjectCreationWizard() {
                  </div>
                )}
             </div>
-              </div>
-            </div>
-            );
-         })()}
+          </div>
+        );
+      })()}
 
 
          {/* ========================================================== */}
