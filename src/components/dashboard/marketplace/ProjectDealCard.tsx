@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { submitBid } from "@/app/actions/bids";
+import Link from "next/link";
 
 export default function ProjectDealCard({ 
   project, 
@@ -75,12 +76,18 @@ export default function ProjectDealCard({
             </div>
          </div>
 
-         <button 
+         <Link 
+             href={`/marketplace/project/${project.id}`}
+             className="w-full bg-on-surface text-surface hover:bg-primary hover:text-on-primary transition-colors px-6 py-4 rounded-xl font-bold font-headline uppercase tracking-widest text-xs flex items-center justify-center gap-2 relative z-10 shadow-lg mb-3 hover:-translate-y-0.5">
+            <span className="material-symbols-outlined text-[16px]">description</span>
+            View Full Dossier
+          </Link>
+          <button 
              onClick={() => setIsModalOpen(true)}
              className="w-full bg-surface-container-high hover:bg-primary text-on-surface hover:text-on-primary transition-colors border border-outline-variant/30 hover:border-primary px-6 py-4 rounded-xl font-bold font-headline uppercase tracking-widest text-xs flex items-center justify-center gap-2 relative z-10">
-            <span className="material-symbols-outlined text-[16px]">visibility</span>
-            Review AI Scope & Bid
-         </button>
+            <span className="material-symbols-outlined text-[16px]">gavel</span>
+            Quick Bid
+          </button>
       </div>
 
       {isModalOpen && (
