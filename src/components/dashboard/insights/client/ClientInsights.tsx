@@ -20,7 +20,7 @@ export default function ClientInsights({
 
   const completedSpend = totalSpend - activeExposure;
   const pieData = [
-     { name: 'Active Escrow Exposure', value: activeExposure },
+     { name: 'Active Projects', value: activeExposure },
      { name: 'Executed Assets', value: completedSpend > 0 ? completedSpend : 0.1 } // Fallback for pure charting safely preventing errors
   ];
 
@@ -38,7 +38,7 @@ export default function ClientInsights({
                 <h1 className="text-4xl lg:text-6xl font-black font-headline tracking-tighter text-on-surface uppercase leading-[0.9]">
                    Capital <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Efficiency</span>
                 </h1>
-                <p className="text-on-surface-variant font-medium mt-4 text-sm max-w-lg">Telemetry accurately evaluating ROI mapping Escrow deployments visually globally.</p>
+                <p className="text-on-surface-variant font-medium mt-4 text-sm max-w-lg">Track spending across all your active projects in real time.</p>
              </div>
              
              <div className="bg-surface-container-low border border-outline-variant/30 px-8 py-5 rounded-3xl shrink-0 hover:border-primary/40 transition-colors cursor-crosshair">
@@ -84,7 +84,7 @@ export default function ClientInsights({
                       <div>
                          <p className="text-[10px] uppercase font-bold tracking-widest text-primary mb-2 flex items-center gap-2">
                            <span className="w-3 h-3 rounded-full bg-primary border bg-glow shadow-[0_0_10px_rgba(var(--color-primary),0.5)]"></span>
-                           Capital Operating In Escrow
+                           Money in Projects
                          </p>
                          <p className="text-5xl font-black text-on-surface tracking-tighter">{formatCurrency(activeExposure)}</p>
                       </div>

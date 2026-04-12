@@ -54,7 +54,7 @@ export default async function SettingsPage() {
            {/* Financial Integration */}
            <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
               <h3 className="text-xl font-bold text-on-surface font-headline mb-6 border-b border-outline-variant/20 pb-4">Financial Integration</h3>
-              <p className="text-on-surface-variant text-sm mb-6 max-w-2xl">Access your full Stripe dashboard to manage connected bank accounts, review tax documents natively, and map Escrow routing logic.</p>
+              <p className="text-on-surface-variant text-sm mb-6 max-w-2xl">Manage your connected bank account, view payout history, and track payment status in your Stripe dashboard.</p>
               
               <button disabled className="bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors px-6 py-3 rounded-xl flex items-center gap-3 border border-outline-variant/30 opacity-70 cursor-not-allowed">
                   <span className="material-symbols-outlined text-primary">account_balance</span>
@@ -69,7 +69,7 @@ export default async function SettingsPage() {
               <div className="space-y-6">
                  <div className="flex items-center justify-between">
                     <div>
-                        <p className="font-bold text-on-surface">Escrow Updates</p>
+                        <p className="font-bold text-on-surface">Payment Updates</p>
                         <p className="text-xs text-on-surface-variant mt-1">Receive secure payloads when funds are verified and locked.</p>
                     </div>
                     <div className="w-12 h-6 bg-primary rounded-full relative cursor-pointer border border-primary/20">

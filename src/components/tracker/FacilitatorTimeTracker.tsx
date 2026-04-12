@@ -59,7 +59,7 @@ export default function FacilitatorTimeTracker({
             <div>
               <p className="text-error font-bold text-sm mb-1 uppercase tracking-widest">Sprint Limit Reached</p>
               <p className="text-error/80 text-xs leading-relaxed">
-                You have reached your {limitHours}-hour unreviewed execution sprint limit. You must map your Proof of Work URL arrays securely so the Client can formally execute Escrow release logic before logging additional limits natively.
+                You have reached {limitHours} hours of unreviewed time. Add a proof URL so the client can approve your time entries before logging more.
               </p>
             </div>
          </div>
@@ -98,7 +98,7 @@ export default function FacilitatorTimeTracker({
                   value={proofDescription}
                   onChange={e => setProofDescription(e.target.value)}
                   className="w-full bg-surface-container-low border border-outline-variant/30 focus:border-primary px-4 py-3 rounded-xl text-sm focus:outline-none transition-colors min-h-[80px] custom-scrollbar placeholder:text-on-surface-variant/40"
-                  placeholder="Mapped the strict UI arrays tracking standard checkout limits natively across all nodes..."
+                  placeholder="Add your GitHub URL or proof of work here..."
                ></textarea>
             </div>
 

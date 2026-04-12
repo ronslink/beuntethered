@@ -8,7 +8,7 @@ export default function BYOCDraftingHub() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<any>(null);
   
-  // Validation loop constraints
+  // Validation loop
   const [isPending, startTransition] = useTransition();
   const [magicLinkUrl, setMagicLinkUrl] = useState("");
   const [hostname, setHostname] = useState("");
@@ -65,14 +65,14 @@ export default function BYOCDraftingHub() {
 
   return (
     <main className="lg:p-6 min-h-[calc(100vh-80px)] flex flex-col relative">
-      {/* Ambient Light overlay natively mapping across entire screen grid */}
+      {/* Ambient light overlay across screen */}
       <div className="absolute top-[0%] left-[20%] w-[500px] h-[500px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none"></div>
 
       <header className="mb-6 lg:mb-10 px-4 lg:px-0">
         <h2 className="text-3xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface">
           BYOC <span className="bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">Magic Hub</span>
         </h2>
-        <p className="text-on-surface-variant font-medium mt-2 max-w-2xl">Bypass open marketplace grids entirely. Generate a strict mathematical invoice structurally mapping deliverables directly to your external Client without incurring generic platform limits natively.</p>
+        <p className="text-on-surface-variant font-medium mt-2 max-w-2xl">Create a private project for your own client. Bypass the marketplace and work directly without platform fees.</p>
       </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 px-4 lg:px-0 pb-10">
@@ -85,7 +85,7 @@ export default function BYOCDraftingHub() {
                  <div className="h-full flex flex-col items-center justify-center text-center opacity-70">
                     <span className="material-symbols-outlined text-6xl text-secondary/40 mb-4 animate-pulse duration-1000" style={{ fontVariationSettings: "'FILL' 1" }}>person_add</span>
                     <h3 className="text-xl font-bold font-headline text-on-surface mb-2">Build The Hook</h3>
-                    <p className="text-sm text-on-surface-variant max-w-xs">Drop your raw technical constraints in the buffer. We instantly synthesize the payload specifically restricted entirely across your own developer nodes.</p>
+                    <p className="text-sm text-on-surface-variant max-w-xs">Enter your project details below. We will generate a detailed scope and pricing structure for your client.</p>
                  </div>
               )}
 
@@ -100,8 +100,8 @@ export default function BYOCDraftingHub() {
                      <div className="self-start bg-primary/5 border border-primary/20 p-4 rounded-2xl rounded-tl-none mr-8 max-w-[90%] relative shadow-lg shadow-primary/5">
                        <p className="text-sm text-on-surface leading-relaxed w-full">
                          {isGenerating 
-                           ? "Compiling custom scope limits bypassing Marketplace constraints completely..." 
-                           : "Your direct Client Draft is generated safely decoupled. Tap Generate Magic Link when you correctly confirm constraints."}
+                           ? "Generating your project scope..." 
+                           : "Your project draft is ready. Review it and click Generate Magic Link when you are ready to send it to your client."}
                        </p>
                        <span className="absolute -left-2 top-0 w-3 h-3 bg-primary/20 rounded-br-full"></span>
                      </div>
@@ -119,7 +119,7 @@ export default function BYOCDraftingHub() {
                      value={prompt}
                      onChange={(e) => setPrompt(e.target.value)}
                      disabled={isGenerating || !!magicLinkUrl}
-                     placeholder="e.g., Implementing full backend node stack structure securely mapping across 3 deliverables. Total pricing $4500."
+                     placeholder="e.g., Building a React dashboard with user authentication. Total pricing $4500."
                      className="w-full bg-transparent border-none text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none min-h-[80px] p-3 text-sm focus:outline-none custom-scrollbar"
                    />
                    <button 

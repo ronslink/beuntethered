@@ -43,7 +43,7 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
               Private Delivery Proposal
             </h1>
             <p className="text-on-surface-variant text-lg">
-              <span className="font-bold text-on-surface">{project.creator.name}</span> has securely deployed a custom architectural scope for your review. Establish an institutional connection to lock constraints natively.
+              <span className="font-bold text-on-surface">{project.creator.name}</span> has invited you to review a project scope. Create an account to view and accept the project.
             </p>
          </div>
 
@@ -58,7 +58,7 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
                   <p className="text-sm leading-relaxed text-on-surface opacity-90">{project.ai_generated_sow}</p>
                </div>
                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4 block">Escrow Delivery Graph</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4 block">Project Overview</label>
                   <div className="space-y-4">
                      {project.milestones.map((m, idx) => (
                         <div key={m.id} className="flex flex-col sm:flex-row justify-between bg-surface-container-low/50 border border-outline-variant/20 rounded-xl p-4">
@@ -81,7 +81,7 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
                   <p className="text-4xl font-black text-secondary tracking-tighter">{formatCurrency(totalValuation)}</p>
                </div>
                <Link href={signInUrl} className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-sm shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all hover:-translate-y-1">
-                  Connect & Fund Escrow
+                  Create Account & Fund Project
                </Link>
             </div>
          </div>

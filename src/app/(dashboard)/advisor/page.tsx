@@ -11,7 +11,7 @@ export default function AIAdvisoryPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<any>(null);
   
-  // Validation loop constraints
+  // Validation loop
   const [clientEmail, setClientEmail] = useState("");
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
@@ -20,7 +20,7 @@ export default function AIAdvisoryPage() {
     if (isGenerating && !sowData) {
       setLoadingStatus("Agent 1: Architecting baseline structure...");
       const timer = setTimeout(() => {
-        setLoadingStatus("Agent 2: Enforcing granular Escrow constraints...");
+        setLoadingStatus("Agent 2: Creating payment milestones...");
       }, 3500);
       return () => clearTimeout(timer);
     }
@@ -94,7 +94,7 @@ export default function AIAdvisoryPage() {
         <h2 className="text-3xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface">
           AI Advisory <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Command Hub</span>
         </h2>
-        <p className="text-on-surface-variant font-medium mt-2 max-w-2xl">Describe your negotiation and deliverables. The Expert AI will generate an institutional-grade Statement of Work and split your constraints into Escrow-ready milestones automatically.</p>
+        <p className="text-on-surface-variant font-medium mt-2 max-w-2xl">Describe your project and goals. The AI will generate a professional Statement of Work with clear milestones and pricing, ready for client approval.</p>
       </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 px-4 lg:px-0 pb-10">
@@ -107,7 +107,7 @@ export default function AIAdvisoryPage() {
                  <div className="h-full flex flex-col items-center justify-center text-center opacity-70">
                     <span className="material-symbols-outlined text-6xl text-primary/40 mb-4 animate-pulse duration-1000" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
                     <h3 className="text-xl font-bold font-headline text-on-surface mb-2">Awaiting Context</h3>
-                    <p className="text-sm text-on-surface-variant max-w-xs">Drop your raw technical constraints and pricing expectations into the module below.</p>
+                    <p className="text-sm text-on-surface-variant max-w-xs">Enter your project requirements and what you are looking to build below.</p>
                  </div>
               )}
 
@@ -122,7 +122,7 @@ export default function AIAdvisoryPage() {
                      <div className="self-start bg-secondary/5 border border-secondary/20 p-4 rounded-2xl rounded-tl-none mr-8 max-w-[90%] relative shadow-lg shadow-secondary/5">
                        <p className="text-sm text-on-surface leading-relaxed w-full">
                          {isGenerating 
-                           ? "Processing requirements. Modeling technical architecture constraints and parsing distinct payment vectors directly into the Vercel Edge compute matrix..." 
+                           ? "Processing your requirements and creating project milestones..." 
                            : "The execution map is formally generated. Please review the Statement of Work structure defined precisely in your right panel."}
                        </p>
                        <span className="absolute -left-2 top-0 w-3 h-3 bg-secondary/20 rounded-br-full"></span>
@@ -185,7 +185,7 @@ export default function AIAdvisoryPage() {
                   )}
                 </div>
                 
-                {/* Glowing neon UI Skeleton bounding box mapping over initial wait states natively */}
+                {/* Glowing neon UI skeleton during initial loading state */}
                 <div className="w-full max-w-sm px-8">
                    <div className="h-6 w-3/4 bg-primary/20 rounded-full mx-auto animate-pulse mb-6 relative overflow-hidden">
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/40 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
@@ -224,7 +224,7 @@ export default function AIAdvisoryPage() {
                    </div>
                    
                    <div className="space-y-4 pt-4 pb-4">
-                     <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">Escrow Delivery Milestones</h4>
+                     <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">Project Milestones</h4>
                      <div className="space-y-3">
                        {sowData.milestones?.filter((m: any) => m && m.title).map((m: any, idx: number) => (
                          <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border border-outline-variant/30 bg-surface-container-low/30 backdrop-blur-sm hover:border-primary/30 transition-all hover:bg-surface-container-high/40 gap-4">
@@ -275,7 +275,7 @@ export default function AIAdvisoryPage() {
                            <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
                            <span>Deploying...</span>
                           </>
-                       ) : "Approve & Initialize Escrow"}
+                       ) : "Approve & Send to Client"}
                      </button>
                    </div>
                 </div>

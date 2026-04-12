@@ -36,7 +36,7 @@ export default function FacilitatorInsights({
              </div>
              
              <div className="bg-surface-container-low border border-outline-variant/30 px-8 py-5 rounded-3xl shrink-0 hover:border-tertiary/40 transition-colors cursor-crosshair text-right">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-1">6-Month Escrow Cleared</p>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-1">6-Month Earnings Cleared</p>
                 <p className="text-4xl font-black font-headline text-on-surface tracking-tighter opacity-90 text-tertiary">{formatCurrency(totalRevenue)}</p>
              </div>
           </header>
@@ -46,7 +46,7 @@ export default function FacilitatorInsights({
              {/* Revenue Area Chart Hero */}
              <div className="col-span-1 md:col-span-12 bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative group">
                 <div className="absolute inset-0 bg-gradient-to-b from-tertiary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none"></div>
-                <h3 className="text-xl font-black font-headline text-on-surface uppercase tracking-tight mb-8">Escrow Distribution Map</h3>
+                <h3 className="text-xl font-black font-headline text-on-surface uppercase tracking-tight mb-8">Revenue Distribution</h3>
                 <div className="w-full h-[400px]">
                    <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>

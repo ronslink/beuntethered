@@ -16,7 +16,7 @@ export default function ClientTimeTracker({ entries }: { entries: any[] }) {
        <div className="bg-surface-container-low/40 backdrop-blur-xl border border-outline-variant/10 rounded-2xl p-8 text-center text-on-surface-variant flex flex-col items-center">
           <span className="material-symbols-outlined text-4xl mb-3 opacity-40 text-primary">hourglass_empty</span>
           <p className="text-sm font-bold uppercase tracking-widest">No Execution Metrics Logged</p>
-          <p className="text-xs mt-2 max-w-sm">The expert has not logged any Time entries mapped against this Escrow milestone phase natively.</p>
+          <p className="text-xs mt-2 max-w-sm">The expert has not logged any time entries for this milestone yet.</p>
        </div>
     )
   }
@@ -39,7 +39,7 @@ export default function ClientTimeTracker({ entries }: { entries: any[] }) {
     startTransition(async () => {
        const res = await disputeTimeEntry(id);
        if (res.success) {
-          alert("Time Entry mathematically locked and mapped to Admin Arbitration grids.");
+          alert("Time entry submitted for client approval.");
        } else {
           alert(res.error);
        }
@@ -72,7 +72,7 @@ export default function ClientTimeTracker({ entries }: { entries: any[] }) {
                <span className="material-symbols-outlined">gavel</span>
                Client Governance Audit
             </h3>
-            <p className="text-xs text-on-surface-variant mt-1">Review Proof of Work explicitly before executing Escrow loops natively.</p>
+            <p className="text-xs text-on-surface-variant mt-1">Review the work proof before approving the payment.</p>
           </div>
           <div className="bg-surface-container px-4 py-2 rounded-lg border border-outline-variant/20 text-center">
              <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Pending Payload</p>
@@ -96,7 +96,7 @@ export default function ClientTimeTracker({ entries }: { entries: any[] }) {
                      {e.status === "PENDING" && !e.proof_url && (
                         <div className="text-error flex items-center gap-1 group relative cursor-pointer">
                            <span className="material-symbols-outlined text-lg animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-                           <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-error text-on-primary text-[10px] p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center">Caution: Expert did not attach a mathematical Proof link pointing natively evaluating their execution vector.</span>
+                           <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-error text-on-primary text-[10px] p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center">Warning: Expert did not attach a work proof link.</span>
                         </div>
                      )}
                    </div>
@@ -187,7 +187,7 @@ export default function ClientTimeTracker({ entries }: { entries: any[] }) {
                    className="mt-1 w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface bg-surface shadow-inner"
                 />
                 <label htmlFor="ack" className="text-xs text-on-surface-variant font-medium leading-relaxed max-w-xl cursor-pointer">
-                  I formally acknowledge I have evaluated the listed Proof of Work structural arrays completely natively. Releasing Escrow formally transfers platform checkout limits bypassing dispute windows globally accurately.
+                  I confirm I have reviewed all the listed work and approve the payment release.
                 </label>
              </div>
              

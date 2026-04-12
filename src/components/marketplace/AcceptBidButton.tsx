@@ -8,7 +8,7 @@ export default function AcceptBidButton({ bidId, projectId }: { bidId: string, p
   const router = useRouter();
 
   const handleAccept = () => {
-     if (!confirm("Confirm execution formatting? This action logically limits all milestone proportions exactly mapping to Escrow and natively locks your architecture.")) return;
+     if (!confirm("Accept this bid? The developer will be hired to work on this project.")) return;
      
      startTransition(async () => {
        const res = await acceptBid(bidId);

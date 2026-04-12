@@ -18,7 +18,7 @@ export default function IntegrationsTab({ project }: { project: any }) {
        });
 
        if (res.success) {
-          alert("Github Architecture mathematically bonded to Escrow limits successfully!");
+          alert("GitHub repository connected successfully!");
        } else {
           alert(res.error);
        }
@@ -74,7 +74,7 @@ export default function IntegrationsTab({ project }: { project: any }) {
                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxxx"
                   />
                 </div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mt-2 opacity-60">Generate a fine-grained Personal Access Token cleanly extracting read bounds exclusively over code networks.</p>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mt-2 opacity-60">Generate a GitHub Personal Access Token with read-only access to your repository.</p>
              </div>
 
              <div className="border-t border-outline-variant/20 pt-6 mt-8 flex justify-end">

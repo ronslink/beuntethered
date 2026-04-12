@@ -49,18 +49,18 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
 
       <header className="mb-10 px-4 lg:px-0 relative z-10 w-full max-w-6xl">
         <div className="flex items-center gap-2 mb-4">
-           <Link href="/dashboard" className="text-on-surface-variant hover:text-primary transition-colors flex items-center text-xs font-bold uppercase tracking-widest gap-1"><span className="material-symbols-outlined text-[14px]">arrow_back</span> Return Network Constraints</Link>
+           <Link href="/dashboard" className="text-on-surface-variant hover:text-primary transition-colors flex items-center text-xs font-bold uppercase tracking-widest gap-1"><span className="material-symbols-outlined text-[14px]">arrow_back</span> Back to Dashboard</Link>
         </div>
         <div className="flex justify-between items-end gap-6 flex-wrap">
           <div>
-            <p className="text-xs font-bold font-headline uppercase tracking-widest text-primary mb-2 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">gavel</span> Open Bidding Architecture Loop</p>
+            <p className="text-xs font-bold font-headline uppercase tracking-widest text-primary mb-2 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">gavel</span> Review Proposals</p>
             <h2 className="text-3xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface line-clamp-2">
               {project.title}
             </h2>
-            <p className="text-on-surface-variant font-medium mt-3 max-w-2xl leading-relaxed text-sm lg:text-base">Evaluating Expert Operations globally. Accept a valid structural architecture resolving strictly converting this layout actively into an Active Escrow pipeline instantly.</p>
+            <p className="text-on-surface-variant font-medium mt-3 max-w-2xl leading-relaxed text-sm lg:text-base">Review developer proposals and hire the best fit for your project. Funds are held safely until you approve the work.</p>
           </div>
           <div className="bg-surface-container-low border border-outline-variant/30 px-6 py-4 rounded-2xl text-right shrink-0">
-             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Baseline AI Valuation Parameter</p>
+             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Project Value</p>
              <p className="text-2xl lg:text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(totalEst)}</p>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
            <div className="bg-surface/50 backdrop-blur-3xl border border-outline-variant/30 rounded-3xl p-16 text-center text-on-surface-variant flex flex-col items-center shadow-lg">
              <span className="material-symbols-outlined text-[80px] mb-6 opacity-30 text-primary/50">radar</span>
              <h3 className="text-2xl font-bold font-headline text-on-surface">No Expert Connects Validated Yet</h3>
-             <p className="text-sm mt-3 max-w-sm leading-relaxed">The Marketplace network is scanning your Escrow parameters natively. High execution boundaries naturally take time parsing. Check back shortly.</p>
+             <p className="text-sm mt-3 max-w-sm leading-relaxed">No proposals yet — check back soon as developers submit bids.</p>
            </div>
         ) : (
            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -120,8 +120,8 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
                          <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
                       </div>
                       <div>
-                         <span className="block text-sm lg:text-base font-bold text-on-surface leading-tight mb-1">{bid.developer.name || "Untether Expert Node"}</span>
-                         <span className="block text-[10px] text-on-surface-variant uppercase tracking-widest font-bold bg-surface-container-high rounded-lg px-2 py-0.5 inline-block border border-outline-variant/20 shadow-inner">Architecturally Screened</span>
+                         <span className="block text-sm lg:text-base font-bold text-on-surface leading-tight mb-1">{bid.developer.name || "Freelancer"}</span>
+                         <span className="block text-[10px] text-on-surface-variant uppercase tracking-widest font-bold bg-surface-container-high rounded-lg px-2 py-0.5 inline-block border border-outline-variant/20 shadow-inner">Verified Developer</span>
                       </div>
                    </div>
 

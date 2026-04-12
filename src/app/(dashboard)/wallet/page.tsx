@@ -9,7 +9,7 @@ export default async function WalletPage() {
     redirect("/api/auth/signin");
   }
 
-  // Calculate live database metrics resolving Escrow states automatically
+  // Calculate wallet balance from database
   const milestones = await prisma.milestone.findMany({
     where: {
       facilitator_id: user.id
@@ -18,7 +18,7 @@ export default async function WalletPage() {
     orderBy: { id: "desc" }
   });
 
-  // Calculate distinct sums depending on the Escrow pipeline progression
+  // Calculate milestone payment states
   const pendingEscrow = milestones
     .filter(m => m.status === "FUNDED_IN_ESCROW" || m.status === "SUBMITTED_FOR_REVIEW")
     .reduce((sum, m) => sum + Number(m.amount), 0);
@@ -81,7 +81,7 @@ export default async function WalletPage() {
           <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all pointer-events-none"></div>
         </div>
 
-        {/* Escrow Holds */}
+        {/* Funded Milestones */}
         <div className="bg-surface/40 backdrop-blur-xl border border-outline-variant/20 p-8 rounded-3xl relative overflow-hidden group hover:border-secondary/30 transition-all">
           <div className="flex justify-between items-start mb-2 relative z-10">
             <p className="text-xs font-bold font-headline uppercase tracking-widest text-on-surface-variant">Pending Escrow</p>

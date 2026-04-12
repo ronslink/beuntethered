@@ -26,7 +26,7 @@ export default function ProjectDealCard({
 
   const handleBidSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!approach) return alert("Technical Approach is structurally required natively.");
+    if (!approach) return alert("Please describe your technical approach before submitting.");
 
     startTransition(async () => {
        const res = await submitBid({
@@ -40,7 +40,7 @@ export default function ProjectDealCard({
           alert(`Execution Fault: ${res?.error}`);
        } else {
           setIsModalOpen(false);
-          alert("Bid safely logged! Escrow limits correctly processed natively.");
+          alert("Bid submitted successfully!");
        }
     });
   };
@@ -105,7 +105,7 @@ export default function ProjectDealCard({
                   </div>
                   {project.milestones.length > 0 && (
                      <div className="space-y-3">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Escrow Phasing Rules</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Milestone Rules</p>
                         <div className="space-y-2">
                            {project.milestones.map((m: any) => (
                               <div key={m.id} className="flex justify-between items-center text-xs p-3 bg-surface-variant/20 rounded-lg border border-outline-variant/10">

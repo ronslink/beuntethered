@@ -48,7 +48,7 @@ export default async function FacilitatorDossier(props: { params: Promise<{ id: 
              <div className="text-center md:text-left space-y-2 flex-1">
                 <h1 className="text-5xl md:text-6xl font-black font-headline uppercase tracking-tighter text-on-surface">{facilitator.name || "Untethered Architect"}</h1>
                 <p className="text-on-surface-variant tracking-widest uppercase font-medium text-sm flex items-center justify-center md:justify-start gap-2">
-                   <span className="material-symbols-outlined text-[16px]">terminal</span> Global Escrow Facilitator
+                   <span className="material-symbols-outlined text-[16px]">terminal</span> Verified Freelancer
                 </p>
              </div>
              <div>
@@ -95,7 +95,7 @@ export default async function FacilitatorDossier(props: { params: Promise<{ id: 
                 <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-2xl group-hover:bg-secondary/20 transition-all"></div>
                 <div className="flex items-center gap-3 mb-6 relative z-10">
                    <span className="material-symbols-outlined text-secondary text-3xl">verified_user</span>
-                   <h3 className="font-bold font-headline uppercase tracking-widest text-on-surface text-sm">Escrow Integrity</h3>
+                   <h3 className="font-bold font-headline uppercase tracking-widest text-on-surface text-sm">Track Record</h3>
                 </div>
                 <div className="flex items-end gap-2 relative z-10">
                    <span className="text-6xl font-black font-headline text-on-surface tracking-tighter leading-none">100</span>

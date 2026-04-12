@@ -52,7 +52,7 @@ export default function ProjectCreationWizard() {
     if (isGenerating && !sowData) {
       setLoadingStatus("Agent 1: Brainstorming Architecture...");
       const timer = setTimeout(() => {
-        setLoadingStatus("Agent 2: Enforcing Escrow Constraints...");
+        setLoadingStatus("Agent 2: Creating payment milestones...");
       }, 3500);
       return () => clearTimeout(timer);
     }
@@ -159,7 +159,7 @@ export default function ProjectCreationWizard() {
       
       const res = await postProjectToMarketplace(finalPayload);
       if (res.success) {
-        setToastMessage("Deploying Open Bid Contract. Proceeding to Escrow Funding...");
+        setToastMessage("Creating project and redirecting to payment...");
         setTimeout(() => {
           router.push(`/stripe/checkout?projectId=${res.projectId}`);
         }, 2000);
@@ -244,7 +244,7 @@ export default function ProjectCreationWizard() {
                  <h2 className="text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface">
                    Autonomous <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Project Inception</span>
                  </h2>
-                 <p className="text-on-surface-variant font-medium mt-3 max-w-2xl mx-auto">Drop your raw technical constraints below. The Two-Pass Scoping Engine will map the vectors structurally.</p>
+                 <p className="text-on-surface-variant font-medium mt-3 max-w-2xl mx-auto">Enter your project requirements below. Our AI will create a detailed project scope for you.</p>
                </header>
 
                <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 shadow-xl relative overflow-hidden max-w-4xl mx-auto min-h-[500px]">
@@ -496,13 +496,13 @@ export default function ProjectCreationWizard() {
 
                            <div className="p-8 border-t border-outline-variant/20 bg-surface/30">
                               <div className="bg-surface-container p-5 rounded-2xl border border-secondary/20 shadow-inner">
-                                 <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-3 flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">verified_user</span> Escrow Acceptance Matrix</p>
+                                 <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-3 flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">verified_user</span> Milestone Review Matrix</p>
                                  <textarea 
                                     value={m.acceptance_criteria || ''}
                                     onChange={(e) => updateMilestoneField(idx, 'acceptance_criteria', e.target.value)}
                                     rows={3}
                                     className="w-full text-sm text-slate-300 leading-relaxed bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-secondary/40 focus:bg-surface rounded-xl p-3 focus:outline-none resize-none transition-all shadow-sm"
-                                    placeholder="Define strict binary rules for Escrow release to trigger payment mapping..."
+                                    placeholder="Define acceptance criteria for this milestone..."
                                  />
                               </div>
                            </div>
@@ -530,7 +530,7 @@ export default function ProjectCreationWizard() {
                   <div className="text-center">
                     <span className="material-symbols-outlined text-5xl text-tertiary mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
                     <h3 className="text-4xl font-extrabold text-on-surface font-headline leading-snug">Financial Ledger</h3>
-                    <p className="text-on-surface-variant mt-3 text-lg">Adjust raw Escrow limits. These values represent secure boundary constraints for platform payouts.</p>
+                    <p className="text-on-surface-variant mt-3 text-lg">Adjust milestone amounts. These values represent the payment for each phase.</p>
                   </div>
 
                   <div className="bg-surface/50 border border-tertiary/20 rounded-3xl p-8 relative overflow-hidden shadow-xl">
@@ -566,7 +566,7 @@ export default function ProjectCreationWizard() {
 
                         <div className="pt-8 mt-8 border-t border-outline-variant/20 flex flex-col items-center bg-surface-container-lowest -mx-8 -mb-8 p-10">
                            <p className="text-sm text-secondary uppercase tracking-widest font-black mb-2 flex items-center gap-2">
-                              <span className="material-symbols-outlined text-[18px]">verified_user</span> Real-Time Escrow Boundary
+                              <span className="material-symbols-outlined text-[18px]">verified_user</span> Total Project Cost
                            </p>
                            <p className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">
                               {formatCurrency(totalEscrow)}
@@ -601,7 +601,7 @@ export default function ProjectCreationWizard() {
                        </h3>
                        <p className="text-on-surface-variant mt-3 text-sm">
                          {squad.length > 0 
-                           ? `We've identified ${squad.length} Elite operators whose historical project vectors strictly match your Escrow payload mathematically.`
+                           ? `We've found recommended developers that match your project.`
                            : `Your unique constraint matrix returned no available matching Elite engineers in the exclusive pool. You can still dispatch this to the Open Marketplace to gather external bids.`}
                        </p>
                      </div>

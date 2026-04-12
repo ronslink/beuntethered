@@ -35,7 +35,7 @@ export default function DossierClient({
   const tabs = [
     { key: "overview" as const, label: "Overview", icon: "dashboard" },
     { key: "architecture" as const, label: "Architecture", icon: "account_tree" },
-    { key: "escrow" as const, label: "Escrow & Acceptance", icon: "verified_user" },
+    { key: "escrow" as const, label: "Payment & Approval", icon: "verified_user" },
   ];
 
   return (
@@ -183,7 +183,7 @@ export default function DossierClient({
                           </span>
                         </div>
                         <p className="text-sm text-on-surface-variant leading-relaxed">
-                          {m.description || `Milestone phase ${idx + 1} of ${milestones.length}. Deliverable maps to Escrow release for ${formatCurrency(Number(m.amount))} upon client approval.`}
+                          {m.description || `Milestone phase ${idx + 1} of ${milestones.length}. Payment of {formatCurrency(Number(m.amount))} released upon your approval.`}
                         </p>
                         {m.estimated_duration_days && (
                           <div className="mt-3 flex items-center gap-2">
@@ -217,7 +217,7 @@ export default function DossierClient({
           {/* ================================================================= */}
           {activeTab === "escrow" && (
             <div className="animate-in fade-in duration-300 space-y-6 max-w-4xl">
-              <p className="text-on-surface-variant text-sm font-medium">Strict binary acceptance rules governing Escrow fund release for each milestone phase.</p>
+              <p className="text-on-surface-variant text-sm font-medium">Clear acceptance criteria for each milestone payment.</p>
               
               <div className="space-y-6">
                 {milestones.map((m: any, idx: number) => (
@@ -234,7 +234,7 @@ export default function DossierClient({
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Escrow Lock</p>
+                        <p className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Milestone Status</p>
                         <p className="text-xl font-black text-on-surface">{formatCurrency(Number(m.amount))}</p>
                       </div>
                     </div>
@@ -263,10 +263,10 @@ export default function DossierClient({
               {/* Total Escrow Summary */}
               <div className="bg-surface/60 border border-tertiary/20 rounded-2xl p-8 flex flex-col md:flex-row md:items-center justify-between mt-8">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant mb-1">Total Escrow Required</p>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant mb-1">Total Project Cost</p>
                   <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">{formatCurrency(totalValue)}</p>
                 </div>
-                <p className="text-xs text-on-surface-variant max-w-sm mt-4 md:mt-0">All milestone funds are held in Stripe Escrow and released only upon formal acceptance of every listed criterion above.</p>
+                <p className="text-xs text-on-surface-variant max-w-sm mt-4 md:mt-0">Funds are held securely and released only when you approve each milestone.</p>
               </div>
             </div>
           )}
@@ -285,7 +285,7 @@ export default function DossierClient({
             className="bg-on-surface text-surface px-10 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-[0_10px_25px_rgba(0,0,0,0.3)] active:scale-95"
           >
             <span className="material-symbols-outlined text-[18px]">gavel</span>
-            Draft Escrow Bid
+            Submit Proposal
           </button>
         </div>
       </div>

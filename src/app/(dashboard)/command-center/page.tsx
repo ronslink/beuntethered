@@ -99,9 +99,9 @@ export default async function ProjectCommandCenter(props: { searchParams: Promis
           <div className="flex items-center justify-between px-2">
             <h3 className="text-xl font-bold font-headline flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">format_list_numbered</span>
-              Active Milestones
+              Milestones
             </h3>
-            <button className="text-primary text-sm font-bold font-headline hover:underline transition-all">View Roadmap</button>
+            <button className="text-primary text-sm font-bold font-headline hover:underline transition-all">View All</button>
           </div>
           
           <div className="space-y-4">
@@ -159,17 +159,17 @@ export default async function ProjectCommandCenter(props: { searchParams: Promis
                <div className="bg-surface/60 backdrop-blur-3xl border border-tertiary/40 rounded-3xl p-8 lg:p-12 text-center shadow-xl shadow-tertiary/5 relative overflow-hidden">
                   <div className="absolute top-0 right-[-10%] w-64 h-64 bg-tertiary/10 blur-[80px] rounded-full pointer-events-none"></div>
                   <span className="material-symbols-outlined text-6xl text-tertiary mb-6 drop-shadow-[0_0_20px_rgba(var(--color-tertiary),0.4)]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                  <h3 className="text-3xl font-black font-headline text-on-surface uppercase tracking-tight mb-2">Escrow Mathematically Resolved</h3>
-                  <p className="text-sm font-medium text-on-surface-variant max-w-xl mx-auto">This Project execution container has been definitively closed and marked Read-Only. AI Auditor telemetry bounds and Client Reviews have successfully merged into the Facilitator's Global Trust Score.</p>
+                  <h3 className="text-3xl font-black font-headline text-on-surface uppercase tracking-tight mb-2">Project Complete</h3>
+                  <p className="text-sm font-medium text-on-surface-variant max-w-xl mx-auto">This project is complete. The client has approved all milestones and funds have been released.</p>
                </div>
             ) : user.role === "FACILITATOR" ? (
                isHubLocked ? (
                   <div className="bg-error/10 border border-error/50 p-8 rounded-3xl flex flex-col items-center justify-center text-center shadow-lg shadow-error/5 animate-in fade-in slide-in-from-bottom-4">
                      <span className="material-symbols-outlined text-5xl text-error mb-4 drop-shadow-[0_0_15px_rgba(var(--color-error),0.4)]" style={{ fontVariationSettings: "'FILL' 1" }}>shield_locked</span>
-                     <h3 className="text-2xl font-black font-headline text-error tracking-tight uppercase mb-2">Native Execution Locked</h3>
-                     <p className="text-sm text-error/90 max-w-lg mb-8 leading-relaxed font-medium">To strictly enforce our 20-Hour Sprint limits organically, you must securely map a direct Github Repository URL in the Integrations loop before processing Time Logs.</p>
+                     <h3 className="text-2xl font-black font-headline text-error tracking-tight uppercase mb-2">HUB Required</h3>
+                     <p className="text-sm text-error/90 max-w-lg mb-8 leading-relaxed font-medium">To track time against this project, you need to connect a GitHub repository first.</p>
                      <Link href={`/command-center?id=${project.id}&tab=integrations`} className="bg-gradient-to-br from-error to-error/80 text-on-error hover:bg-error-container font-black uppercase tracking-widest text-xs px-8 py-4 rounded-xl shadow-[0_8px_20px_rgba(var(--color-error),0.3)] transition-all hover:shadow-error/50 hover:-translate-y-1 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px]">link</span> Route to Integrations Hub
+                        <span className="material-symbols-outlined text-[16px]">link</span> Connect GitHub Repo
                      </Link>
                   </div>
                ) : (
@@ -189,7 +189,7 @@ export default async function ProjectCommandCenter(props: { searchParams: Promis
                 <div className="mt-8 bg-surface-container-low border border-primary/30 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between shadow-lg shadow-primary/5 gap-4">
                    <div>
                       <h4 className="text-lg font-bold text-on-surface">Sprint Array Mastered</h4>
-                      <p className="text-xs text-on-surface-variant max-w-sm mt-1">Previous 20-hour block approved and disbursed securely. Top up Escrow mathematically to unlock Expert execution boundaries globally.</p>
+                      <p className="text-xs text-on-surface-variant max-w-sm mt-1">Fund the next sprint to keep the project moving.</p>
                    </div>
                    <button className="whitespace-nowrap shrink-0 bg-primary text-on-primary font-bold px-6 py-3 rounded-xl uppercase tracking-widest text-[10px] hover:-translate-y-0.5 transition-all shadow-[0_8px_20px_rgba(var(--color-primary),0.3)]">Fund Next Sprint</button>
                 </div>

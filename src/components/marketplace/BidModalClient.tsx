@@ -94,7 +94,7 @@ export default function BidModalClient({ project }: { project: any }) {
                     <span className="material-symbols-outlined text-sm">architecture</span>
                     Technical Architectural Strategy
                  </label>
-                 <textarea required value={technicalApproach} onChange={e => setTechnicalApproach(e.target.value)} placeholder="Describe your operational stack, execution velocity, and how you will overcome the Escrow variables formally via API configurations..." className="w-full bg-surface-container border border-outline-variant/30 focus:border-primary px-5 py-5 rounded-xl text-sm focus:outline-none min-h-[160px] resize-none transition-colors custom-scrollbar leading-relaxed relative z-10 shadow-inner"></textarea>
+                 <textarea required value={technicalApproach} onChange={e => setTechnicalApproach(e.target.value)} placeholder="Describe your experience, approach, and how you will build this project..." className="w-full bg-surface-container border border-outline-variant/30 focus:border-primary px-5 py-5 rounded-xl text-sm focus:outline-none min-h-[160px] resize-none transition-colors custom-scrollbar leading-relaxed relative z-10 shadow-inner"></textarea>
               </div>
 
               <div className="pt-6 flex justify-end">

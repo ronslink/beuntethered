@@ -22,7 +22,7 @@ export default function ProjectCompletionModal({ projectId, facilitatorId }: { p
        });
 
        if (res.success) {
-          alert("Escrow Telemetry Closed. AI Auditor boundaries mathematically bound to Expert Profile natively!");
+          alert("Project marked as complete!");
           setIsOpen(false);
           router.refresh();
        } else {
@@ -40,7 +40,7 @@ export default function ProjectCompletionModal({ projectId, facilitatorId }: { p
          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 rounded-2xl"></div>
          <span className="relative z-10 flex items-center justify-center gap-4">
             <span className="material-symbols-outlined text-4xl">task_alt</span>
-            Finalize Escrow & Rate Expert
+            Complete Project & Leave Review
          </span>
       </button>
 
@@ -52,7 +52,7 @@ export default function ProjectCompletionModal({ projectId, facilitatorId }: { p
                <div className="absolute top-[-50px] right-[-50px] w-64 h-64 bg-primary/20 blur-3xl rounded-full pointer-events-none"></div>
 
                <h2 className="text-3xl font-black font-headline uppercase tracking-tighter text-on-surface">Algorithmic Project Closure</h2>
-               <p className="text-sm text-on-surface-variant mt-2 font-medium">Your rating mathematically combines with internal AI Auditor telemetry to construct the Expert's Global Trust Score directly. Escrow will be permanently frozen upon submission.</p>
+               <p className="text-sm text-on-surface-variant mt-2 font-medium">Your review helps other clients find great developers. The project will be marked as complete after submission.</p>
 
                <form onSubmit={handleCloseProject} className="mt-8 space-y-8">
                   
@@ -79,7 +79,7 @@ export default function ProjectCompletionModal({ projectId, facilitatorId }: { p
                      <label className="text-xs uppercase font-bold tracking-widest text-on-surface-variant block mb-2">Executive Feedback</label>
                      <textarea 
                         required
-                        placeholder="Detail the technical capability, communication, and execution speed natively..."
+                        placeholder="Rate the developer on quality, communication, and speed..."
                         value={feedback}
                         onChange={(e) => setFeedback(e.target.value)}
                         className="w-full h-32 bg-surface-container border border-outline-variant/30 rounded-xl p-4 text-on-surface placeholder:text-outline-variant/50 focus:border-tertiary/50 focus:ring-1 focus:ring-tertiary/50 transition-all font-medium text-sm resize-none custom-scrollbar"
@@ -89,7 +89,7 @@ export default function ProjectCompletionModal({ projectId, facilitatorId }: { p
                   <div className="flex items-center justify-end gap-4 pt-6 border-t border-outline-variant/30">
                      <button type="button" onClick={() => setIsOpen(false)} disabled={isPending} className="px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-sm text-on-surface hover:bg-surface-container transition-colors disabled:opacity-50">Cancel Null</button>
                      <button type="submit" disabled={isPending} className="bg-gradient-to-r from-tertiary to-tertiary-container hover:scale-105 transition-all text-on-tertiary rounded-xl px-8 py-3.5 font-black uppercase tracking-widest text-sm shadow-[0_8px_20px_rgba(var(--color-tertiary),0.3)] flex items-center gap-2">
-                        {isPending ? <span className="material-symbols-outlined animate-spin">sync</span> : 'Freeze Escrow & Publish'}
+                        {isPending ? <span className="material-symbols-outlined animate-spin">sync</span> : 'Complete & Publish Review'}
                      </button>
                   </div>
 

@@ -27,14 +27,14 @@ export default async function TopTalentDirectory() {
        <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-16">
           <header className="text-center max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
              <span className="font-headline font-black tracking-widest uppercase text-tertiary text-sm px-6 py-2 rounded-full border border-tertiary/30 bg-tertiary/10 shadow-[0_0_20px_rgba(var(--color-tertiary),0.2)]">
-                The Top 1% Global Escrow Network
+                Top-Rated Freelancers
              </span>
              <h1 className="text-6xl md:text-7xl font-black font-headline tracking-tighter text-on-surface uppercase leading-[0.9]">
                 Execute With <br />
                 <span className="bg-gradient-to-r from-tertiary to-primary bg-clip-text text-transparent">Algorithmic Proof</span>
              </h1>
              <p className="text-on-surface-variant text-lg font-medium max-w-2xl mx-auto">
-                Our Executive Intelligence automatically evaluates code commits safely freezing bad actors from escaping. Hire from our Global Matchmaking Matrix confidently natively secured by Escrow.
+                Our platform reviews developer work and ensures safe payments. Hire confidently with built-in escrow protection.
              </p>
           </header>
 

@@ -84,7 +84,7 @@ export default function BYOKSettingsClient({
                   placeholder="sk-proj-.................." 
                   className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-medium focus:border-primary/50 outline-none transition-colors font-mono text-sm placeholder:text-on-surface-variant/30" 
                />
-               <p className="text-[11px] text-on-surface-variant mt-2 opacity-80">Keys are encrypted symmetrically on submission natively routing securely to Vercel layers.</p>
+               <p className="text-[11px] text-on-surface-variant mt-2 opacity-80">Your API key is encrypted when submitted and stored securely.</p>
             </div>
             
             <div>

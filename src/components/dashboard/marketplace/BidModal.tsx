@@ -65,7 +65,7 @@ export default function BidModal({
             {/* Header */}
             <div className="p-8 pb-0 flex justify-between items-start">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Draft Escrow Bid</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Submit Proposal</span>
                 <h3 className="text-xl font-black font-headline text-on-surface mt-1 leading-tight">{project.title}</h3>
               </div>
               <button onClick={onClose} className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors">
@@ -108,7 +108,7 @@ export default function BidModal({
                 <label className="text-[9px] font-bold uppercase tracking-widest block text-on-surface-variant mb-2">Technical Approach</label>
                 <textarea 
                   required value={approach} onChange={(e) => setApproach(e.target.value)} rows={4} 
-                  placeholder="Outline your exact architecture, tooling, and execution methodology..."
+                  placeholder="Describe your approach, tools, and how you will build this..."
                   className="w-full bg-surface border border-outline-variant/30 rounded-xl p-4 text-sm font-medium text-on-surface focus:border-primary focus:ring-0 outline-none transition-colors custom-scrollbar resize-none shadow-inner" 
                 />
               </div>
@@ -117,7 +117,7 @@ export default function BidModal({
                 className={`w-full font-black uppercase tracking-widest text-sm py-4 rounded-xl transition-all flex items-center justify-center gap-2 ${isPending ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed' : 'bg-on-surface text-surface hover:-translate-y-1 shadow-[0_10px_25px_rgba(0,0,0,0.3)] active:scale-95'}`}
               >
                 {isPending ? (
-                  <><span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> Securing Escrow Proposal...</>
+                  <><span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> Submitting proposal...</>
                 ) : (
                   <>Submit Bid <span className="material-symbols-outlined text-[16px]">send</span></>
                 )}

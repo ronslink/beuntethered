@@ -22,12 +22,12 @@ export default function AcceptSquadButton({ squadId, projectId }: { squadId: str
       {isPending ? (
          <>
           <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
-          <span>Locking Escrow Variables...</span>
+          <span>Hiring squad...</span>
          </>
       ) : (
          <>
           <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>gavel</span>
-          <span>Accept Squad & Fund Escrow</span>
+          <span>Hire Squad</span>
          </>
       )}
     </button>
