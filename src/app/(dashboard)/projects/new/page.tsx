@@ -63,18 +63,23 @@ export default function ProjectCreationWizard() {
     }
   }, [sowData, isGenerating, step]);
 
-  const updateMilestoneValue = (index: number, field: string, value: number) => {
+  const updateSoWField = (field: string, value: string) => {
+    if (!editableSoW) return;
+    setEditableSoW({ ...editableSoW, [field]: value });
+  };
+
+  const updateMilestoneField = (index: number, field: string, value: string | number) => {
     if (!editableSoW) return;
     const newMilestones = [...editableSoW.milestones];
     newMilestones[index] = { ...newMilestones[index], [field]: value };
     
-    const newTotal = newMilestones.reduce((acc: number, m: any) => acc + (Number(m.amount) || 0), 0);
-    
-    setEditableSoW({
-      ...editableSoW,
-      milestones: newMilestones,
-      totalAmount: newTotal
-    });
+    // Recalc total if amount changed
+    if (field === 'amount') {
+      const newTotal = newMilestones.reduce((acc: number, m: any) => acc + (Number(m.amount) || 0), 0);
+      setEditableSoW({ ...editableSoW, milestones: newMilestones, totalAmount: newTotal });
+    } else {
+      setEditableSoW({ ...editableSoW, milestones: newMilestones });
+    }
   };
 
   const updateDeliverable = (milestoneIdx: number, deliverableIdx: number, value: string) => {
@@ -282,14 +287,26 @@ export default function ProjectCreationWizard() {
 
             return (
             <div className="animate-in fade-in slide-in-from-right-8 duration-500 space-y-8 pb-28">
-               {/* Header */}
-               <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto">
+               {/* Header — Editable Title & Summary */}
+               <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto space-y-3">
                  <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
                    <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
                    Interactive Timeline Canvas
                  </p>
-                 <h3 className="text-3xl font-extrabold text-on-surface font-headline leading-snug">{editableSoW.title || 'Structuring...'}</h3>
-                 <p className="text-sm text-on-surface-variant mt-2">Edit durations, add or remove features from each phase. The Gantt chart updates in real-time.</p>
+                 <input 
+                    type="text" 
+                    value={editableSoW.title || ''}
+                    onChange={(e) => updateSoWField('title', e.target.value)}
+                    className="text-3xl font-extrabold text-on-surface font-headline leading-snug bg-transparent border-b-2 border-transparent hover:border-outline-variant/30 focus:border-primary/50 text-center w-full focus:outline-none transition-colors"
+                    placeholder="Project Title"
+                 />
+                 <textarea 
+                    value={editableSoW.executiveSummary || ''}
+                    onChange={(e) => updateSoWField('executiveSummary', e.target.value)}
+                    rows={2}
+                    className="text-sm text-on-surface-variant w-full bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-primary/30 rounded-lg p-2 text-center resize-none focus:outline-none focus:ring-0 transition-colors"
+                    placeholder="Executive summary..."
+                 />
                </div>
 
                {/* ===== GANTT CHART VISUALIZER ===== */}
@@ -344,16 +361,28 @@ export default function ProjectCreationWizard() {
                           <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
                              {idx + 1}
                           </div>
-                          <div className="flex-1 min-w-0">
-                             <h4 className="text-lg font-bold font-headline text-on-surface truncate">{m.title}</h4>
-                             <p className="text-xs text-on-surface-variant opacity-70 truncate">{m.description}</p>
+                          <div className="flex-1 min-w-0 space-y-1">
+                             <input 
+                                type="text" 
+                                value={m.title || ''}
+                                onChange={(e) => updateMilestoneField(idx, 'title', e.target.value)}
+                                className="text-lg font-bold font-headline text-on-surface bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
+                                placeholder="Phase title"
+                             />
+                             <input 
+                                type="text" 
+                                value={m.description || ''}
+                                onChange={(e) => updateMilestoneField(idx, 'description', e.target.value)}
+                                className="text-xs text-on-surface-variant bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-primary/30 w-full focus:outline-none transition-colors"
+                                placeholder="Phase description..."
+                             />
                           </div>
                           <div className="shrink-0 w-28">
                              <label className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant block mb-1">Days</label>
                              <input 
                                 type="number" min={1}
                                 value={m.estimated_duration_days || ''} 
-                                onChange={(e) => updateMilestoneValue(idx, 'estimated_duration_days', Number(e.target.value))}
+                                onChange={(e) => updateMilestoneField(idx, 'estimated_duration_days', Number(e.target.value))}
                                 className="w-full bg-surface border border-outline-variant/30 rounded-lg p-2.5 text-on-surface focus:border-primary/50 focus:ring-0 text-sm font-black shadow-inner text-center"
                              />
                           </div>
@@ -398,15 +427,19 @@ export default function ProjectCreationWizard() {
                           </button>
                        </div>
 
-                       {/* Acceptance Criteria (collapsed) */}
-                       {m.acceptance_criteria && (
-                          <div className="px-5 pb-4">
-                             <div className="bg-surface-container-low p-3 rounded-xl border border-secondary/15">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">Escrow Acceptance Rules</p>
-                                <p className="text-[11px] text-on-surface-variant leading-relaxed">{m.acceptance_criteria}</p>
-                             </div>
+                       {/* Acceptance Criteria — Editable */}
+                       <div className="px-5 pb-4">
+                          <div className="bg-surface-container-low p-3 rounded-xl border border-secondary/15">
+                             <p className="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">Escrow Acceptance Rules</p>
+                             <textarea 
+                                value={m.acceptance_criteria || ''}
+                                onChange={(e) => updateMilestoneField(idx, 'acceptance_criteria', e.target.value)}
+                                rows={2}
+                                className="w-full text-[11px] text-on-surface-variant leading-relaxed bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-secondary/40 focus:outline-none resize-none transition-colors"
+                                placeholder="Define strict binary rules for Escrow release..."
+                             />
                           </div>
-                       )}
+                       </div>
                     </div>
                     );
                  })}
@@ -466,7 +499,7 @@ export default function ProjectCreationWizard() {
                                  <input 
                                     type="number"
                                     value={m.amount || ''}
-                                    onChange={(e) => updateMilestoneValue(idx, 'amount', Number(e.target.value))}
+                                    onChange={(e) => updateMilestoneField(idx, 'amount', Number(e.target.value))}
                                     className="w-full bg-surface border border-outline-variant/30 rounded-xl py-3 pl-8 pr-4 text-on-surface font-black text-right shadow-inner focus:border-tertiary/50 transition-colors"
                                  />
                               </div>
