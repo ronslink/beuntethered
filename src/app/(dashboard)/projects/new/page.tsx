@@ -13,6 +13,7 @@ export default function ProjectCreationWizard() {
   const [step, setStep] = useState<number>(1);
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<"EXECUTION" | "DISCOVERY">("EXECUTION");
+  const [desiredTimeline, setDesiredTimeline] = useState("");
   const [loadingStatus, setLoadingStatus] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<any>(null);
@@ -119,7 +120,7 @@ export default function ProjectCreationWizard() {
       const response = await fetch("/api/ai/generate-sow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, mode }),
+        body: JSON.stringify({ prompt, mode, desiredTimeline }),
       });
 
       const data = await response.json();
@@ -257,8 +258,31 @@ export default function ProjectCreationWizard() {
                              value={prompt}
                              onChange={(e) => setPrompt(e.target.value)}
                              placeholder="e.g. 'I need a full-stack Next.js app with pgvector bindings for 5k, split across two phases.'"
-                             className="w-full h-64 bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-2xl p-6 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-lg focus:outline-none relative z-10 custom-scrollbar shadow-inner"
+                             className="w-full h-48 bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-2xl p-6 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-lg focus:outline-none relative z-10 custom-scrollbar shadow-inner"
                            />
+                        </div>
+
+                        {/* Timeline / Deadline Input */}
+                        <div className="flex flex-col md:flex-row gap-4">
+                           <div className="flex-1 relative">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">
+                                <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">schedule</span> Desired Timeline</span>
+                              </label>
+                              <input 
+                                 type="text" 
+                                 value={desiredTimeline}
+                                 onChange={(e) => setDesiredTimeline(e.target.value)}
+                                 placeholder="e.g. '2 weeks', '30 days', 'by June 15th'"
+                                 className="w-full bg-surface border border-outline-variant/30 focus:border-primary/50 rounded-xl p-4 text-on-surface text-sm focus:ring-0 focus:outline-none relative z-10 shadow-inner placeholder:text-on-surface-variant/40"
+                              />
+                           </div>
+                           {mode === "DISCOVERY" && (
+                              <div className="flex-1 flex items-end">
+                                 <div className="w-full bg-primary/5 border border-primary/20 rounded-xl p-4">
+                                    <p className="text-xs text-primary font-bold">Discovery Mode locks to a 7-day architecture sprint at $1,000.</p>
+                                 </div>
+                              </div>
+                           )}
                         </div>
                         <div className="flex justify-end pt-4">
                            <button 

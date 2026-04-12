@@ -9,7 +9,7 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
-    const { prompt, mode } = await req.json();
+    const { prompt, mode, desiredTimeline } = await req.json();
 
     if (!prompt) {
        return NextResponse.json({ error: "Valid contextual prompt required." }, { status: 400 });
@@ -20,11 +20,16 @@ export async function POST(req: Request) {
 
     const dynamicModel = await getDynamicAIProvider(user.id);
 
+    // Build timeline context
+    const timelineHint = desiredTimeline 
+       ? ` The client's desired completion timeline is: "${desiredTimeline}". You MUST distribute phase durations to fit within this timeline.`
+       : '';
+
     // Branching Logic for DISCOVERY mode mapping
     const isDiscovery = mode === 'DISCOVERY';
     const drafterPrompt = isDiscovery 
-       ? `The user wants to explore a project idea: ${prompt}. Write a highly focused, single exactly $1,000 "Technical Architecture Blueprint" milestone. Do not draft a full application scope, strictly lock it to a discovery/architecture phase only.`
-       : `The user wants to build: ${prompt}. Write a rough, 3-phase project outline. Focus only on high-level features.`;
+       ? `The user wants to explore a project idea: ${prompt}. Write a highly focused, single exactly $1,000 "Technical Architecture Blueprint" milestone. Do not draft a full application scope, strictly lock it to a discovery/architecture phase only.${timelineHint}`
+       : `The user wants to build: ${prompt}. Write a rough, 3-phase project outline. Focus only on high-level features.${timelineHint}`;
 
     // Pass 1: The Raw Drafter (Fast & Cheap)
     const { text: roughDraft } = await generateText({
