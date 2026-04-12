@@ -131,6 +131,9 @@ model Milestone {
   project_id               String
   facilitator_id           String?
   title                    String
+  description              String?         @db.Text
+  acceptance_criteria      String[]
+  estimated_duration_days  Int?
   amount                   Decimal
   status                   MilestoneStatus @default(PENDING)
   stripe_payment_intent_id String?

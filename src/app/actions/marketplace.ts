@@ -21,6 +21,11 @@ export async function postProjectToMarketplace(sowData: any) {
         milestones: {
           create: sowData.milestones.map((m: any) => ({
             title: m.title,
+            description: m.description || null,
+            acceptance_criteria: m.acceptance_criteria 
+              ? (Array.isArray(m.acceptance_criteria) ? m.acceptance_criteria : [m.acceptance_criteria])
+              : [],
+            estimated_duration_days: m.estimated_duration_days || null,
             amount: m.amount,
             status: "PENDING"
           }))

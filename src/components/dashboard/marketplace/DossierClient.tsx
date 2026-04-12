@@ -183,8 +183,14 @@ export default function DossierClient({
                           </span>
                         </div>
                         <p className="text-sm text-on-surface-variant leading-relaxed">
-                          Milestone phase {idx + 1} of {milestones.length}. This deliverable maps specifically to the Escrow release trigger for {formatCurrency(Number(m.amount))} upon formal client approval of all acceptance criteria.
+                          {m.description || `Milestone phase ${idx + 1} of ${milestones.length}. Deliverable maps to Escrow release for ${formatCurrency(Number(m.amount))} upon client approval.`}
                         </p>
+                        {m.estimated_duration_days && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[14px] text-primary">schedule</span>
+                            <span className="text-xs font-bold text-primary">{m.estimated_duration_days} days estimated</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -223,13 +229,12 @@ export default function DossierClient({
                     {/* Acceptance Criteria Checklist */}
                     <div className="p-6 space-y-3">
                       <p className="text-[10px] uppercase tracking-widest font-bold text-secondary mb-3">Acceptance Criteria for Release</p>
-                      {/* Mock acceptance criteria since milestone model doesn't store them yet */}
-                      {[
+                      {(m.acceptance_criteria && m.acceptance_criteria.length > 0 ? m.acceptance_criteria : [
                         `All deliverables for "${m.title}" deployed to staging environment`,
                         "Client sign-off received on functional requirements",
                         "Zero critical bugs in acceptance testing window",
                         "Code review passed with AI Audit score ≥ 85"
-                      ].map((criteria: string, cidx: number) => (
+                      ]).map((criteria: string, cidx: number) => (
                         <div key={cidx} className="flex items-start gap-3 group">
                           <div className="w-5 h-5 rounded border border-outline-variant/30 flex items-center justify-center shrink-0 mt-0.5 group-hover:border-tertiary/50 transition-colors">
                             <span className="material-symbols-outlined text-[12px] text-outline-variant/30">check</span>

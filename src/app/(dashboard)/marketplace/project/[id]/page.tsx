@@ -55,6 +55,9 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
   const serializedMilestones = project.milestones.map(m => ({
     id: m.id,
     title: m.title,
+    description: m.description,
+    acceptance_criteria: m.acceptance_criteria,
+    estimated_duration_days: m.estimated_duration_days,
     amount: Number(m.amount),
     status: m.status,
   }));
