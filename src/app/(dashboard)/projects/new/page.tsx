@@ -42,6 +42,15 @@ export default function ProjectCreationWizard() {
     schema: SOWSchema,
   });
 
+  // Mutator to structurally lock down edits natively overwriting stream states
+  const [editableSoW, setEditableSoW] = useState<any>(null);
+
+  useEffect(() => {
+    if (sowData && !isGenerating) {
+       setEditableSoW(sowData);
+    }
+  }, [sowData, isGenerating]);
+
   // Tracking dynamic state maps
   useEffect(() => {
     if (isGenerating && !sowData) {
@@ -60,6 +69,21 @@ export default function ProjectCreationWizard() {
     }
   }, [sowData, isGenerating, step]);
 
+  const updateMilestoneValue = (index: number, field: string, value: number) => {
+    if (!editableSoW) return;
+    const newMilestones = [...editableSoW.milestones];
+    newMilestones[index] = { ...newMilestones[index], [field]: value };
+    
+    // Auto-calculate Total Valuation natively bounding updates
+    const newTotal = newMilestones.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+    
+    setEditableSoW({
+      ...editableSoW,
+      milestones: newMilestones,
+      totalAmount: newTotal
+    });
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
@@ -71,7 +95,7 @@ export default function ProjectCreationWizard() {
     setStep(4);
     
     // Call server action explicitly matching vectors
-    const res = await fetchRecommendedSquad(sowData?.executiveSummary || "Default Mapping Hash Strings");
+    const res = await fetchRecommendedSquad(editableSoW?.executiveSummary || "Default Mapping Hash Strings");
     if (res.success && res.matchData) {
       setSquad(res.matchData);
     }
@@ -83,7 +107,7 @@ export default function ProjectCreationWizard() {
     startTransition(async () => {
       // Package the data mapping dynamically
       const finalPayload = {
-         ...sowData,
+         ...(editableSoW || sowData),
          mode,
          selected_facilitators: selectedFacilitators
       };
@@ -213,18 +237,18 @@ export default function ProjectCreationWizard() {
          {/* ========================================================== */}
          {/* STEP 2: TIMELINE & STREAMING JSON MAP                      */}
          {/* ========================================================== */}
-         {step === 2 && sowData && (
+         {step === 2 && (editableSoW || sowData) && (
             <div className="animate-in fade-in slide-in-from-right-8 duration-500 space-y-8">
                <div className="border-b border-outline-variant/20 pb-6 mb-8 text-center max-w-3xl mx-auto">
                  <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
                    <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
                    Milestone Timeline Architecture
                  </p>
-                 <h3 className="text-3xl font-extrabold text-on-surface font-headline leading-snug">{sowData.title || 'Structuring...'}</h3>
+                 <h3 className="text-3xl font-extrabold text-on-surface font-headline leading-snug">{(editableSoW || sowData).title || 'Structuring...'}</h3>
                </div>
                
                <div className="space-y-6">
-                 {sowData.milestones?.filter((m: any) => m && m.title).map((m: any, idx: number) => (
+                 {(editableSoW || sowData).milestones?.filter((m: any) => m && m.title).map((m: any, idx: number) => (
                    <div key={idx} className="bg-surface/50 border border-outline-variant/30 p-6 rounded-2xl flex flex-col md:flex-row gap-6 shadow-sm">
                       <div className="w-12 h-12 rounded-full border-2 border-primary/30 flex items-center justify-center font-bold text-primary shrink-0">{idx + 1}</div>
                       <div className="flex-1 space-y-3">
@@ -244,7 +268,9 @@ export default function ProjectCreationWizard() {
                             <label className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant block mb-1">Duration (Days)</label>
                             <input 
                                type="number" 
-                               defaultValue={m.estimated_duration_days || Math.floor(Math.random() * 10) + 5} 
+                               value={m.estimated_duration_days || ''} 
+                               onChange={(e) => updateMilestoneValue(idx, 'estimated_duration_days', Number(e.target.value))}
+                               placeholder="e.g. 14"
                                className="w-full bg-surface border border-outline-variant/30 rounded-lg p-3 text-on-surface focus:border-primary/50 focus:ring-0 text-sm font-bold shadow-inner"
                             />
                          </div>
@@ -266,7 +292,7 @@ export default function ProjectCreationWizard() {
          {/* ========================================================== */}
          {/* STEP 3: FINANCIAL LEDGER                                   */}
          {/* ========================================================== */}
-         {step === 3 && sowData && (
+         {step === 3 && (editableSoW || sowData) && (
             <div className="animate-in fade-in slide-in-from-right-8 duration-500">
                <div className="max-w-2xl mx-auto space-y-8">
                   <div className="text-center">
@@ -279,7 +305,7 @@ export default function ProjectCreationWizard() {
                      <div className="absolute top-0 right-0 w-64 h-64 bg-tertiary/5 blur-3xl rounded-full pointer-events-none"></div>
                      
                      <div className="space-y-6 relative z-10">
-                        {sowData.milestones?.map((m: any, idx: number) => (
+                        {(editableSoW || sowData).milestones?.map((m: any, idx: number) => (
                            <div key={idx} className="flex items-center justify-between gap-4 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/10">
                               <div className="flex-1">
                                  <p className="text-xs text-tertiary font-bold tracking-widest uppercase mb-1">M{idx + 1}</p>
@@ -289,7 +315,8 @@ export default function ProjectCreationWizard() {
                                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold">$</span>
                                  <input 
                                     type="number"
-                                    defaultValue={m.amount}
+                                    value={m.amount || ''}
+                                    onChange={(e) => updateMilestoneValue(idx, 'amount', Number(e.target.value))}
                                     className="w-full bg-surface border border-outline-variant/30 rounded-xl py-3 pl-8 pr-4 text-on-surface font-black text-right shadow-inner focus:border-tertiary/50 transition-colors"
                                  />
                               </div>
@@ -299,7 +326,7 @@ export default function ProjectCreationWizard() {
                         <div className="pt-6 mt-6 border-t border-outline-variant/20 flex flex-col items-center">
                            <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-2">Total Escrow Required</p>
                            <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">
-                              {sowData.totalAmount ? formatCurrency(sowData.totalAmount) : '$0'}
+                              {(editableSoW || sowData).totalAmount ? formatCurrency((editableSoW || sowData).totalAmount) : '$0'}
                            </p>
                         </div>
                      </div>
@@ -319,7 +346,7 @@ export default function ProjectCreationWizard() {
          {/* ========================================================== */}
          {/* STEP 4: SQUAD CONCIERGE MATCH ENGINE                       */}
          {/* ========================================================== */}
-         {step === 4 && sowData && (
+         {step === 4 && (editableSoW || sowData) && (
             <div className="animate-in fade-in slide-in-from-right-8 duration-500">
                
                {isSquadLoading ? (
