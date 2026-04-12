@@ -39,6 +39,8 @@ model User {
   
   openai_key         String?
   anthropic_key      String?
+  openai_key_encrypted         String?
+  anthropic_key_encrypted      String?
   preferred_llm      String           @default("gpt-4o-mini")
 
   hourly_rate        Decimal          @default(0)

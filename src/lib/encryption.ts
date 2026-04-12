@@ -84,3 +84,64 @@ export async function verifyPassword(
 ): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
+
+// ─── API Key Encryption (AES-256-GCM with ENCRYPTION_MASTER_KEY) ───────────────
+
+const API_KEY_ALGORITHM = "aes-256-gcm";
+const API_KEY_IV_LENGTH = 16;
+const API_KEY_TAG_LENGTH = 16;
+
+function getMasterKey(): Buffer {
+  const key = process.env.ENCRYPTION_MASTER_KEY;
+  if (!key) {
+    throw new Error("ENCRYPTION_MASTER_KEY environment variable is not set");
+  }
+  // Support both raw hex (64 chars = 32 bytes) and base64-encoded keys
+  if (key.length === 64) {
+    return Buffer.from(key, "hex");
+  }
+  return Buffer.from(key, "base64");
+}
+
+/**
+ * Encrypt an API key using AES-256-GCM with ENCRYPTION_MASTER_KEY.
+ * Returns a base64 string containing: iv:tag:ciphertext
+ */
+export function encryptApiKey(plaintext: string): string {
+  const key = getMasterKey();
+  const iv = randomBytes(API_KEY_IV_LENGTH);
+  const cipher = createCipheriv(API_KEY_ALGORITHM, key, iv);
+
+  let ciphertext = cipher.update(plaintext, "utf8", "base64");
+  ciphertext += cipher.final("base64");
+
+  const tag = cipher.getAuthTag();
+
+  return Buffer.from(
+    `${iv.toString("base64")}:${tag.toString("base64")}:${ciphertext}`
+  ).toString("base64");
+}
+
+/**
+ * Decrypt an API key that was produced by `encryptApiKey`.
+ */
+export function decryptApiKey(encrypted: string): string {
+  const key = getMasterKey();
+  const parts = Buffer.from(encrypted, "base64").toString("utf8").split(":");
+
+  if (parts.length !== 3) {
+    throw new Error("Invalid encrypted API key payload format");
+  }
+
+  const [ivB64, tagB64, ciphertextB64] = parts;
+  const iv = Buffer.from(ivB64, "base64");
+  const tag = Buffer.from(tagB64, "base64");
+
+  const decipher = createDecipheriv(API_KEY_ALGORITHM, key, iv);
+  decipher.setAuthTag(tag);
+
+  let plaintext = decipher.update(ciphertextB64, "base64", "utf8");
+  plaintext += decipher.final("utf8");
+
+  return plaintext;
+}

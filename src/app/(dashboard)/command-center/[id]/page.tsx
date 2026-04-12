@@ -219,8 +219,27 @@ export default async function ProjectCommandCenter({
           </span>
         </div>
 
-        <div className="space-y-4">
-          {project.milestones.map((milestone, idx) => {
+        {project.milestones.length === 0 ? (
+          <div className="bg-surface-container-low/40 backdrop-blur-xl border border-outline-variant/30 rounded-3xl p-16 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+            <span className="material-symbols-outlined text-outline-variant text-[80px] mb-6" style={{ fontVariationSettings: "'FILL' 0" }}>assignment_late</span>
+            <h3 className="text-2xl font-black font-headline uppercase tracking-tight text-on-surface mb-2">No Milestones Defined</h3>
+            <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-8">
+              {isClient
+                ? "This project doesn't have any milestones yet. Add milestones to track progress and manage payments securely."
+                : "This project doesn't have any milestones defined yet. The client will add milestones to track your work."}
+            </p>
+            {isClient && (
+              <Link
+                href={`/command-center/${project.id}?tab=milestones`}
+                className="px-8 py-3.5 rounded-xl bg-primary text-on-primary font-bold font-headline uppercase tracking-widest text-xs hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-lg shadow-primary/20 hover:-translate-y-0.5 active:scale-95 inline-block"
+              >
+                Add First Milestone
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {project.milestones.map((milestone, idx) => {
             const isActive = milestone.id === activeMilestone?.id;
             const isCompleted = milestone.status === "APPROVED_AND_PAID";
             const isHistorical = idx < project.milestones.indexOf(activeMilestone || { id: "" } as any);
@@ -291,6 +310,7 @@ export default async function ProjectCommandCenter({
             );
           })}
         </div>
+        )}
 
         {/* Project Completion Banner */}
         {isCompleted && (

@@ -1,17 +1,24 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { prisma } from './auth';
+import { decryptApiKey } from './encryption';
 
 export async function getDynamicAIProvider(userId: string) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { preferred_llm: true, openai_key: true, anthropic_key: true }
+      select: {
+        preferred_llm: true,
+        openai_key: true,
+        anthropic_key: true,
+        openai_key_encrypted: true,
+        anthropic_key_encrypted: true,
+      }
     });
 
     // Native unauthenticated route intercept
     if (!user) {
-      const moonshot = createOpenAI({ 
+      const moonshot = createOpenAI({
          apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
          baseURL: 'https://api.minimaxi.chat/v1',
          fetch: async (url, options) => {
@@ -35,15 +42,19 @@ export async function getDynamicAIProvider(userId: string) {
       return moonshot.chat('MiniMax-M2.7');
     }
 
+    // Decrypt API keys if encrypted versions exist (preferred), fall back to plaintext for migration
+    const openaiKey = user.openai_key_encrypted ? decryptApiKey(user.openai_key_encrypted) : user.openai_key ?? undefined;
+    const anthropicKey = user.anthropic_key_encrypted ? decryptApiKey(user.anthropic_key_encrypted) : user.anthropic_key ?? undefined;
+
     // Route 1: Anthropic Custom Node Mapping
-    if (user.preferred_llm === 'claude-3-5-sonnet' && user.anthropic_key) {
-      const anthropic = createAnthropic({ apiKey: user.anthropic_key });
+    if (user.preferred_llm === 'claude-3-5-sonnet' && anthropicKey) {
+      const anthropic = createAnthropic({ apiKey: anthropicKey });
       return anthropic('claude-3-5-sonnet');
     }
 
     // Route 2: OpenAI Custom Payload Allocation
-    if (user.preferred_llm === 'gpt-4o' && user.openai_key) {
-      const customOpenAI = createOpenAI({ apiKey: user.openai_key });
+    if (user.preferred_llm === 'gpt-4o' && openaiKey) {
+      const customOpenAI = createOpenAI({ apiKey: openaiKey });
       return customOpenAI('gpt-4o');
     }
 

@@ -18,16 +18,26 @@ export async function createProjectFromSoW({
     const user = await getCurrentUser();
     if (!user || user.role !== "FACILITATOR") throw new Error("Unauthorized to perform this sequence. Only facilitators can scaffold BYOC structures.");
 
-    // 1. Establish strict client routing. Mock creation if non-existent for test flows.
-    let client = await prisma.user.findUnique({ where: { email: clientEmail } });
+    // Rate limit: prevent the same facilitator from creating more than 5 BYOC clients per day
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentBYOCCount = await prisma.project.count({
+      where: {
+        creator_id: user.id,
+        is_byoc: true,
+        created_at: { gte: oneDayAgo }
+      }
+    });
+    if (recentBYOCCount >= 5) {
+      throw new Error("Rate limit exceeded: maximum 5 BYOC clients per day.");
+    }
+
+    // 1. Verify client exists and is a CLIENT — reject if fabricated
+    const client = await prisma.user.findUnique({ where: { email: clientEmail } });
     if (!client) {
-      client = await prisma.user.create({
-        data: {
-          email: clientEmail,
-          role: "CLIENT",
-          name: clientEmail.split('@')[0],
-        }
-      });
+      throw new Error("Client does not exist. Please ensure the client has registered on the platform.");
+    }
+    if (client.role !== "CLIENT") {
+      throw new Error("The provided email belongs to a non-CLIENT user. Only registered clients can be assigned to BYOC projects.");
     }
 
     // 2. Transmute AI JSON heavily into Prisma Escrow objects flawlessly
@@ -46,6 +56,13 @@ export async function createProjectFromSoW({
             status: "PENDING",
             facilitator_id: user.id
           }))
+        },
+        messages: {
+          create: {
+            content: `BYOC client verified: ${client.name ?? clientEmail} (${clientEmail}). Project created by facilitator ${user.name ?? user.email}.`,
+            is_system_message: true,
+            sender_id: null
+          }
         }
       }
     });
