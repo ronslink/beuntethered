@@ -225,10 +225,10 @@ export default function ProjectCreationWizard() {
                  <p className="text-on-surface-variant font-medium mt-3 max-w-2xl mx-auto">Drop your raw technical constraints below. The Two-Pass Scoping Engine will map the vectors structurally.</p>
                </header>
 
-               <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 shadow-xl relative overflow-hidden max-w-4xl mx-auto">
+               <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 shadow-xl relative overflow-hidden max-w-4xl mx-auto min-h-[500px]">
                   
-                  {isGenerating ? (
-                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-3xl transition-all duration-500">
+                  {isGenerating && (
+                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-md transition-all duration-500">
                         <div className="relative flex items-center justify-center mb-8">
                           <div className="absolute w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse delay-75"></div>
                           {loadingStatus.includes("Agent 1") ? (
@@ -237,12 +237,13 @@ export default function ProjectCreationWizard() {
                             <span className="material-symbols-outlined text-6xl text-secondary animate-bounce shadow-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>precision_manufacturing</span>
                           )}
                         </div>
-                        <h3 className="text-2xl font-bold font-headline mt-4 text-on-surface bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-[gradient_2s_linear_infinite] bg-clip-text text-transparent">
+                        <h3 className="text-2xl font-bold font-headline mt-4 text-on-surface bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-[gradient_2s_linear_infinite] bg-clip-text text-transparent px-8 text-center leading-relaxed">
                           {loadingStatus}
                         </h3>
                      </div>
-                  ) : (
-                     <form onSubmit={handleGenerate} className="space-y-6">
+                  )}
+
+                  <form onSubmit={handleGenerate} className={`space-y-6 transition-all duration-500 ${isGenerating ? 'opacity-0 scale-95 blur-md select-none pointer-events-none' : 'opacity-100 scale-100 blur-0'}`}>
                         <div className="flex bg-surface-container rounded-xl p-1 w-full max-w-md mx-auto mb-6">
                            <button type="button" onClick={() => setMode("EXECUTION")} className={`flex-1 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${mode === "EXECUTION" ? 'bg-surface shadow text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}>
                               Execution Build
