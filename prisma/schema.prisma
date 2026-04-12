@@ -5,7 +5,239 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [vector]
+  extensions = [uuid_ossp(map: "uuid-ossp", schema: "extensions"), vector]
+}
+
+model Account {
+  id                String  @id
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Bid {
+  id                     String    @id
+  project_id             String
+  developer_id           String
+  proposed_amount        Decimal
+  estimated_days         Int
+  technical_approach     String
+  ai_translation_summary String
+  status                 BidStatus @default(PENDING)
+  User                   User      @relation(fields: [developer_id], references: [id])
+  Project                Project   @relation(fields: [project_id], references: [id])
+}
+
+model ChangeOrder {
+  id          String            @id
+  project_id  String
+  description String
+  added_cost  Decimal
+  status      ChangeOrderStatus @default(PROPOSED)
+  Project     Project           @relation(fields: [project_id], references: [id])
+}
+
+model Message {
+  id                String     @id
+  project_id        String
+  milestone_id      String?
+  sender_id         String?
+  content           String
+  is_system_message Boolean    @default(false)
+  Milestone         Milestone? @relation(fields: [milestone_id], references: [id])
+  Project           Project    @relation(fields: [project_id], references: [id])
+  User              User?      @relation(fields: [sender_id], references: [id])
+}
+
+model Milestone {
+  id                       String          @id
+  project_id               String
+  facilitator_id           String?
+  title                    String
+  amount                   Decimal
+  status                   MilestoneStatus @default(PENDING)
+  stripe_payment_intent_id String?
+  acceptance_criteria      String[]
+  deliverables             String[]
+  description              String?
+  estimated_duration_days  Int?
+  Message                  Message[]
+  User                     User?           @relation(fields: [facilitator_id], references: [id])
+  Project                  Project         @relation(fields: [project_id], references: [id])
+  SquadMember              SquadMember[]
+  TimeEntry                TimeEntry[]
+}
+
+model Project {
+  id                            String          @id
+  creator_id                    String
+  client_id                     String?
+  title                         String
+  ai_generated_sow              String
+  is_byoc                       Boolean         @default(false)
+  billing_type                  BillingType     @default(FIXED_MILESTONE)
+  unreviewed_hours_limit        Int             @default(20)
+  github_repo_url               String?
+  github_access_token           String?
+  invite_token                  String?         @unique
+  status                        ProjectStatus   @default(DRAFT)
+  Bid                           Bid[]
+  ChangeOrder                   ChangeOrder[]
+  Message                       Message[]
+  Milestone                     Milestone[]
+  User_Project_client_idToUser  User?           @relation("Project_client_idToUser", fields: [client_id], references: [id])
+  User_Project_creator_idToUser User            @relation("Project_creator_idToUser", fields: [creator_id], references: [id])
+  Review                        Review[]
+  SquadProposal                 SquadProposal[]
+}
+
+model Review {
+  id                               String   @id
+  project_id                       String
+  client_id                        String
+  facilitator_id                   String
+  rating                           Int
+  feedback                         String
+  created_at                       DateTime @default(now())
+  User_Review_client_idToUser      User     @relation("Review_client_idToUser", fields: [client_id], references: [id])
+  User_Review_facilitator_idToUser User     @relation("Review_facilitator_idToUser", fields: [facilitator_id], references: [id])
+  Project                          Project  @relation(fields: [project_id], references: [id])
+}
+
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SquadMember {
+  id                String        @id
+  squad_proposal_id String
+  facilitator_id    String
+  milestone_id      String
+  User              User          @relation(fields: [facilitator_id], references: [id])
+  Milestone         Milestone     @relation(fields: [milestone_id], references: [id])
+  SquadProposal     SquadProposal @relation(fields: [squad_proposal_id], references: [id])
+}
+
+model SquadProposal {
+  id              String        @id
+  project_id      String
+  pitch_to_client String
+  status          BidStatus     @default(PENDING)
+  SquadMember     SquadMember[]
+  Project         Project       @relation(fields: [project_id], references: [id])
+}
+
+model TimeEntry {
+  id                String          @id
+  milestone_id      String
+  facilitator_id    String
+  hours             Decimal
+  proof_url         String?
+  proof_description String?
+  ai_audit_report   Json?
+  status            TimeEntryStatus @default(PENDING)
+  created_at        DateTime        @default(now())
+  User              User            @relation(fields: [facilitator_id], references: [id])
+  Milestone         Milestone       @relation(fields: [milestone_id], references: [id])
+}
+
+model User {
+  id                                 String                 @id
+  email                              String                 @unique
+  emailVerified                      DateTime?
+  image                              String?
+  name                               String?
+  role                               Role                   @default(CLIENT)
+  stripe_account_id                  String?
+  stripe_customer_id                 String?
+  subscription_tier                  SubscriptionTier       @default(FREE)
+  expertise_embedding                Unsupported("vector(1536)")?
+  password_hash                      String?
+  openai_key                         String?
+  anthropic_key                      String?
+  openai_key_encrypted               String?
+  anthropic_key_encrypted            String?
+  openai_key_plaintext               String?
+  anthropic_key_plaintext            String?
+  preferred_llm                      String                 @default("gpt-4o-mini")
+  hourly_rate                        Decimal                @default(0)
+  platform_tier                      PlatformTier           @default(STANDARD)
+  trust_score                        Float                  @default(0.0)
+  total_sprints_completed            Int                    @default(0)
+  average_ai_audit_score             Float                  @default(0.0)
+  Account                            Account[]
+  Bid                                Bid[]
+  Message                            Message[]
+  Milestone                          Milestone[]
+  Project_Project_client_idToUser    Project[]              @relation("Project_client_idToUser")
+  Project_Project_creator_idToUser   Project[]              @relation("Project_creator_idToUser")
+  Review_Review_client_idToUser      Review[]               @relation("Review_client_idToUser")
+  Review_Review_facilitator_idToUser Review[]               @relation("Review_facilitator_idToUser")
+  Session                            Session[]
+  SquadMember                        SquadMember[]
+  TimeEntry                          TimeEntry[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum BillingType {
+  FIXED_MILESTONE
+  HOURLY_RETAINER
+}
+
+enum ChangeOrderStatus {
+  PROPOSED
+  ACCEPTED_AND_FUNDED
+  REJECTED
+}
+
+enum MilestoneStatus {
+  PENDING
+  FUNDED_IN_ESCROW
+  SUBMITTED_FOR_REVIEW
+  APPROVED_AND_PAID
+  DISPUTED
+}
+
+enum PlatformTier {
+  STANDARD
+  PRO
+  ELITE
+}
+
+enum ProjectStatus {
+  DRAFT
+  OPEN_BIDDING
+  ACTIVE
+  COMPLETED
+  DISPUTED
 }
 
 enum Role {
@@ -18,257 +250,8 @@ enum SubscriptionTier {
   BYOC_PRO
 }
 
-enum PlatformTier {
-  STANDARD
-  PRO
-  ELITE
-}
-
-model User {
-  id                 String           @id @default(uuid())
-  email              String           @unique
-  emailVerified      DateTime?
-  image              String?
-  name               String?
-  role               Role             @default(CLIENT)
-  stripe_account_id  String? // for payouts via Connect
-  stripe_customer_id String? // for billing via Stripe
-  subscription_tier  SubscriptionTier @default(FREE)
-  expertise_embedding Unsupported("vector(1536)")?
-  password_hash       String?
-  
-  openai_key         String?
-  anthropic_key      String?
-  openai_key_encrypted         String?
-  anthropic_key_encrypted      String?
-  preferred_llm      String           @default("gpt-4o-mini")
-
-  hourly_rate        Decimal          @default(0)
-  
-  platform_tier      PlatformTier     @default(STANDARD)
-  trust_score        Float            @default(0.0)
-  total_sprints_completed Int         @default(0)
-  average_ai_audit_score Float        @default(0.0)
-  
-  projects_created          Project[] @relation("CreatedProjects")
-  projects_as_client        Project[] @relation("ClientProjects")
-  milestones_as_facilitator Milestone[]
-  squad_members             SquadMember[]
-  bids                      Bid[]
-  messages                  Message[]
-  accounts                  Account[]
-  sessions                  Session[]
-  time_entries              TimeEntry[]
-  reviews_received          Review[] @relation("ReviewsReceived")
-  reviews_given             Review[] @relation("ReviewsGiven")
-}
-
-enum BillingType {
-  FIXED_MILESTONE
-  HOURLY_RETAINER
-}
-
-enum ProjectStatus {
-  DRAFT
-  OPEN_BIDDING
-  ACTIVE
-  COMPLETED
-  DISPUTED
-}
-
-model Project {
-  id               String        @id @default(uuid())
-  creator_id       String
-  client_id        String?
-  title            String
-  ai_generated_sow String        @db.Text
-  is_byoc          Boolean       @default(false)
-  billing_type     BillingType   @default(FIXED_MILESTONE)
-  unreviewed_hours_limit Int     @default(20)
-  github_repo_url  String?
-  github_access_token String?
-  invite_token     String?       @unique
-  status           ProjectStatus @default(DRAFT)
-
-  creator   User  @relation("CreatedProjects", fields: [creator_id], references: [id])
-  client    User? @relation("ClientProjects", fields: [client_id], references: [id])
-
-  bids            Bid[]
-  milestones      Milestone[]
-  squad_proposals SquadProposal[]
-  change_orders   ChangeOrder[]
-  messages        Message[]
-  reviews         Review[]
-}
-
-enum BidStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
-
-model Bid {
-  id                     String    @id @default(uuid())
-  project_id             String
-  developer_id           String
-  proposed_amount        Decimal
-  estimated_days         Int
-  technical_approach     String    @db.Text
-  ai_translation_summary String    @db.Text
-  status                 BidStatus @default(PENDING)
-
-  project   Project @relation(fields: [project_id], references: [id])
-  developer User    @relation(fields: [developer_id], references: [id])
-}
-
-enum MilestoneStatus {
-  PENDING
-  FUNDED_IN_ESCROW
-  SUBMITTED_FOR_REVIEW
-  APPROVED_AND_PAID
-  DISPUTED
-}
-
-model Milestone {
-  id                       String          @id @default(uuid())
-  project_id               String
-  facilitator_id           String?
-  title                    String
-  description              String?         @db.Text
-  acceptance_criteria      String[]
-  deliverables             String[]
-  estimated_duration_days  Int?
-  amount                   Decimal
-  status                   MilestoneStatus @default(PENDING)
-  stripe_payment_intent_id String?
-
-  project       Project       @relation(fields: [project_id], references: [id])
-  facilitator   User?         @relation(fields: [facilitator_id], references: [id])
-  squad_members SquadMember[]
-  messages      Message[]
-  time_entries  TimeEntry[]
-}
-
 enum TimeEntryStatus {
   PENDING
   APPROVED
   DISPUTED
-}
-
-model TimeEntry {
-  id                String          @id @default(uuid())
-  milestone_id      String
-  facilitator_id    String
-  hours             Decimal
-  proof_url         String?         @db.Text
-  proof_description String?         @db.Text
-  ai_audit_report   Json?
-  status            TimeEntryStatus @default(PENDING)
-  created_at        DateTime        @default(now())
-
-  milestone   Milestone @relation(fields: [milestone_id], references: [id])
-  facilitator User      @relation(fields: [facilitator_id], references: [id])
-}
-
-model SquadProposal {
-  id              String        @id @default(uuid())
-  project_id      String
-  pitch_to_client String        @db.Text
-  status          BidStatus     @default(PENDING)
-
-  project Project @relation(fields: [project_id], references: [id])
-  members SquadMember[]
-}
-
-model SquadMember {
-  id                String @id @default(uuid())
-  squad_proposal_id String
-  facilitator_id    String
-  milestone_id      String
-
-  squad_proposal SquadProposal @relation(fields: [squad_proposal_id], references: [id])
-  facilitator    User          @relation(fields: [facilitator_id], references: [id])
-  milestone      Milestone     @relation(fields: [milestone_id], references: [id])
-}
-
-enum ChangeOrderStatus {
-  PROPOSED
-  ACCEPTED_AND_FUNDED
-  REJECTED
-}
-
-model ChangeOrder {
-  id          String            @id @default(uuid())
-  project_id  String
-  description String
-  added_cost  Decimal
-  status      ChangeOrderStatus @default(PROPOSED)
-
-  project Project @relation(fields: [project_id], references: [id])
-}
-
-model Message {
-  id                String  @id @default(uuid())
-  project_id        String
-  milestone_id      String?
-  sender_id         String?
-  content           String  @db.Text
-  is_system_message Boolean @default(false)
-  created_at        DateTime @default(now())
-
-  project   Project    @relation(fields: [project_id], references: [id])
-  milestone Milestone? @relation(fields: [milestone_id], references: [id])
-  sender    User?      @relation(fields: [sender_id], references: [id])
-}
-
-model Review {
-  id             String  @id @default(uuid())
-  project_id     String
-  client_id      String
-  facilitator_id String
-  rating         Int
-  feedback       String  @db.Text
-  created_at     DateTime @default(now())
-
-  project     Project @relation(fields: [project_id], references: [id])
-  client      User    @relation("ReviewsGiven", fields: [client_id], references: [id])
-  facilitator User    @relation("ReviewsReceived", fields: [facilitator_id], references: [id])
-}
-
-// --- NEXTAUTH REQUIRED MODELS ---
-
-model Account {
-  id                String  @id @default(uuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(uuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
 }
