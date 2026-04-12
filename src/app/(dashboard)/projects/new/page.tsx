@@ -149,6 +149,26 @@ export default function ProjectCreationWizard() {
     setIsSquadLoading(false);
   };
 
+  const handleSkipAndPostToMarketplace = () => {
+    startTransition(async () => {
+      const finalPayload = {
+         ...(editableSoW || sowData),
+         mode,
+         selected_facilitators: []
+      };
+      
+      const res = await postProjectToMarketplace(finalPayload);
+      if (res.success) {
+        setToastMessage("Deploying Open Bid Contract. Proceeding to Escrow Funding...");
+        setTimeout(() => {
+          router.push(`/stripe/checkout?projectId=${res.projectId}`);
+        }, 2000);
+      } else {
+        alert(res.error);
+      }
+    });
+  }
+
   const handlePostToMarketplace = () => {
     startTransition(async () => {
       // Package the data mapping dynamically
@@ -500,48 +520,64 @@ export default function ProjectCreationWizard() {
          {/* ========================================================== */}
          {/* STEP 3: FINANCIAL LEDGER                                   */}
          {/* ========================================================== */}
-         {step === 3 && (editableSoW || sowData) && (
-            <div className="animate-in fade-in slide-in-from-right-8 duration-500">
-               <div className="max-w-2xl mx-auto space-y-8">
+         {step === 3 && (editableSoW || sowData) && (() => {
+            const milestones = (editableSoW || sowData).milestones || [];
+            const totalEscrow = milestones.reduce((sum: number, m: any) => sum + Number(m.amount || 0), 0);
+
+            return (
+            <div className="animate-in fade-in slide-in-from-right-8 duration-500 pb-28">
+               <div className="max-w-4xl mx-auto space-y-8">
                   <div className="text-center">
                     <span className="material-symbols-outlined text-5xl text-tertiary mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
-                    <h3 className="text-3xl font-extrabold text-on-surface font-headline leading-snug">Financial Ledger</h3>
-                    <p className="text-on-surface-variant mt-2">Adjust raw Escrow limits. These values represent secure boundary constraints for platform payouts.</p>
+                    <h3 className="text-4xl font-extrabold text-on-surface font-headline leading-snug">Financial Ledger</h3>
+                    <p className="text-on-surface-variant mt-3 text-lg">Adjust raw Escrow limits. These values represent secure boundary constraints for platform payouts.</p>
                   </div>
 
                   <div className="bg-surface/50 border border-tertiary/20 rounded-3xl p-8 relative overflow-hidden shadow-xl">
-                     <div className="absolute top-0 right-0 w-64 h-64 bg-tertiary/5 blur-3xl rounded-full pointer-events-none"></div>
+                     <div className="absolute top-0 right-0 w-96 h-96 bg-tertiary/5 blur-3xl rounded-full pointer-events-none"></div>
                      
                      <div className="space-y-6 relative z-10">
-                        {(editableSoW || sowData).milestones?.map((m: any, idx: number) => (
-                           <div key={idx} className="flex items-center justify-between gap-4 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/10">
-                              <div className="flex-1">
-                                 <p className="text-xs text-tertiary font-bold tracking-widest uppercase mb-1">M{idx + 1}</p>
-                                 <p className="font-bold text-sm text-on-surface truncate">{m.title}</p>
+                        {milestones.map((m: any, idx: number) => (
+                           <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/10 hover:border-primary/30 transition-colors">
+                              <div className="flex-1 space-y-2">
+                                 <div className="flex items-center gap-3">
+                                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0 shadow-inner">
+                                      <span className="text-primary font-black text-xs">{idx + 1}</span>
+                                   </div>
+                                   <p className="font-black text-lg text-on-surface">{m.title}</p>
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant bg-surface border border-outline-variant/20 px-2 py-1 rounded hidden sm:block">{m.estimated_duration_days || 0} Days</span>
+                                 </div>
+                                 <p className="text-sm text-on-surface-variant leading-relaxed line-clamp-2 md:pl-11 opacity-80">{m.description || 'No technical summary provided.'}</p>
                               </div>
-                              <div className="relative w-40 shrink-0">
-                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold">$</span>
-                                 <input 
-                                    type="number"
-                                    value={m.amount || ''}
-                                    onChange={(e) => updateMilestoneField(idx, 'amount', Number(e.target.value))}
-                                    className="w-full bg-surface border border-outline-variant/30 rounded-xl py-3 pl-8 pr-4 text-on-surface font-black text-right shadow-inner focus:border-tertiary/50 transition-colors"
-                                 />
+                              <div className="relative w-full md:w-56 shrink-0 md:pl-0 pl-11">
+                                 <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block mb-2">AI Recommended Price</label>
+                                 <div className="relative">
+                                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-lg pointer-events-none">$</span>
+                                   <input 
+                                      type="number"
+                                      value={m.amount || ''}
+                                      onChange={(e) => updateMilestoneField(idx, 'amount', Number(e.target.value))}
+                                      className="w-full bg-surface border-2 border-outline-variant/20 hover:border-primary/40 focus:border-primary rounded-xl py-4 pl-10 pr-4 text-on-surface font-black text-right shadow-inner text-xl transition-all outline-none focus:ring-4 focus:ring-primary/10"
+                                   />
+                                 </div>
                               </div>
                            </div>
                         ))}
 
-                        <div className="pt-6 mt-6 border-t border-outline-variant/20 flex flex-col items-center">
-                           <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-2">Total Escrow Required</p>
-                           <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">
-                              {(editableSoW || sowData).totalAmount ? formatCurrency((editableSoW || sowData).totalAmount) : '$0'}
+                        <div className="pt-8 mt-8 border-t border-outline-variant/20 flex flex-col items-center bg-surface-container-lowest -mx-8 -mb-8 p-10">
+                           <p className="text-sm text-secondary uppercase tracking-widest font-black mb-2 flex items-center gap-2">
+                              <span className="material-symbols-outlined text-[18px]">verified_user</span> Real-Time Escrow Boundary
+                           </p>
+                           <p className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">
+                              {formatCurrency(totalEscrow)}
                            </p>
                         </div>
                      </div>
                    </div>
                 </div>
              </div>
-          )}
+             );
+          })()}
 
 
          {/* ========================================================== */}
@@ -652,12 +688,25 @@ export default function ProjectCreationWizard() {
                      </button>
                   )}
                   {step === 3 && (
-                     <button 
-                        onClick={loadConciergeSquad} 
-                        className="bg-primary text-on-primary px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-lg active:scale-95"
-                     >
-                        Assemble Squad <span className="material-symbols-outlined text-[18px]">group_add</span>
-                     </button>
+                     <>
+                        <button 
+                           onClick={handleSkipAndPostToMarketplace}
+                           disabled={isPending}
+                           className={`bg-transparent border-2 border-outline-variant/30 text-on-surface-variant px-6 py-4 rounded-xl font-bold uppercase tracking-widest text-sm transition-all flex items-center gap-2 ${isPending ? 'opacity-80 cursor-not-allowed' : 'hover:border-primary/50 hover:text-primary hover:bg-primary/5 active:scale-95'}`}
+                        >
+                           Skip & Post to Open Market
+                        </button>
+                        <button 
+                           onClick={() => {
+                              // Wrap loadConciergeSquad trigger via setStep proxy
+                              setStep(4);
+                              loadConciergeSquad();
+                           }} 
+                           className="bg-primary text-on-primary px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-[0_15px_30px_rgba(var(--color-primary),0.3)] active:scale-95"
+                        >
+                           Next: AI Squad Assembly <span className="material-symbols-outlined text-[18px]">group_add</span>
+                        </button>
+                     </>
                   )}
                   {step === 4 && (
                      <button 
