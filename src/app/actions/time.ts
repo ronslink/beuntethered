@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123");
 
 export async function logTimeEntry(data: { milestoneId: string, hours: number, proofUrl?: string, proofDescription?: string }) {
   try {

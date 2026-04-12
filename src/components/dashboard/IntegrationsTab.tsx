@@ -5,7 +5,7 @@ import { linkProjectRepository } from "@/app/actions/integrations";
 
 export default function IntegrationsTab({ project }: { project: any }) {
   const [repoUrl, setRepoUrl] = useState(project.github_repo_url || "");
-  const [token, setToken] = useState(project.github_access_token || "");
+  const [token, setToken] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const handleSave = (e: React.FormEvent) => {
@@ -71,7 +71,7 @@ export default function IntegrationsTab({ project }: { project: any }) {
                      value={token}
                      onChange={e => setToken(e.target.value)}
                      className="flex-1 bg-transparent border-none focus:ring-0 text-sm p-3 text-primary tracking-widest font-mono focus:outline-none placeholder:text-on-surface-variant/20 placeholder:tracking-normal placeholder:font-sans"
-                     placeholder="ghp_xxxxxxxxxxxxxxxxxxxxx"
+                     placeholder={project.has_github_token ? "Token securely saved (Type to overwrite)" : "ghp_xxxxxxxxxxxxxxxxxxxxx"}
                   />
                 </div>
                 <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mt-2 opacity-60">Generate a GitHub Personal Access Token with read-only access to your repository.</p>

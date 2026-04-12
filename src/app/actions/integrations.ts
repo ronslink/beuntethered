@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { encryptApiKey } from "@/lib/encryption";
 
 export async function linkProjectRepository(data: { projectId: string, repoUrl: string, token?: string }) {
   try {
@@ -22,12 +23,14 @@ export async function linkProjectRepository(data: { projectId: string, repoUrl: 
 
     const formattedUrl = data.repoUrl.replace(/\/$/, ""); // Clean trailing slashes securely
 
+    const updateData: any = { github_repo_url: formattedUrl };
+    if (data.token) {
+       updateData.github_access_token = encryptApiKey(data.token);
+    }
+
     await prisma.project.update({
       where: { id: data.projectId },
-      data: {
-         github_repo_url: formattedUrl,
-         github_access_token: data.token || null
-      }
+      data: updateData
     });
 
     revalidatePath("/command-center");

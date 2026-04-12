@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { resetPassword } from "@/app/actions/password-reset";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -43,6 +43,11 @@ export default function ResetPasswordPage() {
     }
     if (password !== confirm) {
       setError("Passwords do not match");
+      return;
+    }
+    
+    if (!token) {
+      setError("Invalid token");
       return;
     }
 
@@ -140,5 +145,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-surface-variant/30 px-4 py-12"><div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

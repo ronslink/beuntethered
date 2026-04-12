@@ -6,8 +6,7 @@ async function sweepTiers() {
   console.log("⚡ Initializing Global Tier Sweeper Engine...");
 
   const facilitators = await prisma.user.findMany({
-    where: { role: 'FACILITATOR' },
-    include: { reviews_received: true }
+    where: { role: 'FACILITATOR' }
   });
 
   console.log(`Found ${facilitators.length} Facilitators for evaluation.`);

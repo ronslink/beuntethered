@@ -70,7 +70,7 @@ export default async function InsightsTrafficController() {
      const expert = await prisma.user.findUnique({
         where: { id: user.id },
         include: {
-           milestones_as_facilitator: {
+           milestones: {
               where: { status: "APPROVED_AND_PAID" }
            },
            time_entries: {
@@ -92,7 +92,7 @@ export default async function InsightsTrafficController() {
      }
 
      // Mapping Historical Data dynamically
-     expert.milestones_as_facilitator.forEach(m => {
+     expert.milestones.forEach(m => {
         // Fallback or exact mapping natively
         const monthKey = monthNames[new Date().getMonth()]; // MVP simulation mapping current scale uniformly
         if (revenueMap[monthKey] !== undefined) revenueMap[monthKey] += Number(m.amount);

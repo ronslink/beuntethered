@@ -4,6 +4,7 @@ import { prisma } from "@/lib/auth";
 import { getDynamicAIProvider } from "@/lib/ai-router";
 import { generateObject } from "ai";
 import { fetchGitHubDiff } from "@/lib/github";
+import { decryptApiKey } from "@/lib/encryption";
 import { z } from "zod";
 
 export async function POST(req: Request) {
@@ -31,7 +32,8 @@ export async function POST(req: Request) {
     }
 
     const targetUrl = timeEntry.proof_url;
-    const token = timeEntry.milestone.project.github_access_token || undefined;
+    const encryptedToken = timeEntry.milestone.project.github_access_token;
+    const token = encryptedToken ? decryptApiKey(encryptedToken) : undefined;
 
     // Phase 1: Retrieve Architectural Diff Constraints
     const gitRequest = await fetchGitHubDiff(targetUrl, token);

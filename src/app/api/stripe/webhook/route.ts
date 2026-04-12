@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/auth";
 import { sendEscrowFundedAlert } from "@/lib/resend";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123", {
   apiVersion: "2023-10-16" as any,
 });
 

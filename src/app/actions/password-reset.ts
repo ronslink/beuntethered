@@ -5,7 +5,7 @@ import { Resend } from "resend";
 import { randomBytes } from "crypto";
 import { hashPassword } from "@/lib/encryption";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "missing-key");
 const RESET_EXPIRY_HOURS = 1;
 
 function generateToken(): string {

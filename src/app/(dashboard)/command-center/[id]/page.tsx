@@ -203,7 +203,7 @@ export default async function ProjectCommandCenter({
         <ChatWidget projectId={project.id} currentUserId={user.id} />
       ) : activeTab === "integrations" ? (
         <div className="px-4 lg:px-0 relative z-10 w-full max-w-6xl">
-          <IntegrationsTab project={project} />
+          <IntegrationsTab project={{ ...project, has_github_token: !!project.github_access_token, github_access_token: undefined }} />
         </div>
       ) : (
         <div className="w-full relative z-10 max-w-6xl">
