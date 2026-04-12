@@ -310,9 +310,11 @@ export default function ProjectCreationWizard() {
             const phaseColors = ['var(--color-primary)', 'var(--color-secondary)', 'var(--color-tertiary)', '#f59e0b', '#10b981', '#8b5cf6'];
 
             return (
-            <div className="animate-in fade-in slide-in-from-right-8 duration-500 space-y-8 pb-28">
-               {/* Header — Editable Title & Summary */}
-               <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto space-y-3">
+            <div className="animate-in fade-in slide-in-from-right-8 duration-500 pb-28">
+               {/* Elastic Scrolling Container */}
+               <div className="w-full min-h-[600px] max-h-[80vh] overflow-y-auto custom-scrollbar pr-4 space-y-8">
+                  {/* Header — Editable Title & Summary */}
+                  <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto space-y-3">
                  <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
                    <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
                    Interactive Timeline Canvas
@@ -375,11 +377,11 @@ export default function ProjectCreationWizard() {
                </div>
 
                {/* ===== PHASE CARDS WITH FEATURE EDITOR ===== */}
-               <div className="space-y-6">
+               <div className="flex flex-col gap-6">
                  {milestones.map((m: any, idx: number) => {
                     const color = phaseColors[idx % phaseColors.length];
                     return (
-                    <div key={idx} className="bg-surface/50 border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:border-outline-variant/50 transition-colors">
+                    <div key={idx} className="h-fit bg-surface/50 border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:border-outline-variant/50 transition-colors">
                        {/* Phase Header Bar */}
                        <div className="flex items-center gap-4 p-5 border-b border-outline-variant/20" style={{ borderLeftWidth: '4px', borderLeftColor: color }}>
                           <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
@@ -393,11 +395,11 @@ export default function ProjectCreationWizard() {
                                 className="text-lg font-bold font-headline text-on-surface bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
                                 placeholder="Phase title"
                              />
-                             <input 
-                                type="text" 
+                             <textarea 
                                 value={m.description || ''}
                                 onChange={(e) => updateMilestoneField(idx, 'description', e.target.value)}
-                                className="text-xs text-on-surface-variant bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-primary/30 w-full focus:outline-none transition-colors"
+                                rows={1}
+                                className="w-full resize-none overflow-hidden text-wrap break-words text-xs text-on-surface-variant bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-primary/30 py-1 focus:outline-none transition-colors"
                                 placeholder="Phase description..."
                              />
                           </div>
@@ -424,12 +426,12 @@ export default function ProjectCreationWizard() {
                                 <span className="w-5 h-5 rounded bg-surface-container-low border border-outline-variant/20 flex items-center justify-center shrink-0">
                                    <span className="material-symbols-outlined text-[12px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_small</span>
                                 </span>
-                                <input 
-                                   type="text"
+                                <textarea 
                                    value={d}
                                    onChange={(e) => updateDeliverable(idx, dIdx, e.target.value)}
+                                   rows={1}
                                    placeholder="Describe this feature..."
-                                   className="flex-1 bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 py-1.5 text-sm text-on-surface focus:ring-0 focus:outline-none transition-colors placeholder:text-on-surface-variant/30"
+                                   className="flex-1 w-full resize-none overflow-hidden text-wrap break-words bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 py-1.5 text-sm text-on-surface focus:ring-0 focus:outline-none transition-colors placeholder:text-on-surface-variant/30"
                                 />
                                 <button 
                                    onClick={() => removeDeliverable(idx, dIdx)}
@@ -464,10 +466,11 @@ export default function ProjectCreationWizard() {
                              />
                           </div>
                        </div>
-                    </div>
-                    );
-                 })}
-               </div>
+                     </div>
+                     );
+                  })}
+                </div>
+              </div>
 
                {/* ===== STICKY ACTION BAR ===== */}
                <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-xl border-t border-outline-variant/20 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
