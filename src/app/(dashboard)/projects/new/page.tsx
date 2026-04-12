@@ -345,27 +345,33 @@ export default function ProjectCreationWizard() {
                   </div>
 
                   <div className="space-y-2 relative z-10">
-                     {milestones.map((m: any, idx: number) => {
-                        const days = Number(m.estimated_duration_days) || 0;
-                        const widthPct = totalDays > 0 ? Math.max((days / totalDays) * 100, 8) : 100 / milestones.length;
-                        const color = phaseColors[idx % phaseColors.length];
-                        
-                        return (
-                           <div key={idx} className="flex items-center gap-3 group">
-                              <span className="text-[10px] font-bold text-on-surface-variant w-8 shrink-0 text-right">P{idx + 1}</span>
-                              <div className="flex-1 h-9 bg-surface-container-low rounded-lg overflow-hidden relative border border-outline-variant/10">
-                                 <div 
-                                    className="h-full rounded-lg flex items-center px-3 transition-all duration-500 ease-out"
-                                    style={{ width: `${widthPct}%`, backgroundColor: color, opacity: 0.85 }}
-                                 >
-                                    <span className="text-[10px] font-black text-white truncate drop-shadow-sm">
-                                       {m.title} — {days}d
-                                    </span>
+                     {(() => {
+                        let currentStartDays = 0;
+                        return milestones.map((m: any, idx: number) => {
+                           const days = Number(m.estimated_duration_days) || 0;
+                           const widthPct = totalDays > 0 ? (days / totalDays) * 100 : 100 / milestones.length;
+                           const leftOffsetPct = totalDays > 0 ? (currentStartDays / totalDays) * 100 : idx * (100 / milestones.length);
+                           const color = phaseColors[idx % phaseColors.length];
+                           
+                           currentStartDays += days;
+                           
+                           return (
+                              <div key={idx} className="flex items-center gap-3 group">
+                                 <span className="text-[10px] font-bold text-on-surface-variant w-8 shrink-0 text-right">P{idx + 1}</span>
+                                 <div className="flex-1 h-9 bg-surface-container-low rounded-lg relative border border-outline-variant/10">
+                                    <div 
+                                       className="h-full rounded-lg flex items-center px-4 transition-all duration-500 ease-out absolute top-0 bottom-0 min-w-fit z-10 hover:z-20 hover:scale-[1.02] shadow-sm cursor-default"
+                                       style={{ left: `${leftOffsetPct}%`, width: `${widthPct}%`, backgroundColor: color, opacity: 0.9 }}
+                                    >
+                                       <span className="text-[10px] font-black text-white whitespace-nowrap drop-shadow-md">
+                                          {m.title} — {days}d
+                                       </span>
+                                    </div>
                                  </div>
                               </div>
-                           </div>
-                        );
-                     })}
+                           );
+                        });
+                     })()}
                   </div>
 
                   {/* Day markers */}
