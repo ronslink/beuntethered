@@ -32,9 +32,9 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
 
   if (!project || project.client_id !== user.id) redirect("/dashboard");
 
-  // If constraints resolved, redirect safely to standard initialization payment layouts natively
+  // If project is active, redirect to the command center
   if (project.status === "ACTIVE") {
-     redirect(`/command-center?id=${project.id}`);
+     redirect(`/command-center/${project.id}`);
   }
 
   const formatCurrency = (val: number) => {

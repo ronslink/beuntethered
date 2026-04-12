@@ -35,6 +35,7 @@ model User {
   stripe_customer_id String? // for billing via Stripe
   subscription_tier  SubscriptionTier @default(FREE)
   expertise_embedding Unsupported("vector(1536)")?
+  password_hash       String?
   
   openai_key         String?
   anthropic_key      String?
@@ -211,10 +212,11 @@ model Message {
   sender_id         String?
   content           String  @db.Text
   is_system_message Boolean @default(false)
+  created_at        DateTime @default(now())
 
   project   Project    @relation(fields: [project_id], references: [id])
   milestone Milestone? @relation(fields: [milestone_id], references: [id])
-  sender  User?   @relation(fields: [sender_id], references: [id])
+  sender    User?      @relation(fields: [sender_id], references: [id])
 }
 
 model Review {

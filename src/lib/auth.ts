@@ -2,10 +2,11 @@ import { PrismaAdapter as NextAuthPrismaAdapter } from "@next-auth/prisma-adapte
 import { PrismaClient } from "@prisma/client";
 import { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { verifyPassword } from "@/lib/encryption";
 
-// Establish global prisma to prevent connection pooling limits in Next.js Serverless contexts
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 let prisma: PrismaClient;
@@ -22,45 +23,58 @@ export { prisma };
 
 export const authOptions: NextAuthOptions = {
   adapter: NextAuthPrismaAdapter(prisma),
-  debug: true,
+  debug: process.env.NODE_ENV !== "production",
   providers: [
     GithubProvider({
       clientId: process.env.GITHUB_ID as string,
       clientSecret: process.env.GITHUB_SECRET as string,
     }),
-    // Mock Provider simulating BYOC login flows to bypass magic link verification overhead during DB logic testing
-    {
+
+    // Email + Password credentials provider
+    CredentialsProvider({
       id: "credentials",
-      name: "Credentials",
-      type: "credentials",
+      name: "Email & Password",
       credentials: {
         email: { label: "Email", type: "email" },
-        role: { label: "Role (CLIENT/FACILITATOR)", type: "text" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email) return null;
-        
-        // Auto-provisioning mock users into database
-        let user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
         });
 
-        if (!user) {
-          user = await prisma.user.create({
-            data: {
-              email: credentials.email,
-              role: credentials.role === "FACILITATOR" ? "FACILITATOR" : "CLIENT",
-              name: credentials.email.split('@')[0],
-            }
-          });
+        if (!user || !user.password_hash) {
+          // No user found or user signed up via OAuth (no password set)
+          return null;
         }
-        return user;
-      }
-    }
+
+        const valid = await verifyPassword(
+          credentials.password,
+          user.password_hash
+        );
+
+        if (!valid) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      },
+    }),
   ],
+
   session: {
     strategy: "jwt",
   },
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -68,17 +82,20 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+
     async session({ session, token }) {
       if (token.sub && session.user) {
-        // Embed the database ID explicitly to currentUser
         (session.user as any).id = token.sub;
-        
-        // Pull fundamental Stripe references minimizing DB calls in Stripe Escrow Routings
+
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
-          select: { role: true, stripe_account_id: true, stripe_customer_id: true }
+          select: {
+            role: true,
+            stripe_account_id: true,
+            stripe_customer_id: true,
+          },
         });
-        
+
         if (dbUser) {
           (session.user as any).role = dbUser.role;
           (session.user as any).stripe_account_id = dbUser.stripe_account_id;
@@ -86,6 +103,11 @@ export const authOptions: NextAuthOptions = {
         }
       }
       return session;
-    }
-  }
+    },
+  },
+
+  pages: {
+    signIn: "/login",
+    newUser: "/register",
+  },
 };

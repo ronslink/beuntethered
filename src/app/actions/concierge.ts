@@ -1,45 +1,86 @@
 "use server";
 
 import { prisma } from "@/lib/auth";
+import OpenAI from "openai";
 
+/**
+ * Generate a 1536-dimensional embedding for a text string using OpenAI's
+ * text-embedding-3-small model.
+ */
+async function generateEmbedding(text: string): Promise<number[]> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is not set");
+  }
+
+  const client = new OpenAI({ apiKey });
+  const response = await client.embeddings.create({
+    model: "text-embedding-3-small",
+    input: text,
+    dimensions: 1536,
+  });
+
+  return response.data[0].embedding;
+}
+
+/**
+ * Search for the top N facilitators whose expertise_embedding is most
+ * similar to the given query embedding, using pgvector's <=> operator.
+ */
+async function vectorSimilaritySearch(
+  queryEmbedding: number[],
+  limit: number
+) {
+  // Build the PostgreSQL array literal from the JS array
+  const embeddingText = `[${queryEmbedding.join(",")}]`;
+
+  // Use <=> for cosine distance against stored vectors
+  const results = await prisma.$queryRaw<
+    {
+      id: string;
+      name: string | null;
+      email: string;
+      image: string | null;
+      trust_score: number;
+      total_sprints_completed: number;
+      average_ai_audit_score: number;
+      distance: number;
+    }[]
+  >`
+    SELECT
+      id,
+      name,
+      email,
+      image,
+      trust_score,
+      total_sprints_completed,
+      average_ai_audit_score,
+      CAST(${embeddingText}::text AS vector) <=> expertise_embedding AS distance
+    FROM "User"
+    WHERE role = 'FACILITATOR'
+      AND expertise_embedding IS NOT NULL
+    ORDER BY distance ASC
+    LIMIT ${limit}
+  `;
+
+  return results;
+}
+
+/**
+ * Fetch a recommended squad of facilitators for a given project summary.
+ * Uses real OpenAI embeddings + pgvector cosine similarity.
+ */
 export async function fetchRecommendedSquad(executiveSummary: string) {
   try {
-    // Deterministic Mock Logic for Vector Math MVP 
-    // Securely bounds the string execution dynamically into a hash
-    let hash = 0;
-    for (let i = 0; i < executiveSummary.length; i++) {
-        const char = executiveSummary.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
+    const summaryEmbedding = await generateEmbedding(executiveSummary);
+    const matched = await vectorSimilaritySearch(summaryEmbedding, 3);
 
-    // Pull 3 active Elite Facilitators randomly to represent matched vectors functionally
-    const facilitators = await prisma.user.findMany({
-       where: { role: 'FACILITATOR' },
-       take: 3,
-       select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-          trust_score: true,
-          total_sprints_completed: true,
-          average_ai_audit_score: true
-       }
-    });
+    const matchData = matched.map((f) => ({
+      ...f,
+      match_score: Math.max(0, Math.round((1 - f.distance) * 100)),
+    }));
 
-    // We manually map our deterministic pseudo-vector bounds right here
-    // Match limits dynamically shift safely preserving stable staging tests
-    const mappedSquad = facilitators.map((f, index) => {
-       const mockOffset = index === 0 ? 11 : index === 1 ? 10 : 9;
-       const mockBase = index === 0 ? 88 : index === 1 ? 85 : 80;
-       return {
-          ...f,
-          match_score: mockBase + (Math.abs(hash) % mockOffset)
-       }
-    });
-
-    return { success: true, matchData: mappedSquad.sort((a,b) => b.match_score - a.match_score) };
+    return { success: true, matchData };
   } catch (err: any) {
     console.error("Squad Matching Error:", err);
     return { success: false, error: err.message };
