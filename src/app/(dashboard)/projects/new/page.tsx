@@ -296,7 +296,6 @@ export default function ProjectCreationWizard() {
                            </button>
                         </div>
                      </form>
-                  )}
                </div>
             </div>
          )}
