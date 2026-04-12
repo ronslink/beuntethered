@@ -9,7 +9,7 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
-    const { prompt } = await req.json();
+    const { prompt, mode } = await req.json();
 
     if (!prompt) {
        return NextResponse.json({ error: "Valid contextual prompt required." }, { status: 400 });
@@ -20,11 +20,17 @@ export async function POST(req: Request) {
 
     const dynamicModel = await getDynamicAIProvider(user.id);
 
+    // Branching Logic for DISCOVERY mode mapping
+    const isDiscovery = mode === 'DISCOVERY';
+    const drafterPrompt = isDiscovery 
+       ? `The user wants to explore a project idea: ${prompt}. Write a highly focused, single exactly $1,000 "Technical Architecture Blueprint" milestone. Do not draft a full application scope, strictly lock it to a discovery/architecture phase only.`
+       : `The user wants to build: ${prompt}. Write a rough, 3-phase project outline. Focus only on high-level features.`;
+
     // Pass 1: The Raw Drafter (Fast & Cheap)
     const { text: roughDraft } = await generateText({
       model: dynamicModel, 
       system: "You are a Technical Product Manager.",
-      prompt: `The user wants to build: ${prompt}. Write a rough, 3-phase project outline. Focus only on high-level features.`,
+      prompt: drafterPrompt,
     });
 
     const SOWSchema = z.object({
