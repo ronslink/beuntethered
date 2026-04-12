@@ -28,7 +28,20 @@ export default function ProjectCreationWizard() {
 
   useEffect(() => {
     if (sowData && !isGenerating) {
-       setEditableSoW(sowData);
+       // Normalize: ensure each milestone has a deliverables array
+       const normalized = {
+         ...sowData,
+         milestones: (sowData.milestones || []).map((m: any) => ({
+           ...m,
+           estimated_duration_days: m.estimated_duration_days || 14,
+           deliverables: m.deliverables && Array.isArray(m.deliverables) 
+             ? m.deliverables 
+             : m.description 
+               ? m.description.split(/[.;]\s*/).filter((s: string) => s.trim().length > 3).slice(0, 4)
+               : ['Core deliverable']
+         }))
+       };
+       setEditableSoW(normalized);
     }
   }, [sowData, isGenerating]);
 
@@ -55,14 +68,38 @@ export default function ProjectCreationWizard() {
     const newMilestones = [...editableSoW.milestones];
     newMilestones[index] = { ...newMilestones[index], [field]: value };
     
-    // Auto-calculate Total Valuation natively bounding updates
-    const newTotal = newMilestones.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+    const newTotal = newMilestones.reduce((acc: number, m: any) => acc + (Number(m.amount) || 0), 0);
     
     setEditableSoW({
       ...editableSoW,
       milestones: newMilestones,
       totalAmount: newTotal
     });
+  };
+
+  const updateDeliverable = (milestoneIdx: number, deliverableIdx: number, value: string) => {
+    if (!editableSoW) return;
+    const newMilestones = [...editableSoW.milestones];
+    const newDeliverables = [...newMilestones[milestoneIdx].deliverables];
+    newDeliverables[deliverableIdx] = value;
+    newMilestones[milestoneIdx] = { ...newMilestones[milestoneIdx], deliverables: newDeliverables };
+    setEditableSoW({ ...editableSoW, milestones: newMilestones });
+  };
+
+  const addDeliverable = (milestoneIdx: number) => {
+    if (!editableSoW) return;
+    const newMilestones = [...editableSoW.milestones];
+    const newDeliverables = [...newMilestones[milestoneIdx].deliverables, ""];
+    newMilestones[milestoneIdx] = { ...newMilestones[milestoneIdx], deliverables: newDeliverables };
+    setEditableSoW({ ...editableSoW, milestones: newMilestones });
+  };
+
+  const removeDeliverable = (milestoneIdx: number, deliverableIdx: number) => {
+    if (!editableSoW) return;
+    const newMilestones = [...editableSoW.milestones];
+    const newDeliverables = newMilestones[milestoneIdx].deliverables.filter((_: any, i: number) => i !== deliverableIdx);
+    newMilestones[milestoneIdx] = { ...newMilestones[milestoneIdx], deliverables: newDeliverables };
+    setEditableSoW({ ...editableSoW, milestones: newMilestones });
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -236,58 +273,170 @@ export default function ProjectCreationWizard() {
 
 
          {/* ========================================================== */}
-         {/* STEP 2: TIMELINE & STREAMING JSON MAP                      */}
+         {/* STEP 2: INTERACTIVE TIMELINE & MODULAR FEATURE CANVAS       */}
          {/* ========================================================== */}
-         {step === 2 && (editableSoW || sowData) && (
-            <div className="animate-in fade-in slide-in-from-right-8 duration-500 space-y-8">
-               <div className="border-b border-outline-variant/20 pb-6 mb-8 text-center max-w-3xl mx-auto">
+         {step === 2 && editableSoW && (() => {
+            const milestones = editableSoW.milestones?.filter((m: any) => m && m.title) || [];
+            const totalDays = milestones.reduce((acc: number, m: any) => acc + (Number(m.estimated_duration_days) || 0), 0);
+            const phaseColors = ['var(--color-primary)', 'var(--color-secondary)', 'var(--color-tertiary)', '#f59e0b', '#10b981', '#8b5cf6'];
+
+            return (
+            <div className="animate-in fade-in slide-in-from-right-8 duration-500 space-y-8 pb-28">
+               {/* Header */}
+               <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto">
                  <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
                    <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
-                   Milestone Timeline Architecture
+                   Interactive Timeline Canvas
                  </p>
-                 <h3 className="text-3xl font-extrabold text-on-surface font-headline leading-snug">{(editableSoW || sowData).title || 'Structuring...'}</h3>
-               </div>
-               
-               <div className="space-y-6">
-                 {(editableSoW || sowData).milestones?.filter((m: any) => m && m.title).map((m: any, idx: number) => (
-                   <div key={idx} className="bg-surface/50 border border-outline-variant/30 p-6 rounded-2xl flex flex-col md:flex-row gap-6 shadow-sm">
-                      <div className="w-12 h-12 rounded-full border-2 border-primary/30 flex items-center justify-center font-bold text-primary shrink-0">{idx + 1}</div>
-                      <div className="flex-1 space-y-3">
-                         <h4 className="text-xl font-bold font-headline">{m.title}</h4>
-                         <p className="text-sm text-on-surface-variant leading-relaxed opacity-90">{m.description || '...'}</p>
-                         
-                         {/* Acceptance Criteria Array mapped seamlessly */}
-                         {m.acceptance_criteria && (
-                            <div className="bg-surface-container-low p-4 rounded-xl border border-secondary/20 mt-4">
-                               <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-2">Escrow Acceptance Rules</p>
-                               <p className="text-xs text-on-surface-variant font-mono">{m.acceptance_criteria}</p>
-                            </div>
-                         )}
-                      </div>
-                      <div className="md:w-48 shrink-0 flex flex-col justify-center border-t md:border-t-0 md:border-l border-outline-variant/20 pt-4 md:pt-0 md:pl-6 space-y-4">
-                         <div>
-                            <label className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant block mb-1">Duration (Days)</label>
-                            <input 
-                               type="number" 
-                               value={m.estimated_duration_days || ''} 
-                               onChange={(e) => updateMilestoneValue(idx, 'estimated_duration_days', Number(e.target.value))}
-                               placeholder="e.g. 14"
-                               className="w-full bg-surface border border-outline-variant/30 rounded-lg p-3 text-on-surface focus:border-primary/50 focus:ring-0 text-sm font-bold shadow-inner"
-                            />
-                         </div>
-                      </div>
-                   </div>
-                 ))}
+                 <h3 className="text-3xl font-extrabold text-on-surface font-headline leading-snug">{editableSoW.title || 'Structuring...'}</h3>
+                 <p className="text-sm text-on-surface-variant mt-2">Edit durations, add or remove features from each phase. The Gantt chart updates in real-time.</p>
                </div>
 
-               <div className="flex justify-between items-center pt-8 border-t border-outline-variant/20 mt-8">
-                  <button onClick={() => setStep(1)} className="text-on-surface-variant font-bold text-sm uppercase tracking-widest hover:text-on-surface">Go Back</button>
-                  <button onClick={() => setStep(3)} className="bg-primary text-on-primary px-8 py-4 rounded-xl font-bold text-sm uppercase tracking-widest flex items-center gap-2 hover:-translate-y-1 shadow-[0_10px_20px_rgba(var(--color-primary),0.2)] transition-all">
-                     Verify Timeline <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                  </button>
+               {/* ===== GANTT CHART VISUALIZER ===== */}
+               <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-2xl p-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-secondary/5 blur-3xl rounded-full pointer-events-none"></div>
+                  
+                  <div className="flex items-center justify-between mb-4 relative z-10">
+                     <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Project Timeline</p>
+                     <p className="text-xs font-bold text-on-surface">{totalDays} days total</p>
+                  </div>
+
+                  <div className="space-y-2 relative z-10">
+                     {milestones.map((m: any, idx: number) => {
+                        const days = Number(m.estimated_duration_days) || 0;
+                        const widthPct = totalDays > 0 ? Math.max((days / totalDays) * 100, 8) : 100 / milestones.length;
+                        const color = phaseColors[idx % phaseColors.length];
+                        
+                        return (
+                           <div key={idx} className="flex items-center gap-3 group">
+                              <span className="text-[10px] font-bold text-on-surface-variant w-8 shrink-0 text-right">P{idx + 1}</span>
+                              <div className="flex-1 h-9 bg-surface-container-low rounded-lg overflow-hidden relative border border-outline-variant/10">
+                                 <div 
+                                    className="h-full rounded-lg flex items-center px-3 transition-all duration-500 ease-out"
+                                    style={{ width: `${widthPct}%`, backgroundColor: color, opacity: 0.85 }}
+                                 >
+                                    <span className="text-[10px] font-black text-white truncate drop-shadow-sm">
+                                       {m.title} — {days}d
+                                    </span>
+                                 </div>
+                              </div>
+                           </div>
+                        );
+                     })}
+                  </div>
+
+                  {/* Day markers */}
+                  <div className="flex justify-between mt-3 px-11 relative z-10">
+                     <span className="text-[9px] text-on-surface-variant font-bold">Day 0</span>
+                     {totalDays > 0 && <span className="text-[9px] text-on-surface-variant font-bold">Day {Math.round(totalDays / 2)}</span>}
+                     <span className="text-[9px] text-on-surface-variant font-bold">Day {totalDays}</span>
+                  </div>
+               </div>
+
+               {/* ===== PHASE CARDS WITH FEATURE EDITOR ===== */}
+               <div className="space-y-6">
+                 {milestones.map((m: any, idx: number) => {
+                    const color = phaseColors[idx % phaseColors.length];
+                    return (
+                    <div key={idx} className="bg-surface/50 border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:border-outline-variant/50 transition-colors">
+                       {/* Phase Header Bar */}
+                       <div className="flex items-center gap-4 p-5 border-b border-outline-variant/20" style={{ borderLeftWidth: '4px', borderLeftColor: color }}>
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
+                             {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                             <h4 className="text-lg font-bold font-headline text-on-surface truncate">{m.title}</h4>
+                             <p className="text-xs text-on-surface-variant opacity-70 truncate">{m.description}</p>
+                          </div>
+                          <div className="shrink-0 w-28">
+                             <label className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant block mb-1">Days</label>
+                             <input 
+                                type="number" min={1}
+                                value={m.estimated_duration_days || ''} 
+                                onChange={(e) => updateMilestoneValue(idx, 'estimated_duration_days', Number(e.target.value))}
+                                className="w-full bg-surface border border-outline-variant/30 rounded-lg p-2.5 text-on-surface focus:border-primary/50 focus:ring-0 text-sm font-black shadow-inner text-center"
+                             />
+                          </div>
+                       </div>
+                       
+                       {/* Deliverables Feature List */}
+                       <div className="p-5 space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3 flex items-center gap-1.5">
+                             <span className="material-symbols-outlined text-[14px]">checklist</span>
+                             Features & Deliverables ({m.deliverables?.length || 0})
+                          </p>
+                          
+                          {m.deliverables?.map((d: string, dIdx: number) => (
+                             <div key={dIdx} className="flex items-center gap-2 group/item animate-in fade-in duration-200">
+                                <span className="w-5 h-5 rounded bg-surface-container-low border border-outline-variant/20 flex items-center justify-center shrink-0">
+                                   <span className="material-symbols-outlined text-[12px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_small</span>
+                                </span>
+                                <input 
+                                   type="text"
+                                   value={d}
+                                   onChange={(e) => updateDeliverable(idx, dIdx, e.target.value)}
+                                   placeholder="Describe this feature..."
+                                   className="flex-1 bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 py-1.5 text-sm text-on-surface focus:ring-0 focus:outline-none transition-colors placeholder:text-on-surface-variant/30"
+                                />
+                                <button 
+                                   onClick={() => removeDeliverable(idx, dIdx)}
+                                   className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-error/10 hover:text-error text-on-surface-variant"
+                                   title="Remove feature"
+                                >
+                                   <span className="material-symbols-outlined text-[16px]">close</span>
+                                </button>
+                             </div>
+                          ))}
+                          
+                          {/* Add Feature Button */}
+                          <button 
+                             onClick={() => addDeliverable(idx)}
+                             className="w-full mt-2 py-2 rounded-lg border border-dashed border-outline-variant/30 text-on-surface-variant hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-1.5 text-xs font-bold"
+                          >
+                             <span className="material-symbols-outlined text-[16px]">add</span>
+                             Add Feature
+                          </button>
+                       </div>
+
+                       {/* Acceptance Criteria (collapsed) */}
+                       {m.acceptance_criteria && (
+                          <div className="px-5 pb-4">
+                             <div className="bg-surface-container-low p-3 rounded-xl border border-secondary/15">
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">Escrow Acceptance Rules</p>
+                                <p className="text-[11px] text-on-surface-variant leading-relaxed">{m.acceptance_criteria}</p>
+                             </div>
+                          </div>
+                       )}
+                    </div>
+                    );
+                 })}
+               </div>
+
+               {/* ===== STICKY ACTION BAR ===== */}
+               <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-xl border-t border-outline-variant/20 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
+                  <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+                     <button onClick={() => setStep(1)} className="text-on-surface-variant font-bold text-sm uppercase tracking-widest hover:text-on-surface transition-colors hidden md:block">
+                        <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Intake</span>
+                     </button>
+                     <div className="hidden md:flex items-center gap-3 text-xs text-on-surface-variant font-bold">
+                        <span>{milestones.length} phases</span>
+                        <span className="w-1 h-1 rounded-full bg-outline-variant/40"></span>
+                        <span>{totalDays} days</span>
+                        <span className="w-1 h-1 rounded-full bg-outline-variant/40"></span>
+                        <span>{milestones.reduce((acc: number, m: any) => acc + (m.deliverables?.length || 0), 0)} features</span>
+                     </div>
+                     <button 
+                        onClick={() => setStep(3)} 
+                        className="bg-on-surface text-surface px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-[0_10px_25px_rgba(0,0,0,0.3)] active:scale-95"
+                     >
+                        Approve Timeline & Set Escrow Pricing
+                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                     </button>
+                  </div>
                </div>
             </div>
-         )}
+            );
+         })()}
 
 
          {/* ========================================================== */}
