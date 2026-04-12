@@ -40,14 +40,16 @@ export async function POST(req: Request) {
   "milestones": [
     {
       "title": "Phase name",
-      "description": "What deliverables are included",
-      "acceptance_criteria": "Strict rules for Escrow release",
+      "description": "Brief summary of this milestone phase",
+      "deliverables": ["Feature 1 description", "Feature 2 description", "Feature 3 description"],
+      "acceptance_criteria": "Strict binary rules for Escrow release",
       "estimated_duration_days": 14,
       "amount": 1500
     }
   ],
   "totalAmount": 4500
 }
+Each milestone MUST include a "deliverables" array with 3-6 specific, distinct features or tasks that will be built in that phase. Be granular — each deliverable should be a single concrete feature (e.g. "User authentication with OAuth2", "Dashboard analytics widget", "Stripe payment integration").
 Return ONLY the JSON object. No markdown, no extra text.`;
 
     // Pass 2: The Structural Enforcer (generateText to handle <think> traces)
