@@ -523,8 +523,6 @@ export default function ProjectCreationWizard() {
                            </p>
                         </div>
                      </div>
-                  </div>
-
                    </div>
                 </div>
              </div>
@@ -599,8 +597,6 @@ export default function ProjectCreationWizard() {
                               </div>
                            )
                         })}
-                     </div>
-
                      </div>
                   </div>
                )}
