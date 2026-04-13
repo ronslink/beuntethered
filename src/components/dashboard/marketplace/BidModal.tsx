@@ -35,6 +35,7 @@ export default function BidModal({
   const [bidAmount, setBidAmount] = useState(totalValue);
   const [days, setDays] = useState(14);
   const [approach, setApproach] = useState("");
+  const [escrowPct, setEscrowPct] = useState(100);
 
   // Full proposal fields
   const [techStack, setTechStack] = useState<string[]>([]);
@@ -83,7 +84,7 @@ export default function BidModal({
     e.preventDefault();
     if (!approach.trim()) return;
     startTransition(async () => {
-      const res = await submitBid({ projectId: project.id, proposedAmount: bidAmount, estimatedDays: days, technicalApproach: approach });
+      const res = await submitBid({ projectId: project.id, proposedAmount: bidAmount, estimatedDays: days, technicalApproach: approach, requiredEscrowPct: escrowPct });
       if (res?.success) { setSuccess(true); setTimeout(() => router.push("/marketplace"), 1800); }
       else alert(res?.error || "Failed to submit.");
     });
@@ -100,6 +101,7 @@ export default function BidModal({
         proposedTechStack: techStack.join(", "),
         techStackReason: stackReason || undefined,
         proposedMilestones: milestones,
+        requiredEscrowPct: escrowPct,
       });
       if (res?.success) { setSuccess(true); setTimeout(() => router.push("/marketplace"), 1800); }
       else alert(res?.error || "Failed to submit.");
@@ -199,6 +201,29 @@ export default function BidModal({
                 <textarea required value={approach} onChange={(e) => setApproach(e.target.value)} rows={5}
                   placeholder="Describe your approach, tools, and how you will build this..."
                   className="w-full bg-surface border border-outline-variant/30 rounded-xl p-4 text-sm font-medium text-on-surface focus:border-primary outline-none transition-colors resize-none" />
+              </div>
+              {/* Escrow Funding Requirement */}
+              <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Escrow Funding Required Before Start</p>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">What % of the project value must be in escrow before you begin?</p>
+                  </div>
+                  <span className="text-sm font-black text-primary">{format(bidAmount * escrowPct / 100)}</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {[10, 25, 50, 75, 100].map(pct => (
+                    <button key={pct} type="button" onClick={() => setEscrowPct(pct)}
+                      className={`flex-1 min-w-[40px] py-2 rounded-lg text-[10px] font-black border transition-colors ${
+                        escrowPct === pct ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40 hover:text-primary'
+                      }`}>{pct}%</button>
+                  ))}
+                </div>
+                {escrowPct < 100 && (
+                  <p className="text-[9px] text-on-surface-variant italic">
+                    Remainder ({format(bidAmount * (100 - escrowPct) / 100)}) due upon milestone completion.
+                  </p>
+                )}
               </div>
               <button type="submit" disabled={isPending || !approach.trim()}
                 className="w-full bg-on-surface text-surface font-black uppercase tracking-widest text-sm py-4 rounded-xl transition-all disabled:opacity-40 flex items-center justify-center gap-2 hover:-translate-y-0.5 active:scale-95">
@@ -374,6 +399,30 @@ export default function BidModal({
                   placeholder="Describe your technical approach. How will you use your proposed stack to meet the SoW requirements? What are your key differentiators?"
                   className="w-full bg-surface border border-outline-variant/30 rounded-xl p-4 text-sm font-medium text-on-surface focus:border-primary outline-none transition-colors resize-none" />
                 <p className="text-[10px] text-on-surface-variant mt-1.5">💡 AI analysis will run automatically after submission and appear on the client's bid board.</p>
+              </div>
+
+              {/* Escrow Funding Requirement */}
+              <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Escrow Funding Required Before Start</p>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">What % of the project value must be in escrow before you begin?</p>
+                  </div>
+                  <span className="text-sm font-black text-primary">{format(proposedTotal * escrowPct / 100)}</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {[10, 25, 50, 75, 100].map(pct => (
+                    <button key={pct} type="button" onClick={() => setEscrowPct(pct)}
+                      className={`flex-1 min-w-[40px] py-2 rounded-lg text-[10px] font-black border transition-colors ${
+                        escrowPct === pct ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40 hover:text-primary'
+                      }`}>{pct}%</button>
+                  ))}
+                </div>
+                {escrowPct < 100 && (
+                  <p className="text-[9px] text-on-surface-variant italic">
+                    Remainder ({format(proposedTotal * (100 - escrowPct) / 100)}) due upon milestone completion.
+                  </p>
+                )}
               </div>
 
               <button onClick={handleFullSubmit} disabled={isPending || !approach.trim()}

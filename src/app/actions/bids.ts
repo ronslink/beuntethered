@@ -18,6 +18,7 @@ export async function submitBid({
   proposedTechStack,
   techStackReason,
   proposedMilestones,
+  requiredEscrowPct,
 }: {
   projectId: string;
   proposedAmount: number;
@@ -26,6 +27,7 @@ export async function submitBid({
   proposedTechStack?: string;
   techStackReason?: string;
   proposedMilestones?: { title: string; amount: number; days: number; description?: string }[];
+  requiredEscrowPct?: number; // 10 | 25 | 50 | 75 | 100
 }) {
   try {
     const user = await getCurrentUser();
@@ -57,6 +59,7 @@ export async function submitBid({
         tech_stack_reason: techStackReason || null,
         proposed_milestones: proposedMilestones ? JSON.stringify(proposedMilestones) : undefined,
         ai_translation_summary: "Pending AI analysis...",
+        required_escrow_pct: requiredEscrowPct ?? 100,
         status: "PENDING",
       },
     });
@@ -164,11 +167,13 @@ export async function counterBid({
   counterAmount,
   counterReason,
   counterMilestones,
+  counterEscrowPct,
 }: {
   bidId: string;
   counterAmount: number;
   counterReason: string;
   counterMilestones?: { title: string; amount: number; days: number; description?: string }[];
+  counterEscrowPct?: number;
 }) {
   try {
     const user = await getCurrentUser();
@@ -190,6 +195,7 @@ export async function counterBid({
         counter_milestones: counterMilestones ? JSON.stringify(counterMilestones) : undefined,
         last_action_by: "CLIENT",
         negotiation_rounds: { increment: 1 },
+        ...(counterEscrowPct != null ? { counter_escrow_pct: counterEscrowPct } : {}),
       },
     });
 

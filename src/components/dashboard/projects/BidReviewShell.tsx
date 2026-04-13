@@ -17,6 +17,8 @@ type Bid = {
   counter_milestones?: any;
   last_action_by?: string | null;
   negotiation_rounds?: number;
+  required_escrow_pct?: number;
+  counter_escrow_pct?: number | null;
   status: string;
   ai_score_card?: any;
   developer: {
@@ -188,6 +190,31 @@ function BidCard({
           </div>
         )}
 
+        {/* Escrow Requirement */}
+        {(() => {
+          const pct = bid.required_escrow_pct ?? 100;
+          const counterPct = bid.counter_escrow_pct;
+          const amount = Math.round(bid.proposed_amount * pct / 100);
+          const isHigh = pct === 100;
+          const counterDiffers = counterPct != null && counterPct !== pct;
+          return (
+            <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs ${
+              isHigh ? 'bg-secondary/5 border-secondary/20' : 'bg-surface-container-low border-outline-variant/20'
+            }`}>
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[15px] text-on-surface-variant">account_balance</span>
+                <span className="font-bold text-on-surface-variant">Escrow Required Before Start</span>
+              </div>
+              <div className="text-right">
+                <span className={`font-black ${isHigh ? 'text-secondary' : 'text-on-surface'}`}>{pct}% — {new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(amount)}</span>
+                {counterDiffers && (
+                  <p className="text-[9px] text-primary font-bold mt-0.5">You countered: {counterPct}%</p>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Technical Approach */}
         <div>
           <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Approach</p>
@@ -268,6 +295,7 @@ function CounterModal({ bid, onClose }: { bid: Bid; onClose: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [amount, setAmount] = useState(bid.counter_amount || bid.proposed_amount);
   const [reason, setReason] = useState(bid.counter_reason || "");
+  const [escrowPct, setEscrowPct] = useState<number>(bid.counter_escrow_pct ?? bid.required_escrow_pct ?? 100);
   const format = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 
   // AI counter intelligence
@@ -277,10 +305,13 @@ function CounterModal({ bid, onClose }: { bid: Bid; onClose: () => void }) {
   const converging = Number(amount) < proposedAmt;
   const likelyAccepted = gapPct <= 10;
 
+  const facilEscrowPct = bid.required_escrow_pct ?? 100;
+  const escrowChanged = escrowPct !== facilEscrowPct;
+
   const handleSubmit = () => {
     if (!reason.trim()) return alert("Please provide a reason for your counter offer.");
     startTransition(async () => {
-      const res = await counterBid({ bidId: bid.id, counterAmount: Number(amount), counterReason: reason });
+      const res = await counterBid({ bidId: bid.id, counterAmount: Number(amount), counterReason: reason, counterEscrowPct: escrowChanged ? escrowPct : undefined });
       if (res.success) onClose();
       else alert(res.error);
     });
@@ -341,6 +372,33 @@ function CounterModal({ bid, onClose }: { bid: Bid; onClose: () => void }) {
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
             placeholder="Explain your counter — budget constraints, scope questions, milestone concerns..."
             className="w-full bg-surface border border-outline-variant/30 rounded-xl p-4 text-sm font-medium text-on-surface focus:border-primary outline-none transition-colors resize-none" />
+        </div>
+
+        {/* Escrow Counter */}
+        <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[15px] text-on-surface-variant">account_balance</span>
+              <div>
+                <p className="font-black text-on-surface-variant uppercase tracking-widest text-[9px]">Escrow Upfront Required</p>
+                <p className="text-[9px] text-on-surface-variant mt-0.5">Facilitator's ask: <span className="font-black text-on-surface">{facilEscrowPct}%</span> = {format(bid.proposed_amount * facilEscrowPct / 100)}</p>
+              </div>
+            </div>
+            {escrowChanged && (
+              <span className="text-[9px] font-black text-primary">You: {escrowPct}%</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {[10, 25, 50, 75, 100].map(pct => (
+              <button key={pct} type="button" onClick={() => setEscrowPct(pct)}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-black border transition-colors ${
+                  escrowPct === pct ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/40 hover:text-primary'
+                }`}>{pct}%</button>
+            ))}
+          </div>
+          {escrowChanged && facilEscrowPct === 100 && escrowPct < 100 && (
+            <p className="text-[9px] text-secondary italic">Note: Facilitator requires full upfront funding. Countering below 100% will require their agreement.</p>
+          )}
         </div>
 
         {/* Rounds indicator */}

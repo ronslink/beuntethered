@@ -245,6 +245,8 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
                 counter_milestones: b.counter_milestones ?? null,
                 last_action_by: b.last_action_by ?? null,
                 negotiation_rounds: b.negotiation_rounds ?? 0,
+                required_escrow_pct: (b as any).required_escrow_pct ?? 100,
+                counter_escrow_pct: (b as any).counter_escrow_pct ?? null,
                 status: b.status,
                 ai_score_card: b.ai_score_card ?? null,
                 developer: {

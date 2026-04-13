@@ -44,6 +44,8 @@ model Bid {
   counter_reason         String?
   counter_milestones     Json?
   negotiation_rounds     Int       @default(0)
+  required_escrow_pct    Int       @default(100)  // Facilitator's escrow funding requirement (%)
+  counter_escrow_pct     Int?                      // Client's counter escrow requirement (%)
   created_at             DateTime  @default(now())
   updated_at             DateTime  @updatedAt
   developer              User      @relation(fields: [developer_id], references: [id])
