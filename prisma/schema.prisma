@@ -79,43 +79,45 @@ model Milestone {
   squad_members            SquadMember[]
   live_preview_url         String?
   payload_storage_path     String?
+  disputes                 Dispute[]
 }
 
 model Project {
-  id                            String          @id @default(cuid())
-  creator_id                    String
-  client_id                     String?
-  title                         String
-  ai_generated_sow              String
-  is_byoc                       Boolean         @default(false)
-  billing_type                  BillingType     @default(FIXED_MILESTONE)
-  unreviewed_hours_limit        Int             @default(20)
-  github_repo_url               String?
-  github_access_token           String?
-  invite_token                  String?         @unique
-  status                        ProjectStatus   @default(DRAFT)
-  created_at                    DateTime        @default(now())
-  bids                          Bid[]
-  change_orders                 ChangeOrder[]
-  messages                      Message[]
-  milestones                    Milestone[]
-  client                        User?           @relation("Project_client_idToUser", fields: [client_id], references: [id])
-  creator                       User            @relation("Project_creator_idToUser", fields: [creator_id], references: [id])
-  reviews                       Review[]
-  squad_proposals               SquadProposal[]
+  id                     String          @id @default(cuid())
+  creator_id             String
+  client_id              String?
+  title                  String
+  ai_generated_sow       String
+  is_byoc                Boolean         @default(false)
+  billing_type           BillingType     @default(FIXED_MILESTONE)
+  unreviewed_hours_limit Int             @default(20)
+  github_repo_url        String?
+  github_access_token    String?
+  invite_token           String?         @unique
+  status                 ProjectStatus   @default(DRAFT)
+  created_at             DateTime        @default(now())
+  bids                   Bid[]
+  change_orders          ChangeOrder[]
+  messages               Message[]
+  milestones             Milestone[]
+  client                 User?           @relation("Project_client_idToUser", fields: [client_id], references: [id])
+  creator                User            @relation("Project_creator_idToUser", fields: [creator_id], references: [id])
+  reviews                Review[]
+  squad_proposals        SquadProposal[]
+  disputes               Dispute[]
 }
 
 model Review {
-  id                               String   @id @default(cuid())
-  project_id                       String
-  client_id                        String
-  facilitator_id                   String
-  rating                           Int
-  feedback                         String
-  created_at                       DateTime @default(now())
-  client                           User     @relation("Review_client_idToUser", fields: [client_id], references: [id])
-  facilitator                      User     @relation("Review_facilitator_idToUser", fields: [facilitator_id], references: [id])
-  project                          Project  @relation(fields: [project_id], references: [id])
+  id             String   @id @default(cuid())
+  project_id     String
+  client_id      String
+  facilitator_id String
+  rating         Int
+  feedback       String
+  created_at     DateTime @default(now())
+  client         User     @relation("Review_client_idToUser", fields: [client_id], references: [id])
+  facilitator    User     @relation("Review_facilitator_idToUser", fields: [facilitator_id], references: [id])
+  project        Project  @relation(fields: [project_id], references: [id])
 }
 
 model Session {
@@ -145,41 +147,60 @@ model SquadProposal {
   project         Project       @relation(fields: [project_id], references: [id])
 }
 
+model Dispute {
+  id                     String        @id @default(cuid())
+  project_id             String
+  milestone_id           String
+  client_id              String
+  facilitator_id         String
+  reason                 String
+  appmap_log_url         String?
+  ai_fact_finding_report String?
+  status                 DisputeStatus @default(OPEN)
+  created_at             DateTime      @default(now())
+
+  project     Project   @relation(fields: [project_id], references: [id])
+  milestone   Milestone @relation(fields: [milestone_id], references: [id])
+  client      User      @relation("Dispute_client_idToUser", fields: [client_id], references: [id])
+  facilitator User      @relation("Dispute_facilitator_idToUser", fields: [facilitator_id], references: [id])
+}
 
 model User {
-  id                                 String                 @id @default(cuid())
-  email                              String                 @unique
-  emailVerified                      DateTime?
-  image                              String?
-  name                               String?
-  role                               Role                   @default(CLIENT)
-  stripe_account_id                  String?
-  stripe_customer_id                 String?
-  subscription_tier                  SubscriptionTier       @default(FREE)
-  expertise_embedding                Unsupported("vector(1536)")?
-  password_hash                      String?
-  openai_key                         String?
-  anthropic_key                      String?
-  openai_key_encrypted               String?
-  anthropic_key_encrypted            String?
-  openai_key_plaintext               String?
-  anthropic_key_plaintext            String?
-  preferred_llm                      String                 @default("gpt-4o-mini")
-  hourly_rate                        Decimal                @default(0)
-  platform_tier                      PlatformTier           @default(STANDARD)
-  trust_score                        Float                  @default(0.0)
-  total_sprints_completed            Int                    @default(0)
-  average_ai_audit_score             Float                  @default(0.0)
-  accounts                           Account[]
-  bids                               Bid[]
-  messages                           Message[]
-  milestones                         Milestone[]
-  client_projects                    Project[]              @relation("Project_client_idToUser")
-  created_projects                   Project[]              @relation("Project_creator_idToUser")
-  client_reviews                     Review[]               @relation("Review_client_idToUser")
-  reviews_received                   Review[]               @relation("Review_facilitator_idToUser")
-  sessions                           Session[]
-  squad_members                      SquadMember[]
+  id                      String                       @id @default(cuid())
+  email                   String                       @unique
+  emailVerified           DateTime?
+  image                   String?
+  name                    String?
+  role                    Role                         @default(CLIENT)
+  stripe_account_id       String?
+  stripe_customer_id      String?
+  subscription_tier       SubscriptionTier             @default(FREE)
+  expertise_embedding     Unsupported("vector(1536)")?
+  password_hash           String?
+  openai_key              String?
+  anthropic_key           String?
+  openai_key_encrypted    String?
+  anthropic_key_encrypted String?
+  openai_key_plaintext    String?
+  anthropic_key_plaintext String?
+  preferred_llm           String                       @default("gpt-4o-mini")
+  hourly_rate             Decimal                      @default(0)
+  platform_tier           PlatformTier                 @default(STANDARD)
+  trust_score             Float                        @default(0.0)
+  total_sprints_completed Int                          @default(0)
+  average_ai_audit_score  Float                        @default(0.0)
+  accounts                Account[]
+  bids                    Bid[]
+  messages                Message[]
+  milestones              Milestone[]
+  client_projects         Project[]                    @relation("Project_client_idToUser")
+  created_projects        Project[]                    @relation("Project_creator_idToUser")
+  client_reviews          Review[]                     @relation("Review_client_idToUser")
+  reviews_received        Review[]                     @relation("Review_facilitator_idToUser")
+  client_disputes         Dispute[]                    @relation("Dispute_client_idToUser")
+  facilitator_disputes    Dispute[]                    @relation("Dispute_facilitator_idToUser")
+  sessions                Session[]
+  squad_members           SquadMember[]
 }
 
 model VerificationToken {
@@ -191,11 +212,11 @@ model VerificationToken {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  email     String
-  token     String   @unique
-  expires   DateTime
-  used_at   DateTime?
+  id      String    @id @default(cuid())
+  email   String
+  token   String    @unique
+  expires DateTime
+  used_at DateTime?
 
   @@index([email])
 }
@@ -249,3 +270,8 @@ enum SubscriptionTier {
   BYOC_PRO
 }
 
+enum DisputeStatus {
+  OPEN
+  RESOLVED_CLIENT
+  RESOLVED_FACILITATOR
+}

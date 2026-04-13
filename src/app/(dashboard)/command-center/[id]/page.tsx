@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import ChatWidget from "@/components/dashboard/command-center/ChatWidget";
 import IntegrationsTab from "@/components/dashboard/IntegrationsTab";
 import { FacilitatorSubmitGateway, ClientReviewGateway } from "@/components/dashboard/AtomicSwapGateway";
+import PostProjectReviewClient from "@/components/dashboard/command-center/PostProjectReviewClient";
 
 export default async function ProjectCommandCenter({
   params,
@@ -26,6 +27,7 @@ export default async function ProjectCommandCenter({
       client: true,
       milestones: {
         orderBy: { id: "asc" },
+        include: { facilitator: true },
       },
       bids: {
         include: { developer: true },
@@ -68,6 +70,20 @@ export default async function ProjectCommandCenter({
   const allPaid =
     totalMilestones > 0 &&
     project.milestones.every((m) => m.status === "APPROVED_AND_PAID");
+
+  let hasReviewed = false;
+  let primaryFacilitator: any = null;
+
+  if (isCompleted && isClient) {
+    const fnMilestone = project.milestones.find((m) => m.facilitator);
+    primaryFacilitator = fnMilestone?.facilitator;
+    if (primaryFacilitator) {
+      const reviewCount = await prisma.review.count({
+        where: { project_id: id, client_id: user.id, facilitator_id: primaryFacilitator.id }
+      });
+      hasReviewed = reviewCount > 0;
+    }
+  }
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-US", {
@@ -332,6 +348,15 @@ export default async function ProjectCommandCenter({
               This project is complete. The client has approved all milestones
               and funds have been released.
             </p>
+            
+            {isClient && primaryFacilitator && !hasReviewed && (
+              <PostProjectReviewClient 
+                projectId={project.id}
+                facilitatorId={primaryFacilitator.id}
+                facilitatorName={primaryFacilitator.name || "Facilitator"}
+                facilitatorAvatar={primaryFacilitator.image || undefined}
+              />
+            )}
           </div>
         )}
 
