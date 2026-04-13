@@ -90,7 +90,7 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
             <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20 inline-block mb-3">
               {isOpen ? "Reviewing Proposals" : project.status}
             </span>
-            <h1 className="text-3xl lg:text-5xl font-black font-headline tracking-tighter text-on-surface uppercase leading-[0.95]">
+            <h1 className="text-2xl lg:text-4xl font-black font-headline tracking-tight text-on-surface leading-snug max-w-2xl">
               {project.title}
             </h1>
           </div>

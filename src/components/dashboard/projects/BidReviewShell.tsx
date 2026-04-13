@@ -458,7 +458,7 @@ export default function BidReviewShell({
 
       <header className="px-4 lg:px-0 mb-8 relative z-10">
         <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Bid Review Board</p>
-        <h1 className="text-3xl font-black font-headline tracking-tighter text-on-surface uppercase">{project.title}</h1>
+        <h1 className="text-2xl lg:text-4xl font-black font-headline tracking-tight text-on-surface leading-snug max-w-2xl">{project.title}</h1>
         <p className="text-sm text-on-surface-variant mt-1">{bids.length} proposal{bids.length !== 1 ? "s" : ""} received</p>
       </header>
 
