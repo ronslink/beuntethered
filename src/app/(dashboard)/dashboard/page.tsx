@@ -123,7 +123,7 @@ async function FacilitatorDashboard({ userId, userName }: { userId: string; user
               return (
                 <Link
                   key={project.id}
-                  href={`/command-center/${project.id}`}
+                  href={project.status === "OPEN_BIDDING" ? `/projects/${project.id}` : `/command-center/${project.id}`}
                   className="flex items-center gap-4 bg-surface border border-outline-variant/20 rounded-2xl px-4 py-3.5 hover:border-primary/40 hover:bg-surface-container-low/40 transition-all duration-200 group animate-in fade-in slide-in-from-bottom-2"
                   style={{ animationDelay: `${idx * 40}ms`, animationFillMode: "both" }}
                 >
