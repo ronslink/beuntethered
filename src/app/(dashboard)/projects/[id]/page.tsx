@@ -59,9 +59,16 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
             </h2>
             <p className="text-on-surface-variant font-medium mt-3 max-w-2xl leading-relaxed text-sm lg:text-base">Review developer proposals and hire the best fit for your project. Funds are held safely until you approve the work.</p>
           </div>
-          <div className="bg-surface-container-low border border-outline-variant/30 px-6 py-4 rounded-2xl text-right shrink-0">
-             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Project Value</p>
-             <p className="text-2xl lg:text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(totalEst)}</p>
+          <div className="flex gap-4 items-stretch shrink-0">
+             <div className="bg-surface-container-low border border-outline-variant/30 px-6 py-4 rounded-2xl flex flex-col justify-center items-center">
+                 <span className="material-symbols-outlined text-outline-variant mb-1">visibility</span>
+                 <p className="text-xl font-black text-on-surface leading-none mb-1">{project.views || 0}</p>
+                 <p className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Views</p>
+             </div>
+             <div className="bg-surface-container-low border border-outline-variant/30 px-6 py-4 rounded-2xl text-right flex flex-col justify-center">
+                 <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Project Value</p>
+                 <p className="text-2xl lg:text-3xl font-black text-on-surface tracking-tighter leading-none">{formatCurrency(totalEst)}</p>
+             </div>
           </div>
         </div>
       </header>

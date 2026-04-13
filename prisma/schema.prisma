@@ -95,6 +95,7 @@ model Project {
   github_access_token    String?
   invite_token           String?         @unique
   status                 ProjectStatus   @default(DRAFT)
+  views                  Int             @default(0)
   created_at             DateTime        @default(now())
   bids                   Bid[]
   change_orders          ChangeOrder[]

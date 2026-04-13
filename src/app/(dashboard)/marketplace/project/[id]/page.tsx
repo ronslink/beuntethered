@@ -28,6 +28,12 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
 
   if (!project || project.status !== "OPEN_BIDDING") notFound();
 
+  // Increment metrics asynchronously so we do not block or fault the physical SOW render
+  prisma.project.update({
+    where: { id: project.id },
+    data: { views: { increment: 1 } }
+  }).catch(e => console.error("Metrics sync fault:", e));
+
   const totalValue = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
 
   // Deterministic mock match score (identical algorithm to marketplace feed)
