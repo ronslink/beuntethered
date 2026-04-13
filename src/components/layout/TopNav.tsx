@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 
 export function TopNav() {
   const { theme, setTheme } = useTheme();
@@ -24,9 +25,7 @@ export function TopNav() {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <button className="p-2 text-on-surface-variant hover:bg-surface-container transition-all duration-300 rounded-full active:scale-90 flex items-center justify-center">
-          <span className="material-symbols-outlined">notifications</span>
-        </button>
+        <NotificationBell />
         <button 
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="p-2 text-on-surface-variant hover:bg-surface-container transition-all duration-300 rounded-full active:scale-90 flex items-center justify-center"

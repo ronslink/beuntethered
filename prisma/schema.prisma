@@ -9,7 +9,7 @@ datasource db {
 }
 
 model Account {
-  id                String  @id @default(cuid())
+  id                String  @id
   userId            String
   type              String
   provider          String
@@ -21,13 +21,13 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
 
 model Bid {
-  id                     String    @id @default(cuid())
+  id                     String    @id
   project_id             String
   developer_id           String
   proposed_amount        Decimal
@@ -35,34 +35,45 @@ model Bid {
   technical_approach     String
   ai_translation_summary String
   status                 BidStatus @default(PENDING)
-  developer              User      @relation(fields: [developer_id], references: [id])
-  project                Project   @relation(fields: [project_id], references: [id])
+  User                   User      @relation(fields: [developer_id], references: [id])
+  Project                Project   @relation(fields: [project_id], references: [id])
 }
 
 model ChangeOrder {
-  id          String            @id @default(cuid())
+  id          String            @id
   project_id  String
   description String
   added_cost  Decimal
   status      ChangeOrderStatus @default(PROPOSED)
-  project     Project           @relation(fields: [project_id], references: [id])
+  Project     Project           @relation(fields: [project_id], references: [id])
 }
 
 model Message {
-  id                String     @id @default(cuid())
+  id                String     @id
   project_id        String
   milestone_id      String?
   sender_id         String?
   content           String
   is_system_message Boolean    @default(false)
-  created_at        DateTime   @default(now())
-  milestone         Milestone? @relation(fields: [milestone_id], references: [id])
-  project           Project    @relation(fields: [project_id], references: [id])
-  sender            User?      @relation(fields: [sender_id], references: [id])
+  Milestone         Milestone? @relation(fields: [milestone_id], references: [id])
+  Project           Project    @relation(fields: [project_id], references: [id])
+  User              User?      @relation(fields: [sender_id], references: [id])
+}
+
+model Notification {
+  id         String           @id
+  user_id    String
+  type       NotificationType
+  title      String
+  message    String
+  related_id String?
+  is_read    Boolean         @default(false)
+  created_at DateTime        @default(now())
+  User       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model Milestone {
-  id                       String          @id @default(cuid())
+  id                       String          @id
   project_id               String
   facilitator_id           String?
   title                    String
@@ -73,15 +84,15 @@ model Milestone {
   deliverables             String[]
   description              String?
   estimated_duration_days  Int?
-  messages                 Message[]
-  facilitator              User?           @relation(fields: [facilitator_id], references: [id])
-  project                  Project         @relation(fields: [project_id], references: [id])
-  squad_members            SquadMember[]
-  time_entries             TimeEntry[]
+  Message                  Message[]
+  User                     User?           @relation(fields: [facilitator_id], references: [id])
+  Project                  Project         @relation(fields: [project_id], references: [id])
+  SquadMember              SquadMember[]
+  TimeEntry                TimeEntry[]
 }
 
 model Project {
-  id                            String          @id @default(cuid())
+  id                            String          @id
   creator_id                    String
   client_id                     String?
   title                         String
@@ -93,59 +104,58 @@ model Project {
   github_access_token           String?
   invite_token                  String?         @unique
   status                        ProjectStatus   @default(DRAFT)
-  created_at                    DateTime        @default(now())
-  bids                          Bid[]
-  change_orders                 ChangeOrder[]
-  messages                      Message[]
-  milestones                    Milestone[]
-  client                        User?           @relation("Project_client_idToUser", fields: [client_id], references: [id])
-  creator                       User            @relation("Project_creator_idToUser", fields: [creator_id], references: [id])
-  reviews                       Review[]
-  squad_proposals               SquadProposal[]
+  Bid                           Bid[]
+  ChangeOrder                   ChangeOrder[]
+  Message                       Message[]
+  Milestone                     Milestone[]
+  User_Project_client_idToUser  User?           @relation("Project_client_idToUser", fields: [client_id], references: [id])
+  User_Project_creator_idToUser User            @relation("Project_creator_idToUser", fields: [creator_id], references: [id])
+  Review                        Review[]
+  SquadProposal                 SquadProposal[]
 }
 
 model Review {
-  id                               String   @id @default(cuid())
+  id                               String   @id
   project_id                       String
   client_id                        String
   facilitator_id                   String
   rating                           Int
   feedback                         String
   created_at                       DateTime @default(now())
-  client                           User     @relation("Review_client_idToUser", fields: [client_id], references: [id])
-  facilitator                      User     @relation("Review_facilitator_idToUser", fields: [facilitator_id], references: [id])
-  project                          Project  @relation(fields: [project_id], references: [id])
+  User_Review_client_idToUser      User     @relation("Review_client_idToUser", fields: [client_id], references: [id])
+  User_Review_facilitator_idToUser User     @relation("Review_facilitator_idToUser", fields: [facilitator_id], references: [id])
+  Project                          Project  @relation(fields: [project_id], references: [id])
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SquadMember {
-  id                String        @id @default(cuid())
+  id                String        @id
   squad_proposal_id String
   facilitator_id    String
   milestone_id      String
-  facilitator       User          @relation(fields: [facilitator_id], references: [id])
-  milestone         Milestone     @relation(fields: [milestone_id], references: [id])
-  squad_proposal    SquadProposal @relation(fields: [squad_proposal_id], references: [id])
+  User              User          @relation(fields: [facilitator_id], references: [id])
+  Milestone         Milestone     @relation(fields: [milestone_id], references: [id])
+  SquadProposal     SquadProposal @relation(fields: [squad_proposal_id], references: [id])
 }
 
 model SquadProposal {
-  id              String        @id @default(cuid())
+  id              String        @id
   project_id      String
   pitch_to_client String
   status          BidStatus     @default(PENDING)
-  members         SquadMember[]
-  project         Project       @relation(fields: [project_id], references: [id])
+  SquadMember     SquadMember[]
+  Project         Project       @relation(fields: [project_id], references: [id])
 }
 
 model TimeEntry {
-  id                String          @id @default(cuid())
+  id                String          @id
   milestone_id      String
   facilitator_id    String
   hours             Decimal
@@ -154,12 +164,12 @@ model TimeEntry {
   ai_audit_report   Json?
   status            TimeEntryStatus @default(PENDING)
   created_at        DateTime        @default(now())
-  facilitator       User            @relation(fields: [facilitator_id], references: [id])
-  milestone         Milestone       @relation(fields: [milestone_id], references: [id])
+  User              User            @relation(fields: [facilitator_id], references: [id])
+  Milestone         Milestone       @relation(fields: [milestone_id], references: [id])
 }
 
 model User {
-  id                                 String                 @id @default(cuid())
+  id                                 String                 @id
   email                              String                 @unique
   emailVerified                      DateTime?
   image                              String?
@@ -182,17 +192,18 @@ model User {
   trust_score                        Float                  @default(0.0)
   total_sprints_completed            Int                    @default(0)
   average_ai_audit_score             Float                  @default(0.0)
-  accounts                           Account[]
-  bids                               Bid[]
-  messages                           Message[]
-  milestones                         Milestone[]
-  client_projects                    Project[]              @relation("Project_client_idToUser")
-  created_projects                   Project[]              @relation("Project_creator_idToUser")
-  client_reviews                     Review[]               @relation("Review_client_idToUser")
-  reviews_received                   Review[]               @relation("Review_facilitator_idToUser")
-  sessions                           Session[]
-  squad_members                      SquadMember[]
-  time_entries                       TimeEntry[]
+  Account                            Account[]
+  Bid                                Bid[]
+  Message                            Message[]
+  Milestone                          Milestone[]
+  Project_Project_client_idToUser    Project[]              @relation("Project_client_idToUser")
+  Project_Project_creator_idToUser   Project[]              @relation("Project_creator_idToUser")
+  Review_Review_client_idToUser      Review[]               @relation("Review_client_idToUser")
+  Review_Review_facilitator_idToUser Review[]               @relation("Review_facilitator_idToUser")
+  Session                            Session[]
+  SquadMember                        SquadMember[]
+  TimeEntry                          TimeEntry[]
+  Notification                      Notification[]
 }
 
 model VerificationToken {
@@ -211,6 +222,14 @@ model PasswordResetToken {
   used_at   DateTime?
 
   @@index([email])
+}
+
+enum NotificationType {
+  review_received
+  payment_received
+  milestone_approved
+  message
+  system
 }
 
 enum BidStatus {
