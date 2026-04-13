@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/auth";
 import BYOKSettingsClient from "@/components/settings/BYOKSettingsClient";
 import AgentKeyClient from "@/components/settings/AgentKeyClient";
+import StripeDashboardButton from "@/components/settings/StripeDashboardButton";
 
 export default async function SettingsPage() {
   const sessionUser = await getCurrentUser();
@@ -59,10 +60,7 @@ export default async function SettingsPage() {
               <h3 className="text-xl font-bold text-on-surface font-headline mb-6 border-b border-outline-variant/20 pb-4">Financial Integration</h3>
               <p className="text-on-surface-variant text-sm mb-6 max-w-2xl">Manage your connected bank account, view payout history, and track payment status in your Stripe dashboard.</p>
               
-              <button disabled className="bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors px-6 py-3 rounded-xl flex items-center gap-3 border border-outline-variant/30 opacity-70 cursor-not-allowed">
-                  <span className="material-symbols-outlined text-primary">account_balance</span>
-                  <span className="font-bold font-headline text-sm tracking-widest uppercase">Manage Stripe Dashboard</span>
-              </button>
+              <StripeDashboardButton hasStripeAccount={!!user.stripe_account_id} />
            </div>
 
            {/* Notifications */}
