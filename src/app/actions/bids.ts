@@ -22,6 +22,16 @@ export async function submitBid({
     const user = await getCurrentUser();
     if (!user || user.role !== "FACILITATOR") throw new Error("Only strictly configured Experts can submit Marketplace parameter bids.");
 
+    // Vector Hardening: Fast verification checking the Project node is still natively OPEN_BIDDING
+    const targetProject = await prisma.project.findUnique({
+       where: { id: projectId },
+       select: { status: true }
+    });
+
+    if (!targetProject || targetProject.status !== "OPEN_BIDDING") {
+        throw new Error("Active Status Constraint: This project parameter is permanently mathematically sealed and cannot securely accept trailing bids.");
+    }
+
     // Enforce duplication execution constraint logically
     const existingBid = await prisma.bid.findFirst({
        where: { project_id: projectId, developer_id: user.id }

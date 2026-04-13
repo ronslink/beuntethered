@@ -102,3 +102,49 @@ export function ClientReviewGateway({ milestoneId, previewUrl }: { milestoneId: 
     </div>
   );
 }
+
+export function ClientFundGateway({ milestoneId, amount }: { milestoneId: string, amount: number }) {
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleFund = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        body: JSON.stringify({ milestoneId }),
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (data.url) {
+         window.location.href = data.url;
+      } else {
+         alert("Checkout Gateway limit fault: " + (data.error || "Unknown structure failure."));
+         setLoading(false);
+      }
+    } catch (e: any) {
+      alert("Network fault bridging Stripe Gateway limits.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-primary/5 p-5 rounded-2xl border border-primary/20 w-full">
+        <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">Escrow Custody Vault</p>
+            <p className="text-sm font-medium text-on-surface leading-relaxed max-w-sm">Funds are safely held off-chain inside our secure Stripe Custodial Vault. The developer cannot withdraw until you explicitly approve the source payload.</p>
+        </div>
+        
+        <div className="flex items-center w-full sm:w-auto">
+            <button 
+                onClick={handleFund}
+                disabled={loading}
+                className={`bg-primary w-full sm:w-auto text-on-primary px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 ${loading ? 'opacity-50' : 'hover:-translate-y-0.5 active:scale-95'}`}
+            >
+                <span className="material-symbols-outlined text-[16px]">{loading ? 'hourglass_empty' : 'lock'}</span>
+                {loading ? "Vaulting Capital..." : "Fund Sprint Escrow"}
+            </button>
+        </div>
+    </div>
+  );
+}

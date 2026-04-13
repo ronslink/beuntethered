@@ -28,6 +28,15 @@ export async function submitMilestonePayload(formData: FormData) {
   }
 
   try {
+    // 0. IDOR Mitigation: Verify Escrow Ownership
+    const milestone = await prisma.milestone.findUnique({
+      where: { id: milestoneId }
+    });
+
+    if (!milestone || milestone.facilitator_id !== user.id) {
+       throw new Error("Critical IDOR constraints: Active facilitator is not authorized to deploy payloads against this exact structural node.");
+    }
+
     // 1. Convert File to buffer for server-based storage upload
     // Note: In production with >4.5MB files, the presigned URL client-upload route must be used.
     // For MVP Beta, we accept ArrayBuffer direct.

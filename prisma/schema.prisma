@@ -189,6 +189,8 @@ model User {
   hourly_rate             Decimal                      @default(0)
   platform_tier           PlatformTier                 @default(STANDARD)
   agent_key_hash          String?                      @unique
+  api_daily_request_count Int                          @default(0)
+  locked_until            DateTime?
   trust_score             Float                        @default(0.0)
   total_sprints_completed Int                          @default(0)
   average_ai_audit_score  Float                        @default(0.0)

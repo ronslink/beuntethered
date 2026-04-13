@@ -7,26 +7,18 @@ type SortOption = "newest" | "budget_desc" | "most_bidding";
 type StatusOption = "ALL" | "OPEN_BIDDING" | "ACTIVE" | "COMPLETED" | "DISPUTED";
 type BudgetOption = "ALL" | "UNDER_1K" | "1K_5K" | "5K_20K" | "OVER_20K";
 
-const STATUS_OPTIONS: { value: StatusOption; label: string }[] = [
-  { value: "ALL", label: "All Statuses" },
-  { value: "OPEN_BIDDING", label: "Open Bidding" },
-  { value: "ACTIVE", label: "Active" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "DISPUTED", label: "Disputed" },
-];
-
 const BUDGET_OPTIONS: { value: BudgetOption; label: string }[] = [
-  { value: "ALL", label: "All Budgets" },
+  { value: "ALL", label: "Any Budget" },
   { value: "UNDER_1K", label: "Under $1K" },
   { value: "1K_5K", label: "$1K – $5K" },
   { value: "5K_20K", label: "$5K – $20K" },
   { value: "OVER_20K", label: "$20K+" },
 ];
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "newest", label: "Newest" },
-  { value: "budget_desc", label: "Budget: High–Low" },
-  { value: "most_bidding", label: "Most Bidding" },
+const SORT_OPTIONS: { value: SortOption; label: string; icon: string }[] = [
+  { value: "newest", label: "Newest", icon: "schedule" },
+  { value: "budget_desc", label: "Highest Budget", icon: "trending_up" },
+  { value: "most_bidding", label: "Most Active", icon: "local_fire_department" },
 ];
 
 interface MarketplaceFilterBarProps {
@@ -39,128 +31,132 @@ export default function MarketplaceFilterBar({ totalCount }: MarketplaceFilterBa
   const [isPending, startTransition] = useTransition();
 
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
-  const [status, setStatus] = useState<StatusOption>(searchParams.get("status") as StatusOption ?? "ALL");
   const [budget, setBudget] = useState<BudgetOption>(searchParams.get("budget") as BudgetOption ?? "ALL");
   const [sort, setSort] = useState<SortOption>(searchParams.get("sort") as SortOption ?? "newest");
 
-  const applyFilters = useCallback((overrides?: { search?: string; status?: StatusOption; budget?: BudgetOption; sort?: SortOption }) => {
+  const applyFilters = useCallback((overrides?: { search?: string; budget?: BudgetOption; sort?: SortOption }) => {
     const s = overrides?.search ?? search;
-    const st = overrides?.status ?? status;
     const b = overrides?.budget ?? budget;
     const so = overrides?.sort ?? sort;
 
     const params = new URLSearchParams();
     if (s) params.set("search", s);
-    if (st !== "ALL") params.set("status", st);
     if (b !== "ALL") params.set("budget", b);
     if (so !== "newest") params.set("sort", so);
-    params.delete("page"); // reset to page 1 on filter change
+    params.delete("page");
 
     const query = params.toString();
-    router.push(`/marketplace${query ? `?${query}` : ""}`);
-  }, [search, status, budget, sort, router]);
+    startTransition(() => {
+      router.push(`/marketplace${query ? `?${query}` : ""}`);
+    });
+  }, [search, budget, sort, router]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    startTransition(() => applyFilters());
+    applyFilters();
   };
 
   const handleClear = () => {
     setSearch("");
-    setStatus("ALL");
     setBudget("ALL");
     setSort("newest");
     router.push("/marketplace");
   };
 
-  const hasActiveFilters = search || status !== "ALL" || budget !== "ALL" || sort !== "newest";
+  const hasActiveFilters = search || budget !== "ALL" || sort !== "newest";
 
   return (
-    <div className="mb-8">
-      {/* Filter Row */}
-      <div className="flex flex-wrap gap-3 items-end">
+    <div className="mb-6 space-y-4">
+      {/* Search Row */}
+      <form onSubmit={handleSearchSubmit} className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[18px]">
+          search
+        </span>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by title, stack, or keyword..."
+          className="w-full bg-surface border border-outline-variant/30 rounded-2xl pl-11 pr-28 py-3.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+        />
+        <button
+          type="submit"
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-on-primary px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
+        >
+          Search
+        </button>
+      </form>
 
-        {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 min-w-[200px]">
-          <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant block mb-1.5">Search</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-sm">search</span>
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Project title or description..."
-              className="w-full bg-surface border border-outline-variant/30 rounded-xl pl-9 pr-4 py-2.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
-            />
-          </div>
-        </form>
+      {/* Filter Chips Row */}
+      <div className="flex flex-wrap items-center gap-3">
 
-        {/* Status */}
-        <div className="min-w-[140px]">
-          <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant block mb-1.5">Status</label>
-          <select
-            value={status}
-            onChange={e => { const v = e.target.value as StatusOption; setStatus(v); startTransition(() => applyFilters({ status: v })); }}
-            className="w-full bg-surface border border-outline-variant/30 rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors cursor-pointer appearance-none"
-          >
-            {STATUS_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+        {/* Budget Chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant shrink-0">Budget:</span>
+          {BUDGET_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setBudget(opt.value); applyFilters({ budget: opt.value }); }}
+              className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all border ${
+                budget === opt.value
+                  ? "bg-primary text-on-primary border-primary shadow-sm shadow-primary/20"
+                  : "bg-surface border-outline-variant/30 text-on-surface-variant hover:border-primary/40 hover:text-primary"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
-        {/* Budget */}
-        <div className="min-w-[140px]">
-          <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant block mb-1.5">Budget</label>
-          <select
-            value={budget}
-            onChange={e => { const v = e.target.value as BudgetOption; setBudget(v); startTransition(() => applyFilters({ budget: v })); }}
-            className="w-full bg-surface border border-outline-variant/30 rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors cursor-pointer appearance-none"
-          >
-            {BUDGET_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+        {/* Divider */}
+        <div className="w-px h-5 bg-outline-variant/30 hidden sm:block" />
+
+        {/* Sort Chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant shrink-0">Sort:</span>
+          {SORT_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setSort(opt.value); applyFilters({ sort: opt.value }); }}
+              className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all border flex items-center gap-1.5 ${
+                sort === opt.value
+                  ? "bg-surface-container-high text-on-surface border-outline-variant/50"
+                  : "bg-surface border-outline-variant/30 text-on-surface-variant hover:border-outline-variant/60 hover:text-on-surface"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[13px]">{opt.icon}</span>
+              {opt.label}
+            </button>
+          ))}
         </div>
 
-        {/* Sort */}
-        <div className="min-w-[160px]">
-          <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant block mb-1.5">Sort By</label>
-          <select
-            value={sort}
-            onChange={e => { const v = e.target.value as SortOption; setSort(v); startTransition(() => applyFilters({ sort: v })); }}
-            className="w-full bg-surface border border-outline-variant/30 rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors cursor-pointer appearance-none"
-          >
-            {SORT_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Clear */}
+        {/* Clear Button */}
         {hasActiveFilters && (
           <button
             onClick={handleClear}
-            className="shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest border border-outline-variant/30 text-on-surface-variant hover:border-error hover:text-error transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest border border-error/30 text-error hover:bg-error/5 transition-all ml-auto"
           >
+            <span className="material-symbols-outlined text-[13px]">close</span>
             Clear
           </button>
         )}
       </div>
 
-      {/* Results count + pending indicator */}
-      {isPending && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-on-surface-variant">
-          <span className="material-symbols-outlined text-primary animate-spin text-sm">progress_activity</span>
-          Updating results...
-        </div>
-      )}
-      {!isPending && totalCount !== undefined && (
-        <p className="mt-3 text-xs text-on-surface-variant font-medium">
-          {totalCount === 0 ? "No projects found" : `Showing ${totalCount} project${totalCount !== 1 ? "s" : ""}`}
-          {hasActiveFilters && " with active filters"}
-        </p>
-      )}
+      {/* Results + Loading */}
+      <div className="flex items-center gap-2 h-5">
+        {isPending ? (
+          <>
+            <span className="material-symbols-outlined text-primary animate-spin text-sm">progress_activity</span>
+            <span className="text-xs text-on-surface-variant font-medium">Searching...</span>
+          </>
+        ) : totalCount !== undefined ? (
+          <p className="text-xs text-on-surface-variant font-medium">
+            <span className="text-on-surface font-bold">{totalCount}</span>
+            {" "}{totalCount === 1 ? "project" : "projects"} available
+            {hasActiveFilters && <span className="text-primary font-bold"> · filtered</span>}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
