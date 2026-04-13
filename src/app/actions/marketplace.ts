@@ -14,10 +14,11 @@ export async function postProjectToMarketplace(sowData: any) {
       data: {
         title: sowData.title,
         ai_generated_sow: sowData.executiveSummary,
-        is_byoc: false, // Automatically pushes to Marketplace constraints
+        is_byoc: false,
         status: "OPEN_BIDDING",
         creator_id: user.id,
-        client_id: user.id, // Posting client anchors the project permanently
+        client_id: user.id,
+        bidding_closes_at: sowData.biddingClosesAt ? new Date(sowData.biddingClosesAt) : null,
         milestones: {
           create: sowData.milestones.map((m: any) => ({
             title: m.title,

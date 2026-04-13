@@ -53,6 +53,20 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
   const isOpen = project.status === "OPEN_BIDDING";
   const totalProposals = project.bids.length + project.squad_proposals.length;
 
+  const biddingClosesAt = (project as any).bidding_closes_at as Date | null;
+  const msRemaining = biddingClosesAt ? new Date(biddingClosesAt).getTime() - Date.now() : null;
+  const hoursRemaining = msRemaining != null ? Math.max(0, Math.floor(msRemaining / 3600000)) : null;
+  const daysRemaining = hoursRemaining != null ? Math.floor(hoursRemaining / 24) : null;
+  const isCritical = hoursRemaining != null && hoursRemaining <= 24;
+  const isExpired = msRemaining != null && msRemaining <= 0;
+  const deadlineLabel = isExpired
+    ? "Bidding Closed"
+    : daysRemaining != null && daysRemaining >= 1
+    ? `${daysRemaining}d ${hoursRemaining! % 24}h left`
+    : hoursRemaining != null
+    ? `${hoursRemaining}h left`
+    : null;
+
   return (
     <main className="lg:p-6 min-h-full pb-20 relative overflow-hidden">
       <div className="absolute top-[-5%] left-[-10%] w-[600px] h-[600px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
@@ -99,8 +113,28 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
               <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Budget</p>
               <p className="text-2xl font-black text-on-surface">{formatCurrency(totalBudget)}</p>
             </div>
+            {deadlineLabel && (
+              <div className={`px-5 py-3 rounded-2xl text-center border ${isCritical ? "bg-error/10 border-error/30" : "bg-surface-container-low border-outline-variant/20"}`}>
+                <p className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${isCritical ? "text-error" : "text-on-surface-variant"}`}>Closes In</p>
+                <p className={`text-2xl font-black ${isCritical ? "text-error" : "text-on-surface"}`}>{deadlineLabel}</p>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Urgency alert */}
+        {isCritical && !isExpired && (
+          <div className="mt-4 flex items-center gap-2.5 bg-error/10 border border-error/30 rounded-xl px-4 py-3">
+            <span className="w-2 h-2 rounded-full bg-error animate-pulse shrink-0" />
+            <p className="text-xs font-bold text-error">Bidding closes in under 24 hours — accept or negotiate a proposal before the window closes.</p>
+          </div>
+        )}
+        {isExpired && isOpen && (
+          <div className="mt-4 flex items-center gap-2.5 bg-surface-container border border-outline-variant/30 rounded-xl px-4 py-3">
+            <span className="material-symbols-outlined text-on-surface-variant text-[18px]">timer_off</span>
+            <p className="text-xs font-medium text-on-surface-variant">The bidding window has closed. You can still accept an existing proposal or re-open bidding for new ones.</p>
+          </div>
+        )}
       </header>
 
       <div className="px-4 lg:px-0 relative z-10 w-full max-w-[1400px] space-y-8">

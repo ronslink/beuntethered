@@ -109,6 +109,7 @@ model Project {
   views                  Int             @default(0)
   created_at             DateTime        @default(now())
   active_bid_id          String?         // Exclusive negotiation lock
+  bidding_closes_at      DateTime?       // Bidding window deadline
   bids                   Bid[]
   change_orders          ChangeOrder[]
   messages               Message[]

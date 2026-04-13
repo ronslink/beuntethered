@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -27,6 +27,12 @@ export default function ProjectCreationWizard() {
   // Mutator to structurally lock down edits natively overwriting stream states
   const [editableSoW, setEditableSoW] = useState<any>(null);
   const [activePhaseIndex, setActivePhaseIndex] = useState(0);
+  const [biddingClosesAt, setBiddingClosesAt] = useState<string>(() => {
+    // Default: 7 days from today
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split("T")[0];
+  });
 
   useEffect(() => {
     if (sowData && !isGenerating) {
@@ -154,7 +160,8 @@ export default function ProjectCreationWizard() {
       const finalPayload = {
          ...(editableSoW || sowData),
          mode,
-         selected_facilitators: []
+         selected_facilitators: [],
+         biddingClosesAt,
       };
       
       const res = await postProjectToMarketplace(finalPayload);
@@ -175,7 +182,8 @@ export default function ProjectCreationWizard() {
       const finalPayload = {
          ...(editableSoW || sowData),
          mode,
-         selected_facilitators: selectedFacilitators
+         selected_facilitators: selectedFacilitators,
+         biddingClosesAt,
       };
       
       const res = await postProjectToMarketplace(finalPayload);
@@ -335,7 +343,7 @@ export default function ProjectCreationWizard() {
             <div className="animate-in fade-in slide-in-from-right-8 duration-500 pb-28">
                {/* Elastic Scrolling Container */}
                <div className="w-full min-h-[600px] max-h-[80vh] overflow-y-auto custom-scrollbar pr-4 space-y-8">
-                  {/* Header — Editable Title & Summary */}
+                  {/* Header â€” Editable Title & Summary */}
                   <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto space-y-3">
                  <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
                    <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
@@ -393,7 +401,7 @@ export default function ProjectCreationWizard() {
                                            style={{ left: `${leftOffsetPct}%`, width: `${widthPct}%`, backgroundColor: color, opacity: 0.9 }}
                                         >
                                            <span className="text-xs font-black text-white whitespace-nowrap drop-shadow-md">
-                                              {m.title} — {days}d
+                                              {m.title} â€” {days}d
                                            </span>
                                         </div>
                                      </div>
@@ -563,6 +571,34 @@ export default function ProjectCreationWizard() {
                               </div>
                            </div>
                         ))}
+
+
+                        {/* Bidding Window Deadline */}
+                        <div className={mt-6 bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5}>
+                          <div className={lex flex-col md:flex-row md:items-center gap-4}>
+                            <div className={lex items-center gap-2}>
+                              <span className={material-symbols-outlined text-primary text-[20px]}>timer</span>
+                              <div>
+                                <p className={	ext-[10px] font-black uppercase tracking-widest text-on-surface}>Bidding Window</p>
+                                <p className={	ext-xs text-on-surface-variant font-medium mt-0.5}>Facilitators must submit proposals before this date</p>
+                              </div>
+                            </div>
+                            <div className={lex items-center gap-2 ml-auto flex-wrap}>
+                              {[3, 7, 14].map(n => {
+                                const d = new Date(); d.setDate(d.getDate() + n);
+                                const val = d.toISOString().split('T')[0];
+                                return (
+                                  <button key={n} type='button' onClick={() => setBiddingClosesAt(val)}
+                                    className={px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors  + (biddingClosesAt === val ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-primary')}>{n}d</button>
+                                );
+                              })}
+                              <input type='date' value={biddingClosesAt}
+                                min={new Date().toISOString().split('T')[0]}
+                                onChange={e => setBiddingClosesAt(e.target.value)}
+                                className='bg-surface border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface outline-none focus:border-primary transition-colors cursor-pointer' />
+                            </div>
+                          </div>
+                        </div>
 
                         <div className="pt-8 mt-8 border-t border-outline-variant/20 flex flex-col items-center bg-surface-container-lowest -mx-8 -mb-8 p-10">
                            <p className="text-sm text-secondary uppercase tracking-widest font-black mb-2 flex items-center gap-2">
