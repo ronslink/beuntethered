@@ -66,6 +66,48 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
         </div>
       </header>
 
+      <div className="px-4 lg:px-0 relative z-10 w-full max-w-6xl mb-12 space-y-6">
+        {/* SOW Payload */}
+        <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-lg relative overflow-hidden">
+           <div className="relative z-10">
+              <h3 className="text-xl font-bold font-headline mb-4 flex items-center gap-2 border-b border-outline-variant/20 pb-4">
+                 <span className="material-symbols-outlined text-primary border border-primary/20 bg-primary/10 p-1.5 rounded-lg text-sm">article</span>
+                 Scope of Work (SOW)
+              </h3>
+              <div className="text-sm font-medium text-on-surface-variant leading-relaxed whitespace-pre-wrap bg-surface-container-low/50 p-6 rounded-2xl border border-outline-variant/20">
+                 {project.ai_generated_sow}
+              </div>
+           </div>
+        </div>
+
+        {/* Milestone Constraints */}
+        <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-lg relative overflow-hidden">
+           <h3 className="text-xl font-bold font-headline mb-6 flex items-center gap-2 border-b border-outline-variant/20 pb-4">
+               <span className="material-symbols-outlined text-secondary border border-secondary/20 bg-secondary/10 p-1.5 rounded-lg text-sm">map</span>
+               Escrow Sprints
+           </h3>
+           <div className="space-y-4">
+               {project.milestones.map((m, idx) => (
+                  <div key={m.id} className="bg-surface-container-low border border-outline-variant/20 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                     <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-surface-container-high border border-outline-variant/30 flex items-center justify-center font-bold text-on-surface-variant shrink-0 shadow-inner">
+                           {idx + 1}
+                        </div>
+                        <div>
+                           <p className="font-bold text-on-surface mb-1 text-base">{m.title}</p>
+                           <p className="text-xs text-on-surface-variant max-w-2xl line-clamp-2">{m.description || "No specific sprint details available."}</p>
+                        </div>
+                     </div>
+                     <div className="bg-surface-container-high px-4 py-2 rounded-xl text-center shrink-0 border border-outline-variant/30 shadow-inner">
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant mb-0.5">Budget</p>
+                        <p className="text-sm font-black text-on-surface">{formatCurrency(Number(m.amount))}</p>
+                     </div>
+                  </div>
+               ))}
+           </div>
+        </div>
+      </div>
+
       <div className="px-4 lg:px-0 relative z-10 w-full max-w-6xl">
          {project.squad_proposals.map(squad => (
             <div key={squad.id} className="bg-surface-container-low border-2 border-primary/40 rounded-3xl p-8 shadow-[0_10px_40px_rgba(var(--color-primary),0.1)] relative overflow-hidden mb-8 group animate-in fade-in slide-in-from-bottom-4 duration-700">
