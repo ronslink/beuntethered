@@ -80,6 +80,7 @@ model Milestone {
   live_preview_url         String?
   payload_storage_path     String?
   disputes                 Dispute[]
+  timeline_events          TimelineEvent[]
 }
 
 model Project {
@@ -105,6 +106,7 @@ model Project {
   reviews                Review[]
   squad_proposals        SquadProposal[]
   disputes               Dispute[]
+  timeline_events        TimelineEvent[]
 }
 
 model Review {
@@ -250,6 +252,35 @@ enum PlatformTier {
   STANDARD
   PRO
   ELITE
+}
+
+enum TimelineEventType {
+  COMMIT
+  MILESTONE
+  REVIEW
+  DISPUTE
+  SYSTEM
+}
+
+enum TimelineEventStatus {
+  SUCCESS
+  PENDING
+  FAILED
+}
+
+model TimelineEvent {
+  id           String              @id @default(cuid())
+  project_id   String
+  milestone_id String?
+  type         TimelineEventType
+  timestamp    DateTime            @default(now())
+  description  String
+  status       TimelineEventStatus
+  author       String
+  commitHash   String?
+
+  project   Project    @relation(fields: [project_id], references: [id])
+  milestone Milestone? @relation(fields: [milestone_id], references: [id])
 }
 
 enum ProjectStatus {

@@ -4,103 +4,44 @@ import { useState, useEffect } from "react";
 
 interface TimelineEvent {
   id: string;
-  type: "commit" | "deployment" | "test" | "error" | "milestone" | "review";
-  timestamp: string;
+  type: "COMMIT" | "MILESTONE" | "REVIEW" | "DISPUTE" | "SYSTEM" | string;
+  timestamp: string | Date;
   description: string;
-  status: "success" | "pending" | "failed";
+  status: "SUCCESS" | "PENDING" | "FAILED" | string;
   author: string;
-  commitHash?: string;
+  commitHash?: string | null;
 }
 
 interface CommitSyncTimelineProps {
   events?: TimelineEvent[];
 }
 
-const MOCK_EVENTS: TimelineEvent[] = [
-  {
-    id: "1",
-    type: "commit",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    description: "Pushed feature: ZK escrow payload integration",
-    status: "success",
-    author: "Alex Chen",
-    commitHash: "a3f2c19",
-  },
-  {
-    id: "2",
-    type: "deployment",
-    timestamp: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    description: "Deployed to staging environment",
-    status: "success",
-    author: "Sarah Kim",
-    commitHash: "b7d4e82",
-  },
-  {
-    id: "3",
-    type: "test",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    description: "All 47 tests passing for escrow module",
-    status: "success",
-    author: "Marcus Johnson",
-  },
-  {
-    id: "4",
-    type: "review",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    description: "PR #142 approved: Multi-sig wallet support",
-    status: "success",
-    author: "Jordan Lee",
-    commitHash: "c9a1f34",
-  },
-  {
-    id: "5",
-    type: "error",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-    description: "Fixed: Transaction revert on edge case",
-    status: "success",
-    author: "Alex Chen",
-    commitHash: "d2b8e57",
-  },
-  {
-    id: "6",
-    type: "milestone",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    description: "Phase 1 complete: Core escrow logic deployed",
-    status: "success",
-    author: "Team",
-  },
-];
 
 const EVENT_TYPE_CONFIG: Record<
-  TimelineEvent["type"],
+  string,
   { icon: string; colorClass: string; label: string }
 > = {
-  commit: {
+  COMMIT: {
     icon: "commit",
     colorClass: "bg-primary/20 text-primary shadow-[0_0_20px_rgba(var(--color-primary),0.4)]",
     label: "Commit",
   },
-  deployment: {
+  SYSTEM: {
     icon: "rocket_launch",
     colorClass: "bg-tertiary/20 text-tertiary shadow-[0_0_20px_rgba(var(--color-tertiary),0.4)]",
-    label: "Deploy",
+    label: "System",
   },
-  test: {
-    icon: "bug_report",
-    colorClass: "bg-green-500/20 text-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]",
-    label: "Test",
-  },
-  error: {
+  DISPUTE: {
     icon: "error",
     colorClass: "bg-red-500/20 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)]",
-    label: "Error",
+    label: "Dispute",
   },
-  milestone: {
+  MILESTONE: {
     icon: "flag",
     colorClass: "bg-amber-500/20 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)]",
     label: "Milestone",
   },
-  review: {
+  REVIEW: {
     icon: "rate_review",
     colorClass: "bg-purple-500/20 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.4)]",
     label: "Review",
@@ -108,24 +49,24 @@ const EVENT_TYPE_CONFIG: Record<
 };
 
 const STATUS_CONFIG: Record<
-  TimelineEvent["status"],
+  string,
   { badgeClass: string; dotClass: string }
 > = {
-  success: {
+  SUCCESS: {
     badgeClass: "bg-green-500/20 text-green-400 border-green-500/30",
     dotClass: "bg-green-400",
   },
-  pending: {
+  PENDING: {
     badgeClass: "bg-amber-500/20 text-amber-400 border-amber-500/30",
     dotClass: "bg-amber-400",
   },
-  failed: {
+  FAILED: {
     badgeClass: "bg-red-500/20 text-red-400 border-red-500/30",
     dotClass: "bg-red-400",
   },
 };
 
-function formatRelativeTime(timestamp: string): string {
+function formatRelativeTime(timestamp: string | Date): string {
   const now = new Date();
   const date = new Date(timestamp);
   const diffMs = now.getTime() - date.getTime();
@@ -155,7 +96,7 @@ export default function CommitSyncTimeline({
   events: propEvents,
 }: CommitSyncTimelineProps) {
   const [events, setEvents] = useState<TimelineEvent[]>(
-    propEvents ?? MOCK_EVENTS
+    propEvents || []
   );
   const [visibleCount, setVisibleCount] = useState(4);
   const [mounted, setMounted] = useState(false);
@@ -232,8 +173,8 @@ export default function CommitSyncTimeline({
           {/* Events list */}
           <div className="space-y-4">
             {visibleEvents.map((event, index) => {
-              const typeConfig = EVENT_TYPE_CONFIG[event.type];
-              const statusConfig = STATUS_CONFIG[event.status];
+              const typeConfig = EVENT_TYPE_CONFIG[event.type] || EVENT_TYPE_CONFIG.SYSTEM;
+              const statusConfig = STATUS_CONFIG[event.status] || STATUS_CONFIG.SUCCESS;
 
               return (
                 <div

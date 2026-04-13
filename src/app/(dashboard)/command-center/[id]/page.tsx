@@ -8,6 +8,7 @@ import IntegrationsTab from "@/components/dashboard/IntegrationsTab";
 import { FacilitatorSubmitGateway, ClientReviewGateway } from "@/components/dashboard/AtomicSwapGateway";
 import PostProjectReviewClient from "@/components/dashboard/command-center/PostProjectReviewClient";
 import OpenDisputeButton from "@/components/dashboard/command-center/OpenDisputeButton";
+import CommitSyncTimeline from "@/components/dashboard/command-center/CommitSyncTimeline";
 
 export default async function ProjectCommandCenter({
   params,
@@ -32,6 +33,9 @@ export default async function ProjectCommandCenter({
       },
       bids: {
         include: { developer: true },
+      },
+      timeline_events: {
+        orderBy: { timestamp: "desc" },
       },
     },
   });
@@ -216,7 +220,8 @@ export default async function ProjectCommandCenter({
           <IntegrationsTab project={{ ...project, has_github_token: !!project.github_access_token, github_access_token: undefined }} />
         </div>
       ) : (
-        <div className="w-full relative z-10 max-w-6xl">
+        <div className="w-full relative z-10 max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="col-span-1 lg:col-span-2">
         <div className="flex items-center justify-between px-2 mb-6">
           <h3 className="text-xl font-bold font-headline flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">
@@ -390,6 +395,12 @@ export default async function ProjectCommandCenter({
             </Link>
           </div>
         )}
+        </div>
+        
+        {/* Right Column: Timeline */}
+        <div className="col-span-1">
+          <CommitSyncTimeline events={project.timeline_events as any} />
+        </div>
         </div>
       )}
     </main>
