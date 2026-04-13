@@ -188,6 +188,7 @@ model User {
   preferred_llm           String                       @default("gpt-4o-mini")
   hourly_rate             Decimal                      @default(0)
   platform_tier           PlatformTier                 @default(STANDARD)
+  agent_key_hash          String?                      @unique
   trust_score             Float                        @default(0.0)
   total_sprints_completed Int                          @default(0)
   average_ai_audit_score  Float                        @default(0.0)

@@ -1,8 +1,8 @@
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
-
 import { prisma } from "@/lib/auth";
 import BYOKSettingsClient from "@/components/settings/BYOKSettingsClient";
+import AgentKeyClient from "@/components/settings/AgentKeyClient";
 
 export default async function SettingsPage() {
   const sessionUser = await getCurrentUser();
@@ -50,6 +50,9 @@ export default async function SettingsPage() {
                hasOpenAI={maskKey(user.openai_key)}
                hasAnthropic={maskKey(user.anthropic_key)}
             />
+
+           {/* Autonomous Agent Control */}
+           <AgentKeyClient hasKeyBound={!!user.agent_key_hash} />
 
            {/* Financial Integration */}
            <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
