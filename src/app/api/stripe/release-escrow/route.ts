@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       currency: "usd",
       destination: developerId,
       transfer_group: `milestone_${milestone.id}`,
+      metadata: { milestone_id: milestone.id }
     });
 
     // Resolve milestone to completed standard locally

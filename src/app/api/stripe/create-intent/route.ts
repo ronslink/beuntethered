@@ -30,8 +30,8 @@ export async function POST(req: Request) {
       payment_method_types: ["card", "us_bank_account"],
       transfer_group: `milestone_${milestone.id}`,
       metadata: {
-        milestoneId: milestone.id,
-        projectId: milestone.project.id
+        milestone_id: milestone.id,
+        project_id: milestone.project.id
       }
     });
 

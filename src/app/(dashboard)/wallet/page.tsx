@@ -74,9 +74,25 @@ export default async function WalletPage() {
           <p className="text-5xl font-black text-on-surface tracking-tighter relative z-10">{formatCurrency(availableBalance)}</p>
           
           <div className="mt-8 relative z-10">
-            <button className={`w-full py-4 rounded-xl font-bold font-headline text-sm tracking-widest uppercase transition-all shadow-xl ${isStripeConnected ? 'bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container shadow-primary/20 hover:-translate-y-0.5 pointer-events-auto' : 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-50'}`} disabled={!isStripeConnected}>
-              Initiate Payout
-            </button>
+            {isStripeConnected ? (
+              <form action={async () => {
+                "use server";
+                const { createStripeLoginLink } = await import("@/app/actions/stripe");
+                const { redirect } = await import("next/navigation");
+                const res = await createStripeLoginLink();
+                if (res.success && res.url) {
+                  redirect(res.url);
+                }
+              }}>
+                <button type="submit" className="w-full py-4 rounded-xl font-bold font-headline text-sm tracking-widest uppercase transition-all shadow-xl bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container shadow-primary/20 hover:-translate-y-0.5" disabled={!isStripeConnected}>
+                  View Dashboard & Payouts
+                </button>
+              </form>
+            ) : (
+              <button disabled className="w-full py-4 rounded-xl font-bold font-headline text-sm tracking-widest uppercase transition-all shadow-xl bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-50">
+                Initiate Payout
+              </button>
+            )}
           </div>
           <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all pointer-events-none"></div>
         </div>

@@ -4,13 +4,13 @@ import { prisma } from "@/lib/auth";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123", {
-  apiVersion: "2026-03-25.dahlia" // Fixed strictly to exact TS definition version
+  apiVersion: "2023-10-16" as any
 });
 
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "DEVELOPER") {
+    if (!user || user.role !== "FACILITATOR") {
       return NextResponse.json({ error: "Unauthorized. Must be an expert to onboard." }, { status: 401 });
     }
 
