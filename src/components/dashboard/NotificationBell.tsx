@@ -77,8 +77,10 @@ export function NotificationBell() {
       try {
         // In a real app, we'd get the userId from session
         // For now, using a placeholder - in production this would come from auth
-        const data = await getUserNotifications("current-user");
-        setNotifications(data as NotificationItem[]);
+        const result = await getUserNotifications("current-user");
+        if (result.success) {
+          setNotifications(result.notifications);
+        }
       } catch (error) {
         console.error("Failed to fetch notifications:", error);
       } finally {

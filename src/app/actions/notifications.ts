@@ -1,76 +1,78 @@
 "use server";
 
-import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 
-interface SendNotificationParams {
-  userId: string;
-  type: "review_received" | "payment_received" | "milestone_approved" | "message" | "system";
-  title: string;
+export type NotificationType =
+  | "INFO"
+  | "SUCCESS"
+  | "WARNING"
+  | "ERROR"
+  | "MILESTONE"
+  | "MESSAGE";
+
+export interface NotificationItem {
+  id: string;
   message: string;
-  relatedId?: string;
+  type: NotificationType;
+  read: boolean;
+  createdAt: Date;
 }
 
-export async function sendSystemNotification(params: SendNotificationParams) {
-  try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      throw new Error("Unauthorized");
-    }
+// In-memory notification store (resets on server restart — fine for dev/P0)
+const notificationStore = new Map<string, NotificationItem[]>();
 
-    const notification = await prisma.notification.create({
-      data: {
-        user_id: params.userId,
-        type: params.type,
-        title: params.title,
-        message: params.message,
-        related_id: params.relatedId,
-        is_read: false,
-      },
-    });
-
-    return { success: true, notification };
-  } catch (error) {
-    console.error("Failed to send notification:", error);
-    return { success: false, error: "Failed to send notification" };
-  }
+function getUserKey(userId: string): string {
+  return `notifications:${userId}`;
 }
 
-export async function getUserNotifications(userId: string, limit = 20) {
-  try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || currentUser.id !== userId) {
-      throw new Error("Unauthorized");
-    }
+export async function sendSystemNotification(
+  userId: string,
+  message: string,
+  type: NotificationType = "INFO"
+): Promise<{ success: boolean; notificationId: string }> {
+  const id = crypto.randomUUID();
+  const notification: NotificationItem = {
+    id,
+    message,
+    type,
+    read: false,
+    createdAt: new Date(),
+  };
 
-    const notifications = await prisma.notification.findMany({
-      where: { user_id: userId },
-      orderBy: { created_at: "desc" },
-      take: limit,
-    });
+  const existing = notificationStore.get(getUserKey(userId)) ?? [];
+  notificationStore.set(getUserKey(userId), [notification, ...existing]);
 
-    return { success: true, notifications };
-  } catch (error) {
-    console.error("Failed to fetch notifications:", error);
-    return { success: false, error: "Failed to fetch notifications" };
-  }
+  return { success: true, notificationId: id };
 }
 
-export async function markNotificationAsRead(notificationId: string) {
-  try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      throw new Error("Unauthorized");
+export async function getUserNotifications(
+  userId: string
+): Promise<{ success: boolean; notifications: NotificationItem[] }> {
+  const notifications = notificationStore.get(getUserKey(userId)) ?? [];
+  return { success: true, notifications };
+}
+
+export async function markNotificationAsRead(
+  notificationId: string
+): Promise<{ success: boolean }> {
+  // Iterate all users' stores to find and mark the notification
+  for (const [, notifications] of notificationStore) {
+    const idx = notifications.findIndex((n) => n.id === notificationId);
+    if (idx !== -1) {
+      notifications[idx] = { ...notifications[idx], read: true };
+      break;
     }
-
-    const notification = await prisma.notification.update({
-      where: { id: notificationId },
-      data: { is_read: true },
-    });
-
-    return { success: true, notification };
-  } catch (error) {
-    console.error("Failed to mark notification as read:", error);
-    return { success: false, error: "Failed to mark notification as read" };
   }
+  return { success: true };
+}
+
+export async function markAllNotificationsAsRead(
+  userId: string
+): Promise<{ success: boolean }> {
+  const notifications = notificationStore.get(getUserKey(userId)) ?? [];
+  notificationStore.set(
+    getUserKey(userId),
+    notifications.map((n) => ({ ...n, read: true }))
+  );
+  return { success: true };
 }

@@ -66,12 +66,7 @@ export default function ReviewModal({
     try {
       // Send notification to facilitator
       if (facilitatorId) {
-        await sendSystemNotification({
-          userId: facilitatorId,
-          type: "review_received",
-          title: "New Review Received",
-          message: `You received a ${rating}-star review from a client${review ? `: "${review.slice(0, 50)}${review.length > 50 ? '...' : ''}"` : ''}`,
-        });
+        await sendSystemNotification(facilitatorId, `You received a ${rating}-star review from a client${review ? `: "${review.slice(0, 50)}${review.length > 50 ? '...' : ''}"` : ''}`, "MILESTONE");
       }
 
       await onSubmit({ rating, review });
