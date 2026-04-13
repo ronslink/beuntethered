@@ -7,6 +7,7 @@ import ChatWidget from "@/components/dashboard/command-center/ChatWidget";
 import IntegrationsTab from "@/components/dashboard/IntegrationsTab";
 import { FacilitatorSubmitGateway, ClientReviewGateway } from "@/components/dashboard/AtomicSwapGateway";
 import PostProjectReviewClient from "@/components/dashboard/command-center/PostProjectReviewClient";
+import OpenDisputeButton from "@/components/dashboard/command-center/OpenDisputeButton";
 
 export default async function ProjectCommandCenter({
   params,
@@ -315,6 +316,11 @@ export default async function ProjectCommandCenter({
                       >
                          <span className="material-symbols-outlined text-[18px]">download</span> Download Source Code
                       </a>
+                    )}
+                    
+                    {/* OPEN DISPUTE BUTTON - CLIENT ONLY */}
+                    {isClient && !isCompleted && project.status !== "DISPUTED" && (
+                      <OpenDisputeButton projectId={project.id} />
                     )}
                     
                     {/* PENDING NOTICES */}
