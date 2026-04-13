@@ -290,6 +290,7 @@ enum ProjectStatus {
   ACTIVE
   COMPLETED
   DISPUTED
+  CANCELLED
 }
 
 enum Role {

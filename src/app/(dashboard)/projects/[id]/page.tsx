@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import AcceptBidButton from "@/components/marketplace/AcceptBidButton";
 import AcceptSquadButton from "@/components/marketplace/AcceptSquadButton";
+import ListingControlArray from "@/components/dashboard/projects/ListingControlArray";
 
 export const dynamic = 'force-dynamic';
 
@@ -43,11 +44,16 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
   
   const totalEst = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
 
+  // Calibration Computations
+  const daysActive = Math.max(1, Math.ceil((Date.now() - project.created_at.getTime()) / (1000 * 60 * 60 * 24)));
+  const conversionRate = project.views > 0 ? ((project.bids.length / project.views) * 100).toFixed(1) : "0.0";
+  const meanBid = project.bids.length > 0 ? project.bids.reduce((acc, bid) => acc + Number(bid.proposed_amount), 0) / project.bids.length : 0;
+
   return (
     <main className="lg:p-6 min-h-full pb-20 relative overflow-hidden">
       <div className="absolute top-[-5%] left-[-10%] w-[600px] h-[600px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
 
-      <header className="mb-10 px-4 lg:px-0 relative z-10 w-full max-w-6xl">
+      <header className="mb-4 px-4 lg:px-0 relative z-10 w-full max-w-6xl">
         <div className="flex items-center gap-2 mb-4">
            <Link href="/dashboard" className="text-on-surface-variant hover:text-primary transition-colors flex items-center text-xs font-bold uppercase tracking-widest gap-1"><span className="material-symbols-outlined text-[14px]">arrow_back</span> Back to Dashboard</Link>
         </div>
@@ -74,6 +80,32 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
       </header>
 
       <div className="px-4 lg:px-0 relative z-10 w-full max-w-6xl mb-12 space-y-6">
+        {/* Marketplace Calibration & Listing Controls */}
+        {project.status === 'OPEN_BIDDING' && (
+           <div className="bg-surface/30 backdrop-blur-md border border-outline-variant/30 rounded-3xl p-6 shadow-sm flex flex-col lg:flex-row gap-6 justify-between items-center">
+              <div className="flex gap-6 items-center w-full lg:w-auto justify-between lg:justify-start">
+                 <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Time on Market</p>
+                    <p className="text-xl font-black text-on-surface leading-none">{daysActive} <span className="text-sm font-medium text-on-surface-variant">Day{daysActive > 1 ? 's' : ''}</span></p>
+                 </div>
+                 <div className="w-px h-8 bg-outline-variant/20 hidden sm:block"></div>
+                 <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Bid Conversion</p>
+                    <p className="text-xl font-black text-on-surface leading-none">{conversionRate}%</p>
+                 </div>
+                 <div className="w-px h-8 bg-outline-variant/20 hidden sm:block"></div>
+                 <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Avg Proposal</p>
+                    <p className="text-xl font-black text-on-surface leading-none">{meanBid > 0 ? formatCurrency(meanBid) : "$0"}</p>
+                 </div>
+              </div>
+              
+              <div className="w-full lg:w-auto">
+                 <ListingControlArray projectId={project.id} initialSow={project.ai_generated_sow} />
+              </div>
+           </div>
+        )}
+
         {/* SOW Payload */}
         <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-lg relative overflow-hidden">
            <div className="relative z-10">
