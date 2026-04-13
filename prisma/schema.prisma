@@ -91,7 +91,6 @@ model Project {
   ai_generated_sow       String
   is_byoc                Boolean         @default(false)
   billing_type           BillingType     @default(FIXED_MILESTONE)
-  unreviewed_hours_limit Int             @default(20)
   github_repo_url        String?
   github_access_token    String?
   invite_token           String?         @unique

@@ -9,6 +9,7 @@ import { FacilitatorSubmitGateway, ClientReviewGateway } from "@/components/dash
 import PostProjectReviewClient from "@/components/dashboard/command-center/PostProjectReviewClient";
 import OpenDisputeButton from "@/components/dashboard/command-center/OpenDisputeButton";
 import CommitSyncTimeline from "@/components/dashboard/command-center/CommitSyncTimeline";
+import ChangeOrderPanel from "@/components/dashboard/command-center/ChangeOrderPanel";
 
 export default async function ProjectCommandCenter({
   params,
@@ -37,6 +38,9 @@ export default async function ProjectCommandCenter({
       timeline_events: {
         orderBy: { timestamp: "desc" },
       },
+      change_orders: {
+        orderBy: { added_cost: "desc" }
+      }
     },
   });
 
@@ -395,6 +399,13 @@ export default async function ProjectCommandCenter({
             </Link>
           </div>
         )}
+
+        <ChangeOrderPanel 
+           projectId={project.id}
+           role={isClient ? "CLIENT" : "FACILITATOR"}
+           changeOrders={project.change_orders} 
+        />
+        
         </div>
         
         {/* Right Column: Timeline */}

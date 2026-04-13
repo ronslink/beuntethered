@@ -60,6 +60,16 @@ export async function POST(req: Request) {
       data: { status: "APPROVED_AND_PAID" }
     });
 
+    // Synchronously iterate explicit Trust Metrics bumping their tier algorithm logic inherently
+    if (milestone.facilitator_id) {
+       await prisma.user.update({
+          where: { id: milestone.facilitator_id },
+          data: {
+             total_sprints_completed: { increment: 1 }
+          }
+       });
+    }
+
     let downloadUrl = null;
     if (milestone.payload_storage_path) {
       downloadUrl = await generateSignedDownloadUrl(milestone.payload_storage_path);
