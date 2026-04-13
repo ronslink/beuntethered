@@ -294,7 +294,8 @@ export default function DossierClient({
       {isBidOpen && (
         <BidModal 
           project={project} 
-          totalValue={totalValue} 
+          totalValue={totalValue}
+          originalMilestones={milestones}
           onClose={() => setIsBidOpen(false)} 
         />
       )}

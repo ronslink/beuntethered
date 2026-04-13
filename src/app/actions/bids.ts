@@ -7,212 +7,436 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "missing-key");
 
+// ─────────────────────────────────────────────
+// FACILITATOR: Submit a new bid
+// ─────────────────────────────────────────────
 export async function submitBid({
   projectId,
   proposedAmount,
   estimatedDays,
-  technicalApproach
+  technicalApproach,
+  proposedTechStack,
+  techStackReason,
+  proposedMilestones,
 }: {
   projectId: string;
   proposedAmount: number;
   estimatedDays: number;
   technicalApproach: string;
+  proposedTechStack?: string;
+  techStackReason?: string;
+  proposedMilestones?: { title: string; amount: number; days: number; description?: string }[];
 }) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "FACILITATOR") throw new Error("Only strictly configured Experts can submit Marketplace parameter bids.");
+    if (!user || user.role !== "FACILITATOR") throw new Error("Only facilitators can submit bids.");
 
-    // Vector Hardening: Fast verification checking the Project node is still natively OPEN_BIDDING
     const targetProject = await prisma.project.findUnique({
-       where: { id: projectId },
-       select: { status: true }
+      where: { id: projectId },
+      select: { status: true },
     });
-
     if (!targetProject || targetProject.status !== "OPEN_BIDDING") {
-        throw new Error("Active Status Constraint: This project parameter is permanently mathematically sealed and cannot securely accept trailing bids.");
+      throw new Error("This project is no longer accepting bids.");
     }
 
-    // Enforce duplication execution constraint logically
     const existingBid = await prisma.bid.findFirst({
-       where: { project_id: projectId, developer_id: user.id }
+      where: { project_id: projectId, developer_id: user.id },
     });
-
     if (existingBid) {
-       throw new Error("Constraints lock: You have an actively unresolved bid pending on this exact node parameter.");
+      throw new Error("You already have a bid on this project.");
     }
 
-    // Capture bid executing across logic loops seamlessly
-    await prisma.bid.create({
-       data: {
-         project_id: projectId,
-         developer_id: user.id,
-         proposed_amount: proposedAmount,
-         estimated_days: estimatedDays,
-         technical_approach: technicalApproach,
-         ai_translation_summary: "Pending AI Contractual Analysis Constraint Map...", // Mocking pending AI response map
-         status: "PENDING"
-       }
+    const bid = await prisma.bid.create({
+      data: {
+        project_id: projectId,
+        developer_id: user.id,
+        proposed_amount: proposedAmount,
+        estimated_days: estimatedDays,
+        technical_approach: technicalApproach,
+        proposed_tech_stack: proposedTechStack || null,
+        tech_stack_reason: techStackReason || null,
+        proposed_milestones: proposedMilestones ? JSON.stringify(proposedMilestones) : undefined,
+        ai_translation_summary: "Pending AI analysis...",
+        status: "PENDING",
+      },
     });
+
+    // Kick off async AI scoring — fire and forget
+    fetch(`${process.env.NEXTAUTH_URL}/api/ai/analyze-bid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bidId: bid.id,
+        projectId,
+        proposedAmount,
+        estimatedDays,
+        technicalApproach,
+        proposedTechStack,
+        proposedMilestones,
+      }),
+    }).catch(() => {}); // non-blocking
 
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      include: { client: true }
+      include: { client: true },
     });
 
     if (project?.client?.email) {
-      try {
-        await resend.emails.send({
-          from: "Untether Marketplace <marketplace@untether.network>",
-          to: project.client.email,
-          subject: `New Bid Received on ${project.title}!`,
-          html: `
-            <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #1a1a1a;">
-              <h2 style="color: #6366f1;">Marketplace Execution Alert</h2>
-              <p>An expert facilitator has formally submitted a bid resolving your Scope of Work.</p>
-              <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
-                <h3 style="margin-top:0;">Proposed Valuation: $${proposedAmount}</h3>
-                <p style="color: #475569; font-size: 14px;">${technicalApproach}</p>
-              </div>
-              <a href="${process.env.NEXTAUTH_URL}/projects/${project.id}" style="display: inline-block; background-color: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: bold; margin-top: 10px;">Review Proposal</a>
-            </div>
-          `
-        });
-      } catch (e) {
-        console.error("Resend Trigger Warning: Output failure against standard boundaries", e);
-      }
+      resend.emails.send({
+        from: "Untether Marketplace <marketplace@untether.network>",
+        to: project.client.email,
+        subject: `New Bid on "${project.title}"`,
+        html: `<p>A facilitator submitted a proposal. <a href="${process.env.NEXTAUTH_URL}/projects/${project.id}">Review it here →</a></p>`,
+      }).catch(() => {});
     }
 
-    // Revalidate the entire Marketplace cache ensuring buttons actively update
     revalidatePath("/marketplace");
-    
-    return { success: true };
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true, bidId: bid.id };
   } catch (error: any) {
-    console.error("Bid Fault:", error);
     return { success: false, error: error.message };
   }
 }
 
-export async function acceptBid(bidId: string) {
+// ─────────────────────────────────────────────
+// CLIENT: Shortlist a bid
+// ─────────────────────────────────────────────
+export async function shortlistBid(bidId: string) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "CLIENT") throw new Error("Unauthorized array logic resolution.");
+    if (!user || user.role !== "CLIENT") throw new Error("Unauthorized.");
 
     const bid = await prisma.bid.findUnique({
       where: { id: bidId },
-      include: { project: { include: { milestones: true } } }
+      include: { project: true },
+    });
+    if (!bid || bid.project.client_id !== user.id) throw new Error("Not your project.");
+    if (bid.status !== "PENDING") throw new Error("Only pending bids can be shortlisted.");
+
+    await prisma.bid.update({
+      where: { id: bidId },
+      data: { status: "SHORTLISTED" },
     });
 
-    if (!bid || bid.project.client_id !== user.id || bid.project.status !== "OPEN_BIDDING") {
-      throw new Error("Invalid parameters formatting Escrow constraint. Validation locked.");
+    revalidatePath(`/projects/${bid.project_id}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ─────────────────────────────────────────────
+// CLIENT: Enter negotiation (exclusive lock)
+// ─────────────────────────────────────────────
+export async function enterNegotiation(bidId: string) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "CLIENT") throw new Error("Unauthorized.");
+
+    const bid = await prisma.bid.findUnique({
+      where: { id: bidId },
+      include: { project: true },
+    });
+    if (!bid || bid.project.client_id !== user.id) throw new Error("Not your project.");
+
+    // Check no other active negotiation on this project
+    if (bid.project.active_bid_id && bid.project.active_bid_id !== bidId) {
+      throw new Error("A negotiation is already in progress on this project. Close it first.");
     }
 
+    await prisma.$transaction([
+      prisma.bid.update({ where: { id: bidId }, data: { status: "UNDER_NEGOTIATION" } }),
+      prisma.project.update({ where: { id: bid.project_id }, data: { active_bid_id: bidId } }),
+    ]);
+
+    revalidatePath(`/projects/${bid.project_id}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ─────────────────────────────────────────────
+// CLIENT: Counter a bid
+// ─────────────────────────────────────────────
+export async function counterBid({
+  bidId,
+  counterAmount,
+  counterReason,
+  counterMilestones,
+}: {
+  bidId: string;
+  counterAmount: number;
+  counterReason: string;
+  counterMilestones?: { title: string; amount: number; days: number; description?: string }[];
+}) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "CLIENT") throw new Error("Unauthorized.");
+
+    const bid = await prisma.bid.findUnique({
+      where: { id: bidId },
+      include: { project: true, developer: true },
+    });
+    if (!bid || bid.project.client_id !== user.id) throw new Error("Not your project.");
+    if (bid.status !== "UNDER_NEGOTIATION") throw new Error("This bid is not in active negotiation.");
+    if (bid.negotiation_rounds >= 3) throw new Error("Maximum negotiation rounds (3) reached.");
+
+    await prisma.bid.update({
+      where: { id: bidId },
+      data: {
+        counter_amount: counterAmount,
+        counter_reason: counterReason,
+        counter_milestones: counterMilestones ? JSON.stringify(counterMilestones) : undefined,
+        last_action_by: "CLIENT",
+        negotiation_rounds: { increment: 1 },
+      },
+    });
+
+    // Notify facilitator
+    if (bid.developer?.email) {
+      resend.emails.send({
+        from: "Untether Marketplace <marketplace@untether.network>",
+        to: bid.developer.email,
+        subject: `Counter Offer on "${bid.project.title}"`,
+        html: `<p>The client has countered your proposal at $${counterAmount}. <a href="${process.env.NEXTAUTH_URL}/marketplace">View it →</a></p>`,
+      }).catch(() => {});
+    }
+
+    revalidatePath(`/projects/${bid.project_id}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ─────────────────────────────────────────────
+// FACILITATOR: Accept client's counter
+// ─────────────────────────────────────────────
+export async function acceptCounter(bidId: string) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "FACILITATOR") throw new Error("Unauthorized.");
+
+    const bid = await prisma.bid.findUnique({
+      where: { id: bidId },
+      include: { project: { include: { milestones: true } } },
+    });
+    if (!bid || bid.developer_id !== user.id) throw new Error("Not your bid.");
+    if (bid.status !== "UNDER_NEGOTIATION") throw new Error("Bid not in negotiation.");
+
+    const finalAmount = bid.counter_amount ? Number(bid.counter_amount) : Number(bid.proposed_amount);
     const projectId = bid.project_id;
 
-    // Secure Transaction locking entire db matrix cleanly validating loops reliably
     await prisma.$transaction(async (tx) => {
-      // 1. Lock the strictly accepted Bid state natively
-      await tx.bid.update({
-        where: { id: bidId },
-        data: { status: "ACCEPTED" }
-      });
+      // Accept this bid
+      await tx.bid.update({ where: { id: bidId }, data: { status: "ACCEPTED", proposed_amount: finalAmount } });
 
-      // 2. Reject all divergent conflicting mappings gracefully
+      // Reject all other bids
       await tx.bid.updateMany({
         where: { project_id: projectId, id: { not: bidId } },
-        data: { status: "REJECTED" }
+        data: { status: "REJECTED" },
       });
 
-      // 3. Mathematical mapping scaling logic natively preserving decimal constraints perfectly
-      const originalTotal = bid.project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
-      const proposedTotal = Number(bid.proposed_amount);
+      // Rescale milestones to counter amount if custom milestones provided
+      const milestonesToUse = bid.counter_milestones
+        ? (JSON.parse(bid.counter_milestones as string) as any[])
+        : null;
 
-      if (originalTotal !== proposedTotal && originalTotal > 0) {
-        const ratio = proposedTotal / originalTotal;
-
-        for (const m of bid.project.milestones) {
-           const newAmount = Number(m.amount) * ratio;
-           // MUST round to explicitly exactly 2 fractional outputs otherwise Stripe triggers payload fault boundaries!
-           const roundedAmount = Math.round(newAmount * 100) / 100;
-           
-           await tx.milestone.update({
-             where: { id: m.id },
-             data: { amount: roundedAmount }
-           });
+      if (milestonesToUse && milestonesToUse.length > 0) {
+        // Delete existing milestones and create proposed ones
+        await tx.milestone.deleteMany({ where: { project_id: projectId } });
+        for (const m of milestonesToUse) {
+          await tx.milestone.create({
+            data: {
+              project_id: projectId,
+              facilitator_id: user.id,
+              title: m.title,
+              amount: m.amount,
+              estimated_duration_days: m.days,
+              description: m.description || null,
+              status: "PENDING",
+              acceptance_criteria: [],
+              deliverables: [],
+            },
+          });
+        }
+      } else {
+        // Rescale existing milestones proportionally
+        const originalTotal = bid.project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
+        if (originalTotal > 0 && originalTotal !== finalAmount) {
+          const ratio = finalAmount / originalTotal;
+          for (const m of bid.project.milestones) {
+            await tx.milestone.update({
+              where: { id: m.id },
+              data: { amount: Math.round(Number(m.amount) * ratio * 100) / 100, facilitator_id: user.id },
+            });
+          }
+        } else {
+          await tx.milestone.updateMany({
+            where: { project_id: projectId },
+            data: { facilitator_id: user.id },
+          });
         }
       }
 
-      // 4. Force Project object correctly into Escrow pipeline matching 'ACTIVE'
+      // Activate project + clear negotiation lock
       await tx.project.update({
         where: { id: projectId },
-        data: {
-          status: "ACTIVE"
-        }
-      });
-      
-      // 5. Connect all underlying milestones to the winning expert
-      await tx.milestone.updateMany({
-        where: { project_id: projectId },
-        data: {
-          facilitator_id: bid.developer_id
-        }
+        data: { status: "ACTIVE", active_bid_id: null },
       });
     });
-
-    const acceptedBid = await prisma.bid.findUnique({
-      where: { id: bidId },
-      include: { developer: true, project: true }
-    });
-
-    const rejectedBids = await prisma.bid.findMany({
-      where: { project_id: projectId, status: "REJECTED" },
-      include: { developer: true }
-    });
-
-    if (acceptedBid?.developer?.email) {
-       try {
-         await resend.emails.send({
-           from: "Untether Escrow Engine <engine@untether.network>",
-           to: acceptedBid.developer.email,
-           subject: `[ACCEPTED] Project Parameter Won: ${acceptedBid.project.title}`,
-           html: `
-             <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #1a1a1a;">
-                <h2 style="color: #10b981;">Execution Proposal Accepted</h2>
-                <p>Congratulations! Your technical architecture and pricing bid for <strong>${acceptedBid.project.title}</strong> was formally accepted.</p>
-                <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
-                   <p style="color: #475569; font-size: 14px;">The client is currently funding the Escrow layout. We will notify you once capital is locked securely via Stripe natively and you are cleared to build.</p>
-                </div>
-                <p style="margin-top: 30px; font-size: 12px; color: #94a3b8;">Untether Execution Network</p>
-             </div>
-           `
-         });
-       } catch(e) {
-         console.error("Resend Winner Trigger Warning:", e);
-       }
-    }
-
-    // Fire rejecting alerts securely across background execution mapping loop
-    Promise.all(rejectedBids.filter(b => b.developer?.email).map(b => 
-       resend.emails.send({
-           from: "Untether Marketplace <marketplace@untether.network>",
-           to: b.developer.email as string,
-           subject: `Update on Project: ${acceptedBid?.project.title}`,
-           html: `
-             <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #1a1a1a;">
-                <h2 style="color: #6366f1;">Marketplace Execution Update</h2>
-                <p>Update on <strong>${acceptedBid?.project.title}</strong>: The client has decided to vigorously move forward with another facilitator securely resolving this Escrow node.</p>
-                <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
-                   <p style="color: #475569; font-size: 14px;">Keep analyzing logic boundaries and placing constraint bids across the active Marketplace board natively!</p>
-                </div>
-             </div>
-           `
-       })
-    )).catch(e => console.error("Resend Rejection Looping Fault:", e));
 
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/marketplace");
     return { success: true, projectId };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
 
-  } catch (err: any) {
-    console.error("Critical Binding Fault:", err);
-    return { success: false, error: err.message };
+// ─────────────────────────────────────────────
+// CLIENT: Accept a bid directly (no negotiation)
+// ─────────────────────────────────────────────
+export async function acceptBid(bidId: string) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "CLIENT") throw new Error("Unauthorized.");
+
+    const bid = await prisma.bid.findUnique({
+      where: { id: bidId },
+      include: { project: { include: { milestones: true } }, developer: true },
+    });
+    if (!bid || bid.project.client_id !== user.id || bid.project.status !== "OPEN_BIDDING") {
+      throw new Error("Cannot accept this bid.");
+    }
+
+    const projectId = bid.project_id;
+    const proposedAmount = Number(bid.proposed_amount);
+    const proposedMilestones = bid.proposed_milestones
+      ? (JSON.parse(bid.proposed_milestones as string) as any[])
+      : null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bid.update({ where: { id: bidId }, data: { status: "ACCEPTED" } });
+      await tx.bid.updateMany({
+        where: { project_id: projectId, id: { not: bidId } },
+        data: { status: "REJECTED" },
+      });
+
+      if (proposedMilestones && proposedMilestones.length > 0) {
+        await tx.milestone.deleteMany({ where: { project_id: projectId } });
+        for (const m of proposedMilestones) {
+          await tx.milestone.create({
+            data: {
+              project_id: projectId,
+              facilitator_id: bid.developer_id,
+              title: m.title,
+              amount: m.amount,
+              estimated_duration_days: m.days,
+              description: m.description || null,
+              status: "PENDING",
+              acceptance_criteria: [],
+              deliverables: [],
+            },
+          });
+        }
+      } else {
+        const originalTotal = bid.project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
+        if (originalTotal > 0 && originalTotal !== proposedAmount) {
+          const ratio = proposedAmount / originalTotal;
+          for (const m of bid.project.milestones) {
+            await tx.milestone.update({
+              where: { id: m.id },
+              data: { amount: Math.round(Number(m.amount) * ratio * 100) / 100, facilitator_id: bid.developer_id },
+            });
+          }
+        } else {
+          await tx.milestone.updateMany({
+            where: { project_id: projectId },
+            data: { facilitator_id: bid.developer_id },
+          });
+        }
+      }
+
+      await tx.project.update({ where: { id: projectId }, data: { status: "ACTIVE", active_bid_id: null } });
+    });
+
+    if (bid.developer?.email) {
+      resend.emails.send({
+        from: "Untether Marketplace <marketplace@untether.network>",
+        to: bid.developer.email,
+        subject: `Your bid was accepted — "${bid.project.title}"`,
+        html: `<p>Congratulations! Your proposal has been accepted. The client is now funding the Escrow. <a href="${process.env.NEXTAUTH_URL}/command-center">View your active work →</a></p>`,
+      }).catch(() => {});
+    }
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/marketplace");
+    return { success: true, projectId };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ─────────────────────────────────────────────
+// EITHER PARTY: Reject a bid / end negotiation
+// ─────────────────────────────────────────────
+export async function rejectBid(bidId: string) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Unauthorized.");
+
+    const bid = await prisma.bid.findUnique({
+      where: { id: bidId },
+      include: { project: true },
+    });
+    if (!bid) throw new Error("Bid not found.");
+
+    const isClient = user.role === "CLIENT" && bid.project.client_id === user.id;
+    const isFacilitator = user.role === "FACILITATOR" && bid.developer_id === user.id;
+    if (!isClient && !isFacilitator) throw new Error("Unauthorized.");
+
+    await prisma.$transaction([
+      prisma.bid.update({ where: { id: bidId }, data: { status: "REJECTED" } }),
+      prisma.project.update({ where: { id: bid.project_id }, data: { active_bid_id: null } }),
+    ]);
+
+    revalidatePath(`/projects/${bid.project_id}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ─────────────────────────────────────────────
+// CLIENT: Re-open bidding on a failed deal
+// ─────────────────────────────────────────────
+export async function reopenBidding(projectId: string) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "CLIENT") throw new Error("Unauthorized.");
+
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project || project.client_id !== user.id) throw new Error("Not your project.");
+
+    await prisma.$transaction([
+      // Reset project
+      prisma.project.update({
+        where: { id: projectId },
+        data: { status: "OPEN_BIDDING", active_bid_id: null },
+      }),
+      // Reject all existing bids so fresh slate
+      prisma.bid.updateMany({
+        where: { project_id: projectId, status: { in: ["PENDING", "SHORTLISTED", "UNDER_NEGOTIATION", "REJECTED"] } },
+        data: { status: "REJECTED" },
+      }),
+    ]);
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/marketplace");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 }

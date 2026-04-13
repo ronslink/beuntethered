@@ -33,8 +33,19 @@ model Bid {
   proposed_amount        Decimal
   estimated_days         Int
   technical_approach     String
+  proposed_tech_stack    String?
+  tech_stack_reason      String?
+  proposed_milestones    Json?
   ai_translation_summary String
+  ai_score_card          Json?
   status                 BidStatus @default(PENDING)
+  last_action_by         Role?
+  counter_amount         Decimal?
+  counter_reason         String?
+  counter_milestones     Json?
+  negotiation_rounds     Int       @default(0)
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
   developer              User      @relation(fields: [developer_id], references: [id])
   project                Project   @relation(fields: [project_id], references: [id])
 }
@@ -97,6 +108,7 @@ model Project {
   status                 ProjectStatus   @default(DRAFT)
   views                  Int             @default(0)
   created_at             DateTime        @default(now())
+  active_bid_id          String?         // Exclusive negotiation lock
   bids                   Bid[]
   change_orders          ChangeOrder[]
   messages               Message[]
@@ -228,6 +240,8 @@ model PasswordResetToken {
 
 enum BidStatus {
   PENDING
+  SHORTLISTED
+  UNDER_NEGOTIATION
   ACCEPTED
   REJECTED
 }

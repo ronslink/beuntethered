@@ -17,10 +17,17 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
     where: { id: params.id },
     include: {
       bids: {
-        include: { developer: true },
-        orderBy: { proposed_amount: "asc" },
+        include: {
+          developer: {
+            select: {
+              id: true, name: true, email: true, image: true,
+              trust_score: true, platform_tier: true, total_sprints_completed: true,
+            },
+          },
+        },
+        orderBy: { created_at: "desc" },
       },
-      milestones: true,
+      milestones: { orderBy: { id: "asc" } },
       squad_proposals: {
         include: {
           members: {
@@ -184,24 +191,38 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
               </p>
             </div>
           ) : (
-            <BidReviewShell
-              bids={project.bids.map(b => ({
+          <BidReviewShell
+              project={{
+                id: project.id,
+                title: project.title,
+                status: project.status,
+                active_bid_id: (project as any).active_bid_id ?? null,
+              }}
+              bids={project.bids.map((b: any) => ({
                 id: b.id,
-                proposed_amount: b.proposed_amount,
+                proposed_amount: Number(b.proposed_amount),
                 estimated_days: b.estimated_days,
                 technical_approach: b.technical_approach,
-                created_at: undefined,
+                proposed_tech_stack: b.proposed_tech_stack ?? null,
+                tech_stack_reason: b.tech_stack_reason ?? null,
+                proposed_milestones: b.proposed_milestones ?? null,
+                counter_amount: b.counter_amount ? Number(b.counter_amount) : null,
+                counter_reason: b.counter_reason ?? null,
+                counter_milestones: b.counter_milestones ?? null,
+                last_action_by: b.last_action_by ?? null,
+                negotiation_rounds: b.negotiation_rounds ?? 0,
+                status: b.status,
+                ai_score_card: b.ai_score_card ?? null,
                 developer: {
                   id: b.developer.id,
                   name: b.developer.name,
                   email: b.developer.email,
+                  image: b.developer.image ?? null,
                   trust_score: b.developer.trust_score,
+                  platform_tier: b.developer.platform_tier,
                   total_sprints_completed: b.developer.total_sprints_completed,
                 },
               }))}
-              projectId={project.id}
-              projectBudget={totalBudget}
-              isProjectOpen={isOpen}
             />
           )}
         </section>
