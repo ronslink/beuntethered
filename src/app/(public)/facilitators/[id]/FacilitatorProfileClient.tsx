@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { prisma } from "@/lib/auth";
 
 type PlatformTier = "STANDARD" | "PRO" | "ELITE";
 
-interface Facilitator {
+export interface Facilitator {
   id: string;
   name: string | null;
   email: string;
@@ -111,64 +108,8 @@ function TrustScoreBar({ score }: { score: number }) {
   );
 }
 
-export default function FacilitatorProfileClient() {
-  const params = useParams();
-  const id = params.id as string;
-  const [facilitator, setFacilitator] = useState<Facilitator | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => {
-    if (!id) return;
-    async function fetchFacilitator() {
-      try {
-        const user = await prisma.user.findUnique({
-          where: { id },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            role: true,
-            platform_tier: true,
-            trust_score: true,
-            total_sprints_completed: true,
-            average_ai_audit_score: true,
-            hourly_rate: true,
-            preferred_llm: true,
-            emailVerified: true,
-          },
-        });
-        if (!user || user.role !== "FACILITATOR") {
-          setNotFound(true);
-        } else {
-          setFacilitator(user as unknown as Facilitator);
-        }
-      } catch {
-        setNotFound(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchFacilitator();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#07090F] relative overflow-hidden selection:bg-tertiary/30">
-        <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-tertiary/5 rounded-full blur-[150px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px] pointer-events-none" />
-        <div className="max-w-3xl mx-auto px-4 pt-32 flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-          <p className="text-on-surface-variant font-bold text-sm uppercase tracking-widest">
-            Loading profile…
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (notFound || !facilitator) {
+export default function FacilitatorProfileClient({ facilitator }: { facilitator: Facilitator | null }) {
+  if (!facilitator) {
     return (
       <main className="min-h-screen bg-[#07090F] relative overflow-hidden selection:bg-tertiary/30">
         <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-tertiary/5 rounded-full blur-[150px] pointer-events-none" />

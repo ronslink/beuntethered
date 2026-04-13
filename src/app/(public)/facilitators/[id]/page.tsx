@@ -42,5 +42,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function FacilitatorProfilePage({ params }: Props) {
-  return <FacilitatorProfileClient />;
+  const { id } = await params;
+
+  let facilitatorData: any = null;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        platform_tier: true,
+        trust_score: true,
+        total_sprints_completed: true,
+        average_ai_audit_score: true,
+        hourly_rate: true,
+        preferred_llm: true,
+        emailVerified: true,
+      },
+    });
+
+    if (user && user.role === "FACILITATOR") {
+      // Must convert decimal and date types for Next.js 14/15 server-to-client boundaries if needed,
+      // though App Router usually handles Date implicitly if we don't strict JSON it unless turbopack fails.
+      // But passing raw Decimal throws error. We convert hourly_rate.
+      facilitatorData = {
+        ...user,
+        hourly_rate: user.hourly_rate ? Number(user.hourly_rate) : 0,
+      };
+    }
+  } catch (error) {
+    console.error("Failed to fetch facilitator:", error);
+  }
+
+  return <FacilitatorProfileClient facilitator={facilitatorData} />;
 }
