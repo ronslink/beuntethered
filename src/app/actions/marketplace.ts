@@ -33,8 +33,37 @@ export async function postProjectToMarketplace(sowData: any) {
             status: "PENDING"
           }))
         }
+      },
+      include: {
+        milestones: true
       }
     });
+
+    // Check if the wizard was successfully executed via the AI Concierge Vector mapping logic
+    if (sowData.mode === "CONCIERGE" && Array.isArray(sowData.selected_facilitators) && sowData.selected_facilitators.length > 0) {
+       // Bind identical chronological mapping array connecting the newly minted milestones to the user ID array
+       const membersData = sowData.selected_facilitators.map((fac: any, index: number) => {
+          const matchedMilestone = project.milestones[index];
+          if (!matchedMilestone) return null;
+          return {
+             milestone_id: matchedMilestone.id,
+             facilitator_id: fac.id
+          };
+       }).filter(Boolean);
+
+       if (membersData.length > 0) {
+          await prisma.squadProposal.create({
+             data: {
+                project_id: project.id,
+                pitch_to_client: "This architectural combination of verified developers was directly assembled by our AI Concierge Matcher based on explicit vector metric overlap against the Scope of Work constraints. This represents the optimal execution squad.",
+                status: "PENDING",
+                members: {
+                   create: membersData
+                }
+             }
+          });
+       }
+    }
 
     revalidatePath("/marketplace");
     revalidatePath("/dashboard");

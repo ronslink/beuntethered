@@ -31,32 +31,37 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-variant/30 px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-12 relative overflow-hidden">
+      {/* Dynamic Background Glowing Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-secondary/15 blur-[150px] rounded-full pointer-events-none mix-blend-screen"></div>
+
+      <div className="w-full max-w-md relative z-10">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-6">
-            <span className="material-symbols-outlined text-primary text-3xl">
-              account_balance_wallet
+        <div className="text-center mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-surface/50 backdrop-blur-xl border border-outline-variant/30 mb-6 shadow-2xl relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <span className="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-br from-primary to-secondary text-4xl transform group-hover:scale-110 transition-transform duration-500" style={{ fontVariationSettings: "'FILL' 1" }}>
+              group_add
             </span>
           </div>
-          <h1 className="text-3xl font-black font-headline tracking-tight text-on-surface">
-            Create your account
+          <h1 className="text-4xl lg:text-5xl font-black font-headline tracking-tighter text-on-surface mb-3 drop-shadow-sm">
+            Join the Matrix
           </h1>
-          <p className="text-on-surface-variant mt-2 text-sm">
-            Join beuntethered and get started in minutes
+          <p className="text-on-surface-variant font-medium text-sm lg:text-base">
+            Initialize an Untether Node in minutes.
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-surface/80 backdrop-blur-xl border border-outline-variant/30 rounded-3xl p-8 shadow-xl">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-surface/60 backdrop-blur-3xl border border-outline-variant/30 rounded-[2.5rem] p-8 lg:p-10 shadow-[0_8px_40px_rgb(0,0,0,0.08)] animate-in fade-in zoom-in-95 duration-700 delay-100">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label
                 htmlFor="name"
-                className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2"
+                className="block text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-3 flex items-center gap-2"
               >
-                Full Name
+                <span className="material-symbols-outlined text-[14px]">face</span> Full Name Identifier
               </label>
               <input
                 id="name"
@@ -64,7 +69,7 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full bg-surface-container-low border border-outline-variant/30 focus:border-primary px-4 py-3 rounded-xl text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none transition-colors"
+                className="w-full bg-surface-container-low/50 hover:bg-surface-container-low focus:bg-surface-container-low border border-outline-variant/30 focus:border-primary/50 px-5 py-4 rounded-2xl text-sm font-medium text-on-surface placeholder:text-on-surface-variant/40 outline-none transition-all focus:ring-4 focus:ring-primary/10 shadow-inner"
                 placeholder="Jane Smith"
               />
             </div>
@@ -72,9 +77,9 @@ export default function RegisterPage() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2"
+                className="block text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-3 flex items-center gap-2"
               >
-                Email
+                <span className="material-symbols-outlined text-[14px]">mail</span> Email Contact Bound
               </label>
               <input
                 id="email"
@@ -82,17 +87,17 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-surface-container-low border border-outline-variant/30 focus:border-primary px-4 py-3 rounded-xl text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none transition-colors"
-                placeholder="you@example.com"
+                className="w-full bg-surface-container-low/50 hover:bg-surface-container-low focus:bg-surface-container-low border border-outline-variant/30 focus:border-primary/50 px-5 py-4 rounded-2xl text-sm font-medium text-on-surface placeholder:text-on-surface-variant/40 outline-none transition-all focus:ring-4 focus:ring-primary/10 shadow-inner"
+                placeholder="you@untether.network"
               />
             </div>
 
             <div>
               <label
                 htmlFor="password"
-                className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2"
+                className="block text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-3 flex items-center gap-2"
               >
-                Password
+                <span className="material-symbols-outlined text-[14px]">lock</span> Secure Encryption Key
               </label>
               <input
                 id="password"
@@ -101,73 +106,77 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full bg-surface-container-low border border-outline-variant/30 focus:border-primary px-4 py-3 rounded-xl text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none transition-colors"
+                className="w-full bg-surface-container-low/50 hover:bg-surface-container-low focus:bg-surface-container-low border border-outline-variant/30 focus:border-primary/50 px-5 py-4 rounded-2xl text-sm font-medium text-on-surface placeholder:text-on-surface-variant/40 outline-none transition-all focus:ring-4 focus:ring-primary/10 shadow-inner"
                 placeholder="Min. 8 characters"
               />
             </div>
 
             {/* Role Selection */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
-                I want to...
+              <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant mb-4">
+                Platform Designation
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => setRole("CLIENT")}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  className={`p-5 rounded-2xl border-2 text-left transition-all ${
                     role === "CLIENT"
-                      ? "border-primary bg-primary/5 text-on-surface"
-                      : "border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:border-primary/30"
+                      ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(var(--color-primary),0.1)]"
+                      : "border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:border-primary/30 opacity-70 hover:opacity-100"
                   }`}
                 >
-                  <span className="material-symbols-outlined text-xl block mb-1">
+                  <span className={`material-symbols-outlined text-2xl block mb-2 ${role === 'CLIENT' ? 'text-primary' : ''}`}>
                     person
                   </span>
-                  <p className="font-bold text-sm">Hire developers</p>
-                  <p className="text-xs mt-0.5 opacity-70">Post projects & hire</p>
+                  <p className={`font-black text-sm uppercase tracking-widest ${role === 'CLIENT' ? 'text-primary' : ''}`}>Hire Experts</p>
+                  <p className="text-[10px] mt-1 font-medium opacity-80 leading-relaxed">Deposit Escrow</p>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setRole("FACILITATOR")}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  className={`p-5 rounded-2xl border-2 text-left transition-all ${
                     role === "FACILITATOR"
-                      ? "border-primary bg-primary/5 text-on-surface"
-                      : "border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:border-primary/30"
+                      ? "border-tertiary bg-tertiary/5 shadow-[0_0_15px_rgba(var(--color-tertiary),0.1)]"
+                      : "border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:border-tertiary/30 opacity-70 hover:opacity-100"
                   }`}
                 >
-                  <span className="material-symbols-outlined text-xl block mb-1">
+                  <span className={`material-symbols-outlined text-2xl block mb-2 ${role === 'FACILITATOR' ? 'text-tertiary' : ''}`}>
                     code
                   </span>
-                  <p className="font-bold text-sm">Work as a developer</p>
-                  <p className="text-xs mt-0.5 opacity-70">Bid on projects</p>
+                  <p className={`font-black text-sm uppercase tracking-widest ${role === 'FACILITATOR' ? 'text-tertiary' : ''}`}>Work / Audit</p>
+                  <p className="text-[10px] mt-1 font-medium opacity-80 leading-relaxed">Bid & Execute</p>
                 </button>
               </div>
             </div>
 
             {error && (
-              <p className="text-error text-sm font-medium bg-error/10 border border-error/20 rounded-xl px-4 py-3">
-                {error}
-              </p>
+               <div className="bg-error/10 border border-error/20 rounded-2xl px-5 py-4 flex items-center gap-3 animate-in shake">
+                  <span className="material-symbols-outlined text-error text-[20px]">error</span>
+                  <p className="text-error text-[12px] font-bold">{error}</p>
+               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary hover:bg-primary/90 text-on-primary font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+              className="w-full relative overflow-hidden bg-on-surface text-surface hover:-translate-y-1 font-black py-4 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_30px_rgb(0,0,0,0.15)] group uppercase tracking-widest text-xs mt-2"
             >
-              {loading ? "Creating account..." : "Create account"}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              {loading ? (
+                 <span className="flex items-center justify-center gap-2"><span className="material-symbols-outlined animate-spin text-[18px]">refresh</span> Generating Node...</span>
+              ) : "Create Account Matrix"}
             </button>
           </form>
 
-          <p className="text-center text-sm text-on-surface-variant mt-6">
-            Already have an account?{" "}
+          <p className="text-center text-sm font-medium text-on-surface-variant mt-8 bg-surface-container-low/50 py-3 rounded-xl border border-outline-variant/20 inline-block w-full">
+            Ready to reconnect?{" "}
             <Link
               href="/login"
-              className="text-primary font-bold hover:underline"
+              className="text-primary font-black uppercase tracking-widest text-[10px] ml-2 hover:underline underline-offset-4"
             >
-              Sign in
+              Initialize Dashboard
             </Link>
           </p>
         </div>
