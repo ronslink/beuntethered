@@ -1,78 +1,122 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/session";
-
-export type NotificationType =
-  | "INFO"
-  | "SUCCESS"
-  | "WARNING"
-  | "ERROR"
-  | "MILESTONE"
-  | "MESSAGE";
+import { prisma } from "@/lib/auth";
 
 export interface NotificationItem {
   id: string;
   message: string;
-  type: NotificationType;
+  type: "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE" | "BID";
   read: boolean;
   createdAt: Date;
+  href?: string;
 }
 
-// In-memory notification store (resets on server restart — fine for dev/P0)
-const notificationStore = new Map<string, NotificationItem[]>();
+// Derive live notifications from DB state — no in-memory store needed.
+// For a CLIENT: pending bids on their open projects.
+// For a FACILITATOR: bid status changes on their submitted bids.
+export async function getUserNotifications(): Promise<{ success: boolean; notifications: NotificationItem[] }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, notifications: [] };
 
-function getUserKey(userId: string): string {
-  return `notifications:${userId}`;
-}
+    const notifications: NotificationItem[] = [];
 
-export async function sendSystemNotification(
-  userId: string,
-  message: string,
-  type: NotificationType = "INFO"
-): Promise<{ success: boolean; notificationId: string }> {
-  const id = crypto.randomUUID();
-  const notification: NotificationItem = {
-    id,
-    message,
-    type,
-    read: false,
-    createdAt: new Date(),
-  };
+    if (user.role === "CLIENT") {
+      // Fetch all open-bidding projects with pending bid counts
+      const projects = await prisma.project.findMany({
+        where: { client_id: user.id, status: "OPEN_BIDDING" },
+        include: {
+          bids: { where: { status: "PENDING" }, select: { id: true, created_at: true } },
+        },
+      });
 
-  const existing = notificationStore.get(getUserKey(userId)) ?? [];
-  notificationStore.set(getUserKey(userId), [notification, ...existing]);
+      for (const p of projects) {
+        if (p.bids.length > 0) {
+          const latest = p.bids.sort((a, b) => b.created_at.getTime() - a.created_at.getTime())[0];
+          notifications.push({
+            id: `bid-${p.id}`,
+            message: `${p.bids.length} new proposal${p.bids.length > 1 ? "s" : ""} on "${p.title}"`,
+            type: "BID",
+            read: false,
+            createdAt: latest.created_at,
+            href: `/projects/${p.id}`,
+          });
+        }
+      }
 
-  return { success: true, notificationId: id };
-}
-
-export async function getUserNotifications(
-  userId: string
-): Promise<{ success: boolean; notifications: NotificationItem[] }> {
-  const notifications = notificationStore.get(getUserKey(userId)) ?? [];
-  return { success: true, notifications };
-}
-
-export async function markNotificationAsRead(
-  notificationId: string
-): Promise<{ success: boolean }> {
-  // Iterate all users' stores to find and mark the notification
-  for (const [, notifications] of notificationStore) {
-    const idx = notifications.findIndex((n) => n.id === notificationId);
-    if (idx !== -1) {
-      notifications[idx] = { ...notifications[idx], read: true };
-      break;
+      // Milestones in review
+      const milestones = await prisma.milestone.findMany({
+        where: {
+          project: { client_id: user.id },
+          status: "SUBMITTED_FOR_REVIEW",
+        },
+        include: { project: { select: { id: true, title: true } } },
+        orderBy: { id: "desc" },
+        take: 5,
+      });
+      for (const m of milestones) {
+        notifications.push({
+          id: `milestone-${m.id}`,
+          message: `"${m.title}" is ready for your review`,
+          type: "MILESTONE",
+          read: false,
+          createdAt: new Date(),
+          href: `/command-center/${m.project.id}`,
+        });
+      }
     }
+
+    if (user.role === "FACILITATOR") {
+      const bids = await prisma.bid.findMany({
+        where: { developer_id: user.id },
+        include: { project: { select: { id: true, title: true } } },
+        orderBy: { updated_at: "desc" },
+        take: 10,
+      });
+      for (const b of bids) {
+        if (b.status === "UNDER_NEGOTIATION") {
+          notifications.push({
+            id: `neg-${b.id}`,
+            message: `Client wants to negotiate on "${b.project.title}"`,
+            type: "MESSAGE",
+            read: false,
+            createdAt: b.updated_at,
+          });
+        }
+        if (b.status === "ACCEPTED") {
+          notifications.push({
+            id: `acc-${b.id}`,
+            message: `Your proposal was accepted — "${b.project.title}"`,
+            type: "SUCCESS",
+            read: false,
+            createdAt: b.updated_at,
+          });
+        }
+      }
+    }
+
+    // Sort newest first
+    notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return { success: true, notifications };
+  } catch (e) {
+    console.error("Notification fetch error:", e);
+    return { success: false, notifications: [] };
   }
+}
+
+// Legacy stubs — kept for backward compat, no-ops since notifications derive from DB
+export async function sendSystemNotification(
+  _userId?: string,
+  _message?: string,
+  _type?: string
+) {
+  return { success: true, notificationId: "" };
+}
+export async function markAllNotificationsAsRead(_userId?: string) {
   return { success: true };
 }
-
-export async function markAllNotificationsAsRead(
-  userId: string
-): Promise<{ success: boolean }> {
-  const notifications = notificationStore.get(getUserKey(userId)) ?? [];
-  notificationStore.set(
-    getUserKey(userId),
-    notifications.map((n) => ({ ...n, read: true }))
-  );
+export async function markNotificationAsRead(_notificationId?: string) {
   return { success: true };
 }

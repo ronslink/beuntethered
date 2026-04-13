@@ -209,7 +209,13 @@ async function FacilitatorDashboard({ userId, userName }: { userId: string; user
 async function ClientDashboard({ userId, userName }: { userId: string; userName: string }) {
   const projects = await prisma.project.findMany({
     where: { client_id: userId },
-    include: { milestones: { orderBy: { id: "asc" } } },
+    include: {
+      milestones: { orderBy: { id: "asc" } },
+      bids: {
+        where: { status: "PENDING" },
+        select: { id: true },
+      },
+    },
     orderBy: { created_at: "desc" },
   });
 
@@ -226,9 +232,23 @@ async function ClientDashboard({ userId, userName }: { userId: string; userName:
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
 
   // All action items — things the client needs to do
+  // Group funding needs by project (not per-milestone) to keep list short
+  const projectsNeedingFunding = projects.filter(
+    p => p.status === "OPEN_BIDDING" && p.bids.length === 0
+  );
+  const projectsWithBids = projects.filter(
+    p => p.status === "OPEN_BIDDING" && p.bids.length > 0
+  );
+
   const actionItems = [
-    ...pendingReview.map(m => ({ ...m, actionType: "review" as const })),
-    ...pendingFunding.map(m => ({ ...m, actionType: "fund" as const })),
+    // Incoming bids — highest priority
+    ...projectsWithBids.map(p => ({ project: p, actionType: "bids" as const, count: p.bids.length })),
+    // Milestones submitted for review
+    ...pendingReview.map(m => ({ project: m.project, milestone: m, actionType: "review" as const, count: 1 })),
+    // Projects open but with no bids yet (funding reminder collapsed per project)
+    ...projectsNeedingFunding.slice(0, 3).map(p => ({
+      project: p, actionType: "fund" as const, count: pendingFunding.filter(m => m.project.id === p.id).length
+    })),
   ];
 
   return (
@@ -364,27 +384,42 @@ async function ClientDashboard({ userId, userName }: { userId: string; userName:
                   <p className="text-xs text-on-surface-variant mt-1">No milestones need your review right now.</p>
                 </div>
               ) : (
-                actionItems.map((item, idx) => (
-                  <Link
-                    key={item.id}
-                    href={`/command-center/${item.project.id}`}
-                    className={`flex items-center gap-3 px-4 py-3.5 hover:bg-surface-container-low/50 transition-colors group ${idx !== 0 ? "border-t border-outline-variant/10" : ""}`}
-                  >
-                    <div className={`p-2 rounded-xl shrink-0 ${item.actionType === "review" ? "bg-primary/10 text-primary" : "bg-tertiary/10 text-tertiary"}`}>
-                      <span className="material-symbols-outlined text-[14px]">
-                        {item.actionType === "review" ? "rate_review" : "lock"}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                        {item.actionType === "review" ? "Ready to Review" : "Needs Funding"}
-                      </p>
-                      <p className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors truncate">{item.title}</p>
-                      <p className="text-[10px] text-on-surface-variant truncate">{item.project.title}</p>
-                    </div>
-                    <span className="material-symbols-outlined text-[14px] text-outline-variant group-hover:text-primary transition-colors shrink-0">arrow_forward</span>
-                  </Link>
-                ))
+                actionItems.map((item, idx) => {
+                  const href = item.actionType === "bids"
+                    ? `/projects/${item.project.id}`
+                    : `/command-center/${item.project.id}`;
+                  const icon = item.actionType === "bids" ? "gavel" : item.actionType === "review" ? "rate_review" : "lock";
+                  const iconBg = item.actionType === "bids" ? "bg-primary/10 text-primary" : item.actionType === "review" ? "bg-secondary/10 text-secondary" : "bg-tertiary/10 text-tertiary";
+                  const label = item.actionType === "bids" ? "New Bids Received" : item.actionType === "review" ? "Ready to Review" : "Awaiting Escrow Funding";
+                  const subtitle = item.actionType === "review" && "milestone" in item
+                    ? (item as any).milestone.title
+                    : item.project.title;
+
+                  return (
+                    <Link
+                      key={`${item.actionType}-${item.project.id}`}
+                      href={href}
+                      className={`flex items-center gap-3 px-4 py-3.5 hover:bg-surface-container-low/50 transition-colors group ${idx !== 0 ? "border-t border-outline-variant/10" : ""}`}
+                    >
+                      <div className={`p-2 rounded-xl shrink-0 ${iconBg}`}>
+                        <span className="material-symbols-outlined text-[14px]">{icon}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+                        <p className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors truncate">{subtitle}</p>
+                        {item.actionType !== "review" && (
+                          <p className="text-[10px] text-on-surface-variant truncate">{item.project.title}</p>
+                        )}
+                      </div>
+                      {item.count > 1 && (
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shrink-0 ${item.actionType === "bids" ? "bg-primary/10 text-primary border-primary/20" : "bg-tertiary/10 text-tertiary border-tertiary/20"}`}>
+                          {item.count}
+                        </span>
+                      )}
+                      <span className="material-symbols-outlined text-[14px] text-outline-variant group-hover:text-primary transition-colors shrink-0">arrow_forward</span>
+                    </Link>
+                  );
+                })
               )}
             </div>
           </aside>

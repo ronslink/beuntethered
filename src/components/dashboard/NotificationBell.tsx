@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { getUserNotifications, markAllNotificationsAsRead } from "@/app/actions/notifications";
+import Link from "next/link";
 
-type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE";
+type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE" | "BID";
 
 interface NotificationItem {
   id: string;
@@ -11,41 +12,32 @@ interface NotificationItem {
   type: NotificationType;
   read: boolean;
   createdAt: Date;
+  href?: string;
 }
 
 function getNotificationIcon(type: NotificationType): string {
   switch (type) {
-    case "SUCCESS":
-      return "check_circle";
-    case "WARNING":
-      return "warning";
-    case "ERROR":
-      return "error";
-    case "MILESTONE":
-      return "emoji_events";
-    case "MESSAGE":
-      return "mail";
+    case "BID":       return "gavel";
+    case "SUCCESS":   return "check_circle";
+    case "WARNING":   return "warning";
+    case "ERROR":     return "error";
+    case "MILESTONE": return "emoji_events";
+    case "MESSAGE":   return "mail";
     case "INFO":
-    default:
-      return "info";
+    default:          return "info";
   }
 }
 
 function getNotificationColor(type: NotificationType): string {
   switch (type) {
-    case "SUCCESS":
-      return "text-tertiary";
-    case "WARNING":
-      return "text-yellow-500";
-    case "ERROR":
-      return "text-red-500";
-    case "MILESTONE":
-      return "text-primary";
-    case "MESSAGE":
-      return "text-secondary";
+    case "BID":       return "text-primary";
+    case "SUCCESS":   return "text-tertiary";
+    case "WARNING":   return "text-yellow-500";
+    case "ERROR":     return "text-red-500";
+    case "MILESTONE": return "text-primary";
+    case "MESSAGE":   return "text-secondary";
     case "INFO":
-    default:
-      return "text-on-surface-variant";
+    default:          return "text-on-surface-variant";
   }
 }
 
@@ -75,11 +67,9 @@ export function NotificationBell() {
     async function fetchNotifications() {
       setLoading(true);
       try {
-        // In a real app, we'd get the userId from session
-        // For now, using a placeholder - in production this would come from auth
-        const result = await getUserNotifications("current-user");
+        const result = await getUserNotifications();
         if (result.success) {
-          setNotifications(result.notifications);
+          setNotifications(result.notifications as NotificationItem[]);
         }
       } catch (error) {
         console.error("Failed to fetch notifications:", error);
@@ -87,10 +77,8 @@ export function NotificationBell() {
         setLoading(false);
       }
     }
-
-    if (isOpen) {
-      fetchNotifications();
-    }
+    // Fetch on mount for badge + on open for fresh data
+    fetchNotifications();
   }, [isOpen]);
 
   useEffect(() => {
@@ -111,10 +99,8 @@ export function NotificationBell() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await markAllNotificationsAsRead("current-user");
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, read: true }))
-      );
+      await markAllNotificationsAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     } catch (error) {
       console.error("Failed to mark all as read:", error);
     }
@@ -167,13 +153,8 @@ export function NotificationBell() {
               </div>
             ) : (
               <ul className="divide-y divide-outline-variant/20">
-                {notifications.map((notification) => (
-                  <li
-                    key={notification.id}
-                    className={`px-4 py-3 hover:bg-surface-container transition-colors ${
-                      !notification.read ? "bg-primary/5" : ""
-                    }`}
-                  >
+                {notifications.map((notification) => {
+                  const inner = (
                     <div className="flex gap-3">
                       <span className={`material-symbols-outlined text-xl flex-shrink-0 ${getNotificationColor(notification.type)}`}>
                         {getNotificationIcon(notification.type)}
@@ -190,8 +171,18 @@ export function NotificationBell() {
                         <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2" />
                       )}
                     </div>
-                  </li>
-                ))}
+                  );
+                  const liClass = `px-4 py-3 hover:bg-surface-container transition-colors ${!notification.read ? "bg-primary/5" : ""}`;
+                  return notification.href ? (
+                    <li key={notification.id}>
+                      <Link href={notification.href} onClick={() => setIsOpen(false)} className={`block ${liClass}`}>
+                        {inner}
+                      </Link>
+                    </li>
+                  ) : (
+                    <li key={notification.id} className={liClass}>{inner}</li>
+                  );
+                })}
               </ul>
             )}
           </div>
