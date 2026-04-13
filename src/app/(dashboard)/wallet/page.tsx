@@ -126,7 +126,7 @@ export default async function WalletPage() {
           <div className="text-center py-12 border-2 border-dashed border-outline-variant/20 rounded-2xl bg-surface-container-low/30">
              <span className="material-symbols-outlined text-5xl text-outline-variant mb-4">search_off</span>
              <p className="text-lg font-bold text-on-surface font-headline">No transactions yet</p>
-             <p className="text-on-surface-variant text-sm mt-2 max-w-sm mx-auto">Once a client funds a project, your escrow deposits and payouts will explicitly log here.</p>
+             <p className="text-on-surface-variant text-sm mt-2 max-w-sm mx-auto">Once a client funds a project, your project payments and earnings will appear here.</p>
           </div>
         ) : (
           <div className="space-y-4">

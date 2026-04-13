@@ -38,7 +38,7 @@ export default function IntegrationsTab({ project }: { project: any }) {
              </div>
              <div>
                <h3 className="text-2xl font-black font-headline text-on-surface uppercase tracking-tight">GitHub API Connection</h3>
-               <p className="text-sm font-medium text-on-surface-variant opacity-80 mt-1">Bind this Project physically to native codebases allowing our AI endpoints to seamlessly extract `.diff` layouts.</p>
+               <p className="text-sm font-medium text-on-surface-variant opacity-80 mt-1">Connect your GitHub repository to allow our platform to securely review developer progress.</p>
              </div>
           </div>
 
@@ -81,11 +81,11 @@ export default function IntegrationsTab({ project }: { project: any }) {
                 <button type="submit" disabled={isPending} className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container rounded-xl px-8 py-3.5 font-bold uppercase tracking-widest text-xs transition-all flex items-center gap-2 shadow-[0_8px_20px_rgba(var(--color-primary),0.2)] hover:shadow-primary/40 hover:-translate-y-0.5">
                    {isPending ? (
                       <>
-                        <span className="material-symbols-outlined animate-spin text-[16px]">sync</span> Binding Arrays...
+                        <span className="material-symbols-outlined animate-spin text-[16px]">sync</span> Connecting...
                       </>
                    ) : (
                       <>
-                        <span className="material-symbols-outlined text-[16px]">cable</span> Authenticate Route
+                        <span className="material-symbols-outlined text-[16px]">cable</span> Connect GitHub
                       </>
                    )}
                 </button>

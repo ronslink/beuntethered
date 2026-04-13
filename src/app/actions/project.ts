@@ -142,25 +142,8 @@ export async function closeProject({
        data: { status: "COMPLETED" }
     });
 
-    const allExpertTimeEntries = await prisma.timeEntry.findMany({
-       where: { facilitator_id: facilitatorId }
-    });
-
-    let totalAlignmentScore = 0;
-    let totalAudits = 0;
-
-    allExpertTimeEntries.forEach(entry => {
-       if (entry.ai_audit_report) {
-          const report = entry.ai_audit_report as any;
-          if (report.alignment_score) {
-             totalAlignmentScore += Number(report.alignment_score);
-             totalAudits += 1;
-          }
-       }
-    });
-
-    const average_ai_audit_score = totalAudits > 0 ? (totalAlignmentScore / totalAudits) : 100; // Default to 100 if no audits
-
+    // Deprecated for the MVP beta, setting hardcoded audit baseline until SOW Vectorization is complete
+    const average_ai_audit_score = 100;
     const allReviews = await prisma.review.findMany({
        where: { facilitator_id: facilitatorId }
     });

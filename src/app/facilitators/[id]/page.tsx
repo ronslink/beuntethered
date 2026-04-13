@@ -7,13 +7,6 @@ export default async function FacilitatorDossier(props: { params: Promise<{ id: 
   const params = await props.params;
   const facilitator = await prisma.user.findFirst({
     where: { id: params.id, role: "FACILITATOR" },
-    include: {
-       time_entries: {
-          include: { milestone: { include: { project: true } } },
-          orderBy: { created_at: 'desc' },
-          take: 10
-       },
-    }
   });
 
   if (!facilitator) notFound();
@@ -122,44 +115,6 @@ export default async function FacilitatorDossier(props: { params: Promise<{ id: 
              </div>
           </section>
 
-          {/* AI Audit History Graph */}
-          {facilitator.time_entries.length > 0 && (
-             <section className="pt-12 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-                <div className="bg-surface-container-low/40 border border-outline-variant/20 rounded-3xl p-8 lg:p-12">
-                   <div className="flex items-center justify-between mb-8 pb-6 border-b border-outline-variant/20">
-                      <h3 className="text-2xl font-black font-headline uppercase tracking-tight text-on-surface flex items-center gap-3">
-                         <span className="material-symbols-outlined text-tertiary">psychology</span>
-                         Native AI Audit Logs
-                      </h3>
-                      <span className="bg-tertiary/10 text-tertiary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-tertiary/30 shadow-[0_0_15px_rgba(var(--color-tertiary),0.3)]">
-                         Algorithmic Proof
-                      </span>
-                   </div>
-
-                   <div className="space-y-6">
-                      {facilitator.time_entries.filter((e: any) => e.ai_audit_report !== null).map((entry: any) => {
-                         const report = entry.ai_audit_report as any;
-                         if (!report || !report.alignment_score) return null;
-                         return (
-                            <div key={entry.id} className="group bg-surface-container border border-outline-variant/20 rounded-2xl p-6 hover:border-outline-variant/50 transition-colors">
-                               <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
-                                  <div>
-                                     <h4 className="font-bold text-on-surface text-lg">{entry.milestone.project.title}</h4>
-                                     <p className="text-xs uppercase tracking-widest text-on-surface-variant font-medium mt-1">{entry.hours} Hours • Verified Alignment</p>
-                                  </div>
-                                  <div className="flex items-center gap-3 bg-surface-variant/20 px-4 py-2 rounded-xl w-fit border border-surface-variant/50">
-                                     <span className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Alignment Math</span>
-                                     <span className="font-black font-headline text-xl text-primary">{report.alignment_score}</span>
-                                  </div>
-                               </div>
-                               <p className="text-sm text-on-surface leading-relaxed">{report.summary}</p>
-                            </div>
-                         );
-                      })}
-                   </div>
-                </div>
-             </section>
-          )}
 
        </div>
     </main>

@@ -77,7 +77,8 @@ model Milestone {
   facilitator              User?           @relation(fields: [facilitator_id], references: [id])
   project                  Project         @relation(fields: [project_id], references: [id])
   squad_members            SquadMember[]
-  time_entries             TimeEntry[]
+  live_preview_url         String?
+  payload_storage_path     String?
 }
 
 model Project {
@@ -144,19 +145,6 @@ model SquadProposal {
   project         Project       @relation(fields: [project_id], references: [id])
 }
 
-model TimeEntry {
-  id                String          @id @default(cuid())
-  milestone_id      String
-  facilitator_id    String
-  hours             Decimal
-  proof_url         String?
-  proof_description String?
-  ai_audit_report   Json?
-  status            TimeEntryStatus @default(PENDING)
-  created_at        DateTime        @default(now())
-  facilitator       User            @relation(fields: [facilitator_id], references: [id])
-  milestone         Milestone       @relation(fields: [milestone_id], references: [id])
-}
 
 model User {
   id                                 String                 @id @default(cuid())
@@ -192,7 +180,6 @@ model User {
   reviews_received                   Review[]               @relation("Review_facilitator_idToUser")
   sessions                           Session[]
   squad_members                      SquadMember[]
-  time_entries                       TimeEntry[]
 }
 
 model VerificationToken {
@@ -262,8 +249,3 @@ enum SubscriptionTier {
   BYOC_PRO
 }
 
-enum TimeEntryStatus {
-  PENDING
-  APPROVED
-  DISPUTED
-}

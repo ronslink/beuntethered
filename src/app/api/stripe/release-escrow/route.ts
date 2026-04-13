@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
+import { generateSignedDownloadUrl } from "@/lib/storage";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123");
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     const { milestoneId } = await req.json();
 
     const milestone = await prisma.milestone.findUnique({
-      where: { id: milestoneId, status: "FUNDED_IN_ESCROW" },
+      where: { id: milestoneId },
       include: { 
         project: true,
         facilitator: true 
@@ -25,7 +26,11 @@ export async function POST(req: Request) {
     });
 
     if (!milestone || milestone.project.client_id !== user.id) {
-      return NextResponse.json({ error: "Invalid state. Milestone not funded in Escrow or client mismatch." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid state. Client mismatch or milestone not found." }, { status: 400 });
+    }
+
+    if (milestone.status !== "FUNDED_IN_ESCROW" && milestone.status !== "SUBMITTED_FOR_REVIEW") {
+       return NextResponse.json({ error: "Milestone is not in a payable state." }, { status: 400 });
     }
 
     const developerId = milestone.facilitator?.stripe_account_id;
@@ -54,7 +59,12 @@ export async function POST(req: Request) {
       data: { status: "APPROVED_AND_PAID" }
     });
 
-    return NextResponse.json({ success: true, transfer: transfer.id });
+    let downloadUrl = null;
+    if (milestone.payload_storage_path) {
+      downloadUrl = await generateSignedDownloadUrl(milestone.payload_storage_path);
+    }
+
+    return NextResponse.json({ success: true, transfer: transfer.id, downloadUrl });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

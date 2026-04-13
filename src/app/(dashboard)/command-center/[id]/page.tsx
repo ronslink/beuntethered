@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ChatWidget from "@/components/dashboard/command-center/ChatWidget";
 import IntegrationsTab from "@/components/dashboard/IntegrationsTab";
+import { FacilitatorSubmitGateway, ClientReviewGateway } from "@/components/dashboard/AtomicSwapGateway";
 
 export default async function ProjectCommandCenter({
   params,
@@ -24,7 +25,6 @@ export default async function ProjectCommandCenter({
     include: {
       client: true,
       milestones: {
-        include: { time_entries: true },
         orderBy: { id: "asc" },
       },
       bids: {
@@ -59,15 +59,8 @@ export default async function ProjectCommandCenter({
       ? Math.round((completedMilestones / totalMilestones) * 100)
       : 0;
 
-  // For facilitators: aggregate pending hours
-  const allEntries = project.milestones.flatMap((m) => m.time_entries);
-  const pendingHours = isFacilitator
-    ? allEntries
-        .filter(
-          (e) => e.status === "PENDING" && e.facilitator_id === user.id
-        )
-        .reduce((acc, e) => acc + Number(e.hours), 0)
-    : 0;
+  // Time tracking deprecated for Escrow Payload MVP
+  const pendingHours = 0;
 
   const isRetainer = project.billing_type === "HOURLY_RETAINER";
   const isHubLocked = isRetainer && !project.github_repo_url;
@@ -287,22 +280,33 @@ export default async function ProjectCommandCenter({
                 </div>
 
                 {isActive && !isCompleted && (
-                  <div className="flex items-center gap-3">
-                    {isFacilitator && !isHubLocked && (
-                      <Link
-                        href={`/command-center/${project.id}?tab=time-tracker&milestone=${milestone.id}`}
-                        className="bg-primary text-on-primary px-5 py-2.5 rounded-full font-bold text-sm shadow-lg shadow-primary/20 hover:-translate-y-0.5 transition-all"
-                      >
-                        Log Time
-                      </Link>
+                  <div className="flex flex-col gap-3 mt-4 md:mt-0">
+                    {/* EXPERT GATEWAY */}
+                    {isFacilitator && !isHubLocked && milestone.status === "FUNDED_IN_ESCROW" && (
+                      <FacilitatorSubmitGateway milestoneId={milestone.id} />
                     )}
-                    {isClient && (
-                      <Link
-                        href={`/command-center/${project.id}?tab=review&milestone=${milestone.id}`}
-                        className="bg-primary text-on-primary px-5 py-2.5 rounded-full font-bold text-sm shadow-lg shadow-primary/20 hover:-translate-y-0.5 transition-all"
+
+                    {/* CLIENT REVIEW GATEWAY */}
+                    {isClient && milestone.status === "SUBMITTED_FOR_REVIEW" && milestone.live_preview_url && (
+                      <ClientReviewGateway milestoneId={milestone.id} previewUrl={milestone.live_preview_url} />
+                    )}
+
+                    {/* CLIENT DOWNLOAD GATEWAY */}
+                    {isClient && milestone.status === "APPROVED_AND_PAID" && milestone.payload_storage_path && (
+                      <a 
+                        href={`/api/stripe/download-payload?id=${milestone.id}`} 
+                        className="bg-surface-variant text-on-surface px-5 py-2.5 rounded-full font-bold text-sm shadow inline-flex items-center gap-2"
                       >
-                        Review Work
-                      </Link>
+                         <span className="material-symbols-outlined text-[18px]">download</span> Download Source Code
+                      </a>
+                    )}
+                    
+                    {/* PENDING NOTICES */}
+                    {isClient && milestone.status === "FUNDED_IN_ESCROW" && (
+                        <p className="text-xs font-bold text-on-surface-variant bg-surface-container px-4 py-2 rounded-lg uppercase tracking-widest text-center">Awaiting Code Submission</p>
+                    )}
+                    {isFacilitator && milestone.status === "SUBMITTED_FOR_REVIEW" && (
+                        <p className="text-xs font-bold text-primary bg-primary/10 px-4 py-2 rounded-lg uppercase tracking-widest text-center border border-primary/20">Client is reviewing Staging...</p>
                     )}
                   </div>
                 )}

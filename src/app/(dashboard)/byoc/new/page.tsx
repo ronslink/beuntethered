@@ -152,7 +152,7 @@ export default function BYOCDraftingHub() {
                   <div className="absolute w-32 h-32 bg-primary/30 rounded-full blur-2xl animate-pulse delay-150"></div>
                   <span className="material-symbols-outlined text-6xl text-on-surface animate-spin" style={{ animationDuration: '4s' }}>model_training</span>
                 </div>
-                <h3 className="text-2xl font-bold font-headline text-on-surface">Locking Custom BYOC Grids</h3>
+                <h3 className="text-2xl font-bold font-headline text-on-surface">Creating Your Project Scope</h3>
              </div>
            ) : sowData ? (
              <div className="relative z-10 w-full h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -171,7 +171,7 @@ export default function BYOCDraftingHub() {
                    </div>
                    
                    <div className="space-y-4 pt-4 pb-4">
-                     <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">100% Retained Revenue Routing</h4>
+                     <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">Milestone Schedule</h4>
                      <div className="space-y-3">
                        {sowData.milestones.map((m: any, idx: number) => (
                          <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border border-outline-variant/30 bg-surface-container-low/30 backdrop-blur-sm gap-4">
@@ -206,7 +206,7 @@ export default function BYOCDraftingHub() {
                        {isPending ? (
                           <>
                            <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
-                           <span>Deploying Secure Hash...</span>
+                           <span>Generating Secure Link...</span>
                           </>
                        ) : "Generate Magic Link"}
                       </button>
@@ -234,7 +234,7 @@ export default function BYOCDraftingHub() {
            ) : (
              <div className="flex flex-col items-center justify-center h-full text-outline-variant/30 text-center select-none pt-12">
                 <span className="material-symbols-outlined text-[80px] mb-4">bolt</span>
-                <p className="mt-4 text-sm font-bold uppercase tracking-widest text-on-surface-variant/40">Launch A Private Delivery Graph Natively</p>
+                <p className="mt-4 text-sm font-bold uppercase tracking-widest text-on-surface-variant/40">Start Your Private Project</p>
              </div>
            )}
         </section>

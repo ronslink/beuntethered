@@ -141,7 +141,7 @@ export default function ProjectCreationWizard() {
     setStep(4);
     
     // Call server action explicitly matching vectors
-    const res = await fetchRecommendedSquad(editableSoW?.executiveSummary || "Default Mapping Hash Strings");
+    const res = await fetchRecommendedSquad(editableSoW?.executiveSummary || "General project summary.");
     if (res.success && res.matchData) {
       setSquad(res.matchData);
     }
