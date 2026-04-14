@@ -200,6 +200,7 @@ model User {
   anthropic_key_encrypted String?
   openai_key_plaintext    String?
   anthropic_key_plaintext String?
+  google_key_encrypted    String?
   preferred_llm           String                       @default("gpt-4o-mini")
   hourly_rate             Decimal                      @default(0)
   platform_tier           PlatformTier                 @default(STANDARD)
@@ -209,6 +210,34 @@ model User {
   trust_score             Float                        @default(0.0)
   total_sprints_completed Int                          @default(0)
   average_ai_audit_score  Float                        @default(0.0)
+
+  // ── Onboarding ──────────────────────────────────
+  onboarding_complete     Boolean                      @default(false)
+  tos_accepted_at         DateTime?
+  tos_version             String?
+
+  // ── Address (shared) ────────────────────────────
+  address_line1           String?
+  address_city            String?
+  address_state           String?
+  address_zip             String?
+  address_country         String                       @default("US")
+
+  // ── Facilitator profile ──────────────────────────
+  bio                     String?
+  skills                  String[]
+  ai_agent_stack          String[]
+  portfolio_url           String?
+  availability            String?
+  years_experience        Int?
+  preferred_project_size  String?
+
+  // ── Client profile ───────────────────────────────
+  company_name            String?
+  company_type            String?
+  preferred_bid_type      String?
+  typical_project_budget  String?
+
   accounts                Account[]
   bids                    Bid[]
   messages                Message[]

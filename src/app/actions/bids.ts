@@ -33,6 +33,15 @@ export async function submitBid({
     const user = await getCurrentUser();
     if (!user || user.role !== "FACILITATOR") throw new Error("Only facilitators can submit bids.");
 
+    // Block bids from facilitators who haven't completed onboarding
+    const facilitatorProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { onboarding_complete: true },
+    });
+    if (!facilitatorProfile?.onboarding_complete) {
+      throw new Error("Please complete your profile setup before submitting bids.");
+    }
+
     const targetProject = await prisma.project.findUnique({
       where: { id: projectId },
       select: { status: true },

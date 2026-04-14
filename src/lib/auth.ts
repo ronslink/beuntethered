@@ -80,9 +80,17 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.sub = user.id;
+      }
+      // Refresh onboarding_complete on every token refresh so middleware gate is always current
+      if (token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { onboarding_complete: true },
+        });
+        token.onboarding_complete = dbUser?.onboarding_complete ?? false;
       }
       return token;
     },
@@ -97,6 +105,7 @@ export const authOptions: NextAuthOptions = {
             role: true,
             stripe_account_id: true,
             stripe_customer_id: true,
+            onboarding_complete: true,
           },
         });
 
@@ -104,6 +113,7 @@ export const authOptions: NextAuthOptions = {
           (session.user as any).role = dbUser.role;
           (session.user as any).stripe_account_id = dbUser.stripe_account_id;
           (session.user as any).stripe_customer_id = dbUser.stripe_customer_id;
+          (session.user as any).onboarding_complete = dbUser.onboarding_complete;
         }
       }
       return session;
