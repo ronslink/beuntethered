@@ -4,12 +4,31 @@ import { prisma } from "@/lib/auth";
 import BYOKSettingsClient from "@/components/settings/BYOKSettingsClient";
 import AgentKeyClient from "@/components/settings/AgentKeyClient";
 import StripeDashboardButton from "@/components/settings/StripeDashboardButton";
+import { FacilitatorProfileSettings, ClientPreferencesSettings } from "@/components/settings/ProfileSettingsClient";
 
 export default async function SettingsPage() {
   const sessionUser = await getCurrentUser();
   if (!sessionUser) redirect("/api/auth/signin");
 
-  const user = await prisma.user.findUnique({ where: { id: sessionUser.id } });
+  const user = await prisma.user.findUnique({
+    where: { id: sessionUser.id },
+    select: {
+      id: true, email: true, name: true, role: true,
+      preferred_llm: true, openai_key: true, anthropic_key: true,
+      agent_key_hash: true, stripe_account_id: true,
+      // Profile fields
+      bio: true, skills: true, ai_agent_stack: true, portfolio_url: true,
+      availability: true, years_experience: true, preferred_project_size: true,
+      hourly_rate: true,
+      // Client fields
+      company_name: true, company_type: true,
+      preferred_bid_type: true, typical_project_budget: true,
+      address_line1: true, address_city: true, address_state: true,
+      address_zip: true, address_country: true,
+      // Legal
+      tos_accepted_at: true,
+    },
+  });
   if (!user) redirect("/api/auth/signin");
 
   const maskKey = (key?: string | null) => (key ? `sk-···${key.slice(-4)}` : "");
@@ -66,6 +85,48 @@ export default async function SettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* ── Facilitator: Profile & Tooling ── */}
+        {user.role === "FACILITATOR" && (
+          <section className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">badge</span>
+              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Professional Profile</h2>
+              <span className="ml-auto text-[9px] font-bold uppercase tracking-widest text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">Visible to Clients</span>
+            </div>
+            <FacilitatorProfileSettings initial={{
+              bio: user.bio,
+              skills: user.skills,
+              aiAgentStack: user.ai_agent_stack,
+              portfolioUrl: user.portfolio_url,
+              availability: user.availability,
+              yearsExperience: user.years_experience,
+              preferredProjectSize: user.preferred_project_size,
+              hourlyRate: Number(user.hourly_rate),
+            }} />
+          </section>
+        )}
+
+        {/* ── Client: Preferences ── */}
+        {user.role === "CLIENT" && (
+          <section className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">tune</span>
+              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Project Preferences</h2>
+            </div>
+            <ClientPreferencesSettings initial={{
+              companyName: user.company_name,
+              companyType: user.company_type,
+              preferredBidType: user.preferred_bid_type,
+              typicalProjectBudget: user.typical_project_budget,
+              addressLine1: user.address_line1,
+              addressCity: user.address_city,
+              addressState: user.address_state,
+              addressZip: user.address_zip,
+              addressCountry: user.address_country,
+            }} />
+          </section>
+        )}
 
         {/* ── BYOK AI Keys ── */}
         <section className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden">
