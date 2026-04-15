@@ -26,6 +26,19 @@ export async function GET(req: Request) {
     }
 
     // 2.5 Security Hardening: Native API Extraction Rate Limiter
+
+    // ── Auto-reset when lockout window has expired ─────────────────────────
+    // Without this, a counter that reached 2 yesterday would still block on
+    // the 3rd request today even though the 8-hour window has long passed.
+    if (facilitator.locked_until && new Date() >= new Date(facilitator.locked_until)) {
+      await prisma.user.update({
+        where: { id: facilitator.id },
+        data: { locked_until: null, api_daily_request_count: 0 },
+      });
+      // Re-fetch to get fresh counts for remaining guards
+      Object.assign(facilitator, { locked_until: null, api_daily_request_count: 0 });
+    }
+
     if (facilitator.locked_until && new Date() < new Date(facilitator.locked_until)) {
        return NextResponse.json({ 
           error: "API Exhaustion Protocol. Your extraction agent is currently in an active 8-hour blackout window.",
@@ -38,7 +51,7 @@ export async function GET(req: Request) {
        const blackoutTime = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 Hours out
        await prisma.user.update({
           where: { id: facilitator.id },
-          data: { locked_until: blackoutTime, api_daily_request_count: 0 } // Re-normalize after lock
+          data: { locked_until: blackoutTime, api_daily_request_count: 0 }
        });
 
        return NextResponse.json({ 

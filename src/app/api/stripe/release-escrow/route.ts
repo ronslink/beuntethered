@@ -29,36 +29,58 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid state. Client mismatch or milestone not found." }, { status: 400 });
     }
 
-    if (milestone.status !== "FUNDED_IN_ESCROW" && milestone.status !== "SUBMITTED_FOR_REVIEW") {
-       return NextResponse.json({ error: "Milestone is not in a payable state." }, { status: 400 });
-    }
-
     const developerId = milestone.facilitator?.stripe_account_id;
     if (!developerId) {
       return NextResponse.json({ error: "Expert Connect onboarding incomplete. Escrow constrained." }, { status: 400 });
     }
 
-    // ----- CRITICAL PLATFORM RULE OVERRIDE -----
-    // Platform automatically parses BYOC constraint flags. 5% standard execution fee defaults against 0% BYOC bypass
+    // ── Atomic Check-and-Set ────────────────────────────────────────────────
+    // Use updateMany with a status precondition. If another concurrent request
+    // already claimed this milestone, count === 0 and we abort before Stripe.
+    const claimed = await prisma.milestone.updateMany({
+      where: {
+        id: milestoneId,
+        status: { in: ["FUNDED_IN_ESCROW", "SUBMITTED_FOR_REVIEW"] },
+        project: { client_id: user.id },
+      },
+      data: { status: "APPROVED_AND_PAID", paid_at: new Date() },
+    });
+
+    if (claimed.count === 0) {
+      return NextResponse.json(
+        { error: "Milestone is not in a payable state or has already been processed." },
+        { status: 409 }
+      );
+    }
+
+    // ── Stripe Payout ───────────────────────────────────────────────────────
+    // Idempotency key ensures Stripe deduplicates if this endpoint is hit twice
+    // (e.g. network retry or double-click) — no second transfer will be issued.
     const isByoc = milestone.project.is_byoc;
     const totalAmount = Number(milestone.amount) * 100;
     const platformFee = isByoc ? 0 : Math.round(totalAmount * 0.05);
     const payoutAmount = totalAmount - platformFee;
 
-    // Trigger 'Separate Transfer' safely routing Escrow payload to Expert
-    const transfer = await stripe.transfers.create({
-      amount: payoutAmount,
-      currency: "usd",
-      destination: developerId,
-      transfer_group: `milestone_${milestone.id}`,
-      metadata: { milestone_id: milestone.id }
-    });
-
-    // Resolve milestone to completed standard locally
-    await prisma.milestone.update({
-      where: { id: milestone.id },
-      data: { status: "APPROVED_AND_PAID" }
-    });
+    let transfer;
+    try {
+      transfer = await stripe.transfers.create(
+        {
+          amount: payoutAmount,
+          currency: "usd",
+          destination: developerId,
+          transfer_group: `milestone_${milestone.id}`,
+          metadata: { milestone_id: milestone.id },
+        },
+        { idempotencyKey: `release_escrow_${milestone.id}` }
+      );
+    } catch (stripeErr: any) {
+      // Roll back the DB status update if Stripe fails
+      await prisma.milestone.updateMany({
+        where: { id: milestoneId, status: "APPROVED_AND_PAID" },
+        data: { status: "SUBMITTED_FOR_REVIEW" },
+      });
+      throw stripeErr;
+    }
 
     // Synchronously iterate explicit Trust Metrics bumping their tier algorithm logic inherently
     if (milestone.facilitator_id) {

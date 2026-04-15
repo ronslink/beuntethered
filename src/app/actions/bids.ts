@@ -233,17 +233,20 @@ export async function acceptCounter(bidId: string) {
     const user = await getCurrentUser();
     if (!user || user.role !== "FACILITATOR") throw new Error("Unauthorized.");
 
-    const bid = await prisma.bid.findUnique({
-      where: { id: bidId },
-      include: { project: { include: { milestones: true } } },
-    });
-    if (!bid || bid.developer_id !== user.id) throw new Error("Not your bid.");
-    if (bid.status !== "UNDER_NEGOTIATION") throw new Error("Bid not in negotiation.");
-
-    const finalAmount = bid.counter_amount ? Number(bid.counter_amount) : Number(bid.proposed_amount);
-    const projectId = bid.project_id;
+    let projectId!: string;
 
     await prisma.$transaction(async (tx) => {
+      // ── Re-read inside the transaction to close the TOCTOU window ──────────
+      const bid = await tx.bid.findUnique({
+        where: { id: bidId },
+        include: { project: { include: { milestones: true } } },
+      });
+      if (!bid || bid.developer_id !== user.id) throw new Error("Not your bid.");
+      if (bid.status !== "UNDER_NEGOTIATION") throw new Error("Bid is no longer in negotiation.");
+
+      const finalAmount = bid.counter_amount ? Number(bid.counter_amount) : Number(bid.proposed_amount);
+      projectId = bid.project_id;
+
       // Accept this bid
       await tx.bid.update({ where: { id: bidId }, data: { status: "ACCEPTED", proposed_amount: finalAmount } });
 
@@ -318,21 +321,34 @@ export async function acceptBid(bidId: string) {
     const user = await getCurrentUser();
     if (!user || user.role !== "CLIENT") throw new Error("Unauthorized.");
 
-    const bid = await prisma.bid.findUnique({
+    // Pre-fetch developer for email notification (outside tx, read-only)
+    const bidForEmail = await prisma.bid.findUnique({
       where: { id: bidId },
-      include: { project: { include: { milestones: true } }, developer: true },
+      select: { developer: { select: { email: true } }, project: { select: { title: true } } },
     });
-    if (!bid || bid.project.client_id !== user.id || bid.project.status !== "OPEN_BIDDING") {
-      throw new Error("Cannot accept this bid.");
-    }
 
-    const projectId = bid.project_id;
-    const proposedAmount = Number(bid.proposed_amount);
-    const proposedMilestones = bid.proposed_milestones
-      ? (JSON.parse(bid.proposed_milestones as string) as any[])
-      : null;
+    let projectId!: string;
+    let developerEmail: string | null | undefined;
+    let projectTitle: string = "";
 
     await prisma.$transaction(async (tx) => {
+      // ── Re-read inside the transaction to close the TOCTOU window ──────────
+      const bid = await tx.bid.findUnique({
+        where: { id: bidId },
+        include: { project: { include: { milestones: true } } },
+      });
+      if (!bid || bid.project.client_id !== user.id || bid.project.status !== "OPEN_BIDDING") {
+        throw new Error("Cannot accept this bid.");
+      }
+
+      projectId = bid.project_id;
+      developerEmail = bidForEmail?.developer?.email;
+      projectTitle = bidForEmail?.project?.title ?? "";
+      const proposedAmount = Number(bid.proposed_amount);
+      const proposedMilestones = bid.proposed_milestones
+        ? (JSON.parse(bid.proposed_milestones as string) as any[])
+        : null;
+
       await tx.bid.update({ where: { id: bidId }, data: { status: "ACCEPTED" } });
       await tx.bid.updateMany({
         where: { project_id: projectId, id: { not: bidId } },
@@ -377,11 +393,11 @@ export async function acceptBid(bidId: string) {
       await tx.project.update({ where: { id: projectId }, data: { status: "ACTIVE", active_bid_id: null } });
     });
 
-    if (bid.developer?.email) {
+    if (developerEmail) {
       resend.emails.send({
         from: "Untether Marketplace <marketplace@untether.network>",
-        to: bid.developer.email,
-        subject: `Your bid was accepted — "${bid.project.title}"`,
+        to: developerEmail,
+        subject: `Your bid was accepted — "${projectTitle}"`,
         html: `<p>Congratulations! Your proposal has been accepted. The client is now funding the Escrow. <a href="${process.env.NEXTAUTH_URL}/command-center">View your active work →</a></p>`,
       }).catch(() => {});
     }

@@ -64,6 +64,18 @@ export async function openDispute(params: {
       },
     });
 
+    // Fetch the newly created dispute ID for the AI analysis
+    const createdDispute = await prisma.dispute.findFirst({
+      where: {
+        project_id: projectId,
+        milestone_id: targetMilestone.id,
+        client_id: user.id,
+        status: "OPEN",
+      },
+      orderBy: { created_at: "desc" },
+      select: { id: true },
+    });
+
     await prisma.project.update({
       where: { id: projectId },
       data: { status: "DISPUTED" },
@@ -80,6 +92,41 @@ export async function openDispute(params: {
         `A dispute has been opened on "${project.title}". Reason: ${reason.slice(0, 80)}${reason.length > 80 ? "..." : ""}`,
         "ERROR"
       );
+    }
+
+    // Fire-and-forget AI fact-finding — non-blocking
+    // Generates ai_fact_finding_report on the Dispute record for the Arbitration Panel
+    if (createdDispute) {
+      fetch(`${process.env.NEXTAUTH_URL}/api/ai/dispute-analysis`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(process.env.INTERNAL_API_SECRET
+            ? { "x-internal-secret": process.env.INTERNAL_API_SECRET }
+            : {}),
+        },
+        body: JSON.stringify({
+          disputeId: createdDispute.id,
+          reason: formattedReason,
+          sowText: project.ai_generated_sow,
+          milestoneTitle: targetMilestone.title,
+          acceptanceCriteria: targetMilestone.acceptance_criteria ?? [],
+        }),
+      }).catch(async (err) => {
+        console.error("[dispute] AI fact-finding fire-and-forget failed:", err);
+        // Surface the failure as a FAILED TimelineEvent so the Arbitration Panel UI
+        // can show a visible "AI Report Failed" flag rather than a silent blank field.
+        await prisma.timelineEvent.create({
+          data: {
+            project_id: projectId,
+            milestone_id: targetMilestone.id,
+            type: "SYSTEM",
+            status: "FAILED",
+            description: "AI fact-finding report generation failed. Manual review required.",
+            author: "system",
+          },
+        }).catch(() => {}); // never throw from a catch handler
+      });
     }
 
     revalidatePath(`/command-center/${projectId}`);

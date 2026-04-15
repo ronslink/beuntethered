@@ -10,7 +10,7 @@ const PUBLIC_PATHS = [
   "/onboarding",
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Let public/static/auth paths pass through

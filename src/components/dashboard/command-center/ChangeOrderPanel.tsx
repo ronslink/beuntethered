@@ -25,10 +25,11 @@ export default function ChangeOrderPanel({ projectId, role, changeOrders }: { pr
   const handleApprove = (orderId: string) => {
      startTransition(async () => {
         const res = await approveChangeOrder(orderId);
-        if (res.success) {
-           alert("Change Order fully bound to Active Scope!");
+        if (res.success && res.checkoutUrl) {
+           // Redirect to Stripe Checkout to collect payment
+           window.location.href = res.checkoutUrl;
         } else {
-           alert(res.error);
+           alert(res.error || "Failed to initiate payment for Change Order.");
         }
      });
   };

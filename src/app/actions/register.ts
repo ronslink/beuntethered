@@ -42,6 +42,8 @@ export async function registerUser({
         anthropic_key: anthropic_key?.trim() || null,
         openai_key_encrypted: encryptedOpenAI,
         anthropic_key_encrypted: encryptedAnthropic,
+        skills: [],
+        ai_agent_stack: [],
       },
     });
 

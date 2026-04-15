@@ -86,6 +86,7 @@ model Milestone {
   deliverables             String[]
   description              String?
   estimated_duration_days  Int?
+  paid_at                  DateTime?       // Set when status transitions to APPROVED_AND_PAID
   messages                 Message[]
   facilitator              User?           @relation(fields: [facilitator_id], references: [id])
   project                  Project         @relation(fields: [project_id], references: [id])
@@ -225,8 +226,8 @@ model User {
 
   // ── Facilitator profile ──────────────────────────
   bio                     String?
-  skills                  String[]
-  ai_agent_stack          String[]
+  skills                  String[]                     @default([])
+  ai_agent_stack          String[]                     @default([])
   portfolio_url           String?
   availability            String?
   years_experience        Int?

@@ -39,6 +39,11 @@ export async function resolveDisputeForClient(disputeId: string) {
         where: { id: dispute.id },
         data: { status: "RESOLVED_CLIENT" }
       }),
+      // Reset milestone so the client can re-fund after the Stripe refund clears
+      prisma.milestone.update({
+        where: { id: dispute.milestone_id },
+        data: { status: "PENDING", stripe_payment_intent_id: null },
+      }),
       prisma.project.update({
         where: { id: dispute.project_id },
         data: { status: "ACTIVE" } // Unfreeze the project
@@ -49,7 +54,7 @@ export async function resolveDisputeForClient(disputeId: string) {
           milestone_id: dispute.milestone_id,
           type: "DISPUTE",
           status: "FAILED", // Milestone failed
-          description: `Arbitration resolved in favor of Client. Escrow refunded artificially. Arbiter: ${arbiter.name || 'System'}`,
+          description: `Arbitration resolved in favor of Client. Escrow refunded. Milestone reset to PENDING. Arbiter: ${arbiter.name || 'System'}`,
           author: "Admin Authority"
         }
       })

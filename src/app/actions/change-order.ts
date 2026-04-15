@@ -45,30 +45,46 @@ export async function proposeChangeOrder(projectId: string, description: string,
 }
 
 /**
- * Client safely approves the expanded cost parameter
- * NOTE: Approving a change order typically involves physical funding, but we'll map it to Escrow natively
+ * Client approves the expanded cost parameter.
+ * Returns a Stripe Checkout URL — the DB status moves to ACCEPTED_AND_FUNDED
+ * only after the Stripe webhook confirms payment (checkout.session.completed).
  */
-export async function approveChangeOrder(orderId: string) {
-   try {
-      const user = await getCurrentUser();
-      if (!user || user.role !== "CLIENT") throw new Error("Unauthorized Approval Mechanism");
+export async function approveChangeOrder(
+  orderId: string
+): Promise<{ success: boolean; checkoutUrl?: string; error?: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "CLIENT")
+      throw new Error("Unauthorized Approval Mechanism");
 
-      const order = await prisma.changeOrder.findUnique({
-         where: { id: orderId },
-         include: { project: true }
-      });
+    const order = await prisma.changeOrder.findUnique({
+      where: { id: orderId },
+      include: { project: true },
+    });
 
-      if (!order || order.project.client_id !== user.id) throw new Error("Approval scope out of bounds.");
+    if (!order || order.project.client_id !== user.id)
+      throw new Error("Approval scope out of bounds.");
 
-      // Safely lock state physically into Prisma
-      await prisma.changeOrder.update({
-         where: { id: order.id },
-         data: { status: "ACCEPTED_AND_FUNDED" }
-      });
+    if (order.status !== "PROPOSED")
+      throw new Error("Change Order is not pending approval.");
 
-      revalidatePath(`/command-center/${order.project_id}`);
-      return { success: true };
-   } catch(e: any) {
-      return { success: false, error: e.message };
-   }
+    // Delegate payment to the dedicated Stripe endpoint
+    const res = await fetch(
+      `${process.env.NEXTAUTH_URL}/api/stripe/change-order-checkout`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ changeOrderId: orderId }),
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok || !data.url) {
+      throw new Error(data.error || "Failed to create Stripe Checkout session.");
+    }
+
+    return { success: true, checkoutUrl: data.url };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }

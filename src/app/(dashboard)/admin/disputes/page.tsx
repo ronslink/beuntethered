@@ -81,7 +81,7 @@ export default async function AdminDisputesHub() {
                                 </div>
                              </div>
                              <div className="bg-surface-container p-4 rounded-2xl border border-error/20 border-l-[3px] border-l-error text-sm text-on-surface font-medium leading-relaxed">
-                                "{dispute.reason}"
+                                {dispute.reason}
                              </div>
                           </div>
 

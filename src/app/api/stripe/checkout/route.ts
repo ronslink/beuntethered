@@ -54,13 +54,13 @@ export async function POST(req: Request) {
             billing_type: milestone.project.billing_type,
          }
       },
-      success_url: `${process.env.NEXTAUTH_URL}/command-center?id=${milestone.project.id}`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/command-center?id=${milestone.project.id}`,
+      success_url: `${process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/command-center/${milestone.project.id}`,
+      cancel_url: `${process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/command-center/${milestone.project.id}`,
     });
 
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
     console.error("Stripe Checkout Injection Fault:", error);
-    return new NextResponse(error.message, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

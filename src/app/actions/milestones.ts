@@ -55,6 +55,19 @@ export async function submitMilestonePayload(formData: FormData) {
       }
     });
 
+    // 4. Fire-and-forget AI payload audit — non-blocking
+    // Pre-checks delivery against acceptance criteria before the Client sees Review button
+    fetch(`${process.env.NEXTAUTH_URL}/api/ai/audit-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        milestone_id: milestoneId,
+        payload_url: previewUrl,
+      }),
+    }).catch((err) =>
+      console.error("[milestones] AI audit fire-and-forget failed:", err)
+    );
+
     revalidatePath(`/command-center`);
     return { success: true };
     
