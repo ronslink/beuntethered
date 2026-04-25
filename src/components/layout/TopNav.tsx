@@ -55,9 +55,11 @@ export function TopNav({ userName, userImage }: TopNavProps) {
               src={userImage}
             />
           ) : (
-            <div className="w-10 h-10 rounded-full border-2 border-outline-variant/20 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center group-hover:border-primary/40 transition-colors">
-              <span className="text-xs font-black text-primary">{initials}</span>
-            </div>
+            <img
+              alt={userName || "Profile"}
+              className="w-10 h-10 rounded-full border-2 border-outline-variant/20 object-cover shadow-sm bg-surface-container group-hover:border-primary/40 transition-colors"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi_EiNpvum_N0H0ksYk8-3L1gh2Jojon9_bRHXE9CRUHEdT4Fjf9cs_6ToLtUg6rQbq7yfMH2fYlSM5ccOPNyJaWDW2lu-PKrISaxmC_-kO-we6tsTt-_Ru2BJrINkjQ5w9VqEGx5HBWsGTa26whRLLu2z46MZESGHPwvVCx0BP-dH0tKYMz-Bx_JdGUvuqqTPlFT6vKb72VdFwxyxptZo-M_2ePq8oXD7swxFsL6bTUMnV8-3t8L9zQKPEJahP0v6SMwuamVapojP"
+            />
           )}
         </Link>
       </div>
