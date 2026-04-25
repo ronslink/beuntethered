@@ -5,6 +5,7 @@ import BYOKSettingsClient from "@/components/settings/BYOKSettingsClient";
 import AgentKeyClient from "@/components/settings/AgentKeyClient";
 import StripeDashboardButton from "@/components/settings/StripeDashboardButton";
 import { FacilitatorProfileSettings, ClientPreferencesSettings } from "@/components/settings/ProfileSettingsClient";
+import DisplayNameInput from "@/components/settings/DisplayNameInput";
 
 export default async function SettingsPage() {
   const sessionUser = await getCurrentUser();
@@ -74,15 +75,7 @@ export default async function SettingsPage() {
                 className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface font-medium cursor-not-allowed opacity-60"
               />
             </div>
-            <div>
-              <label className="block text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
-                Display name
-              </label>
-              <input
-                type="text" defaultValue={user.name || ""} placeholder="Your name"
-                className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface font-medium focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-              />
-            </div>
+            <DisplayNameInput initialName={user.name || ""} />
           </div>
         </section>
 
