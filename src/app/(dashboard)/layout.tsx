@@ -11,7 +11,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <div className="min-h-screen bg-background text-on-surface">
-      <TopNav />
+      <TopNav userName={user.name} userImage={user.image} />
       <SideNav role={user.role} />
       
       {/* Content wrapper with sidebar offsets */}
