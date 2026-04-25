@@ -6,16 +6,19 @@ import { updateUserAIKeys } from "@/app/actions/user";
 export default function BYOKSettingsClient({ 
    initialPreferred, 
    hasOpenAI, 
-   hasAnthropic 
+   hasAnthropic,
+   hasGoogle
 }: { 
    initialPreferred: string, 
    hasOpenAI: string, 
-   hasAnthropic: string 
+   hasAnthropic: string,
+   hasGoogle: string 
 }) {
   const [isPending, startTransition] = useTransition();
   const [preferredLlm, setPreferredLlm] = useState(initialPreferred);
   const [openaiKey, setOpenaiKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
+  const [googleKey, setGoogleKey] = useState("");
   const [message, setMessage] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -26,13 +29,15 @@ export default function BYOKSettingsClient({
        const res = await updateUserAIKeys({
           preferred_llm: preferredLlm,
           openai_key: openaiKey,
-          anthropic_key: anthropicKey
+          anthropic_key: anthropicKey,
+          google_key: googleKey
        });
 
        if (res.success) {
           setMessage({ text: "API Routing Constraints updated safely.", type: 'success' });
           setOpenaiKey("");
           setAnthropicKey("");
+          setGoogleKey("");
        } else {
           setMessage({ text: res.error || "Fatal Exception connecting variables.", type: 'error' });
        }
@@ -65,9 +70,10 @@ export default function BYOKSettingsClient({
                onChange={(e) => setPreferredLlm(e.target.value)}
                className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-bold focus:border-primary/50 outline-none transition-colors appearance-none"
             >
-               <option value="gpt-4o-mini">Platform Default (GPT-4o Mini)</option>
+               <option value="minimax">Platform Default (MiniMax-M2.7)</option>
                <option value="gpt-4o">Premium Architect (GPT-4o) — Requires Key</option>
                <option value="claude-3-5-sonnet">Premium Reasoning (Claude 3.5 Sonnet) — Requires Key</option>
+               <option value="gemini-1.5-pro">Google Gemini (1.5 Pro) — Requires Key</option>
             </select>
          </div>
          
@@ -97,6 +103,20 @@ export default function BYOKSettingsClient({
                   value={anthropicKey}
                   onChange={(e) => setAnthropicKey(e.target.value)}
                   placeholder="sk-ant-.................." 
+                  className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-medium focus:border-primary/50 outline-none transition-colors font-mono text-sm placeholder:text-on-surface-variant/30" 
+               />
+            </div>
+            
+            <div>
+               <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 flex items-center gap-2">
+                  Google Gemini Network Mapping
+                  {hasGoogle && <span className="px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant text-[10px] tracking-normal border border-outline-variant/30">Active: {hasGoogle}</span>}
+               </label>
+               <input 
+                  type="password" 
+                  value={googleKey}
+                  onChange={(e) => setGoogleKey(e.target.value)}
+                  placeholder="AIza.................." 
                   className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface font-medium focus:border-primary/50 outline-none transition-colors font-mono text-sm placeholder:text-on-surface-variant/30" 
                />
             </div>

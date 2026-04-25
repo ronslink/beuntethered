@@ -17,6 +17,7 @@ export default async function SettingsPage() {
     select: {
       id: true, email: true, name: true, role: true,
       preferred_llm: true, openai_key: true, anthropic_key: true,
+      openai_key_encrypted: true, anthropic_key_encrypted: true, google_key_encrypted: true,
       agent_key_hash: true, stripe_account_id: true,
       // Profile fields
       bio: true, skills: true, ai_agent_stack: true, portfolio_url: true,
@@ -37,7 +38,11 @@ export default async function SettingsPage() {
   });
   if (!user) redirect("/api/auth/signin");
 
-  const maskKey = (key?: string | null) => (key ? `sk-···${key.slice(-4)}` : "");
+  const hasKey = (plain?: string | null, encrypted?: string | null) => {
+    if (plain) return `sk-···${plain.slice(-4)}`;
+    if (encrypted) return `[Encrypted]`;
+    return "";
+  };
 
   const sections = [
     { icon: "person", label: "Profile" },
@@ -136,8 +141,9 @@ export default async function SettingsPage() {
           <div className="p-6">
             <BYOKSettingsClient
               initialPreferred={user.preferred_llm}
-              hasOpenAI={maskKey(user.openai_key)}
-              hasAnthropic={maskKey(user.anthropic_key)}
+              hasOpenAI={hasKey(user.openai_key, user.openai_key_encrypted)}
+              hasAnthropic={hasKey(user.anthropic_key, user.anthropic_key_encrypted)}
+              hasGoogle={hasKey(null, user.google_key_encrypted)}
             />
           </div>
         </section>

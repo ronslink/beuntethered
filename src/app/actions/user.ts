@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { encryptApiKey } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 
-export async function updateUserAIKeys(data: { openai_key?: string, anthropic_key?: string, preferred_llm: string }) {
+export async function updateUserAIKeys(data: { openai_key?: string, anthropic_key?: string, google_key?: string, preferred_llm: string }) {
   try {
     const user = await getCurrentUser();
     if (!user) throw new Error("Unauthorized Access Vector");
@@ -26,6 +26,13 @@ export async function updateUserAIKeys(data: { openai_key?: string, anthropic_ke
        }
     }
 
+    if (data.preferred_llm === "gemini-1.5-pro" && !data.google_key) {
+       const existing = await prisma.user.findUnique({ where: { id: user.id }, select: { google_key_encrypted: true } });
+       if (!existing?.google_key_encrypted) {
+         throw new Error("You must map a Google Gemini API Key securely before utilizing the Gemini-1.5-Pro architecture.");
+       }
+    }
+
     const updatePayload: Record<string, string> = { preferred_llm: data.preferred_llm };
     
     // Only overwrite keys dynamically if actively submitted by explicit input block
@@ -37,6 +44,10 @@ export async function updateUserAIKeys(data: { openai_key?: string, anthropic_ke
     if (data.anthropic_key && data.anthropic_key.trim() !== '') {
        updatePayload.anthropic_key_encrypted = encryptApiKey(data.anthropic_key.trim());
        updatePayload.anthropic_key = data.anthropic_key.trim(); // keep plaintext for migration; remove after
+    }
+
+    if (data.google_key && data.google_key.trim() !== '') {
+       updatePayload.google_key_encrypted = encryptApiKey(data.google_key.trim());
     }
 
     await prisma.user.update({
