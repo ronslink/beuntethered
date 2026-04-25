@@ -50,9 +50,12 @@ export async function saveOnboardingStep(
     }
 
     if (data.step === "byoc") {
-      if (data.openaiKey) update.openai_key_encrypted = encryptApiKey(data.openaiKey);
-      if (data.anthropicKey) update.anthropic_key_encrypted = encryptApiKey(data.anthropicKey);
-      if (data.googleKey) update.google_key_encrypted = encryptApiKey(data.googleKey);
+      const encOai = data.openaiKey ? encryptApiKey(data.openaiKey) : "";
+      const encAnt = data.anthropicKey ? encryptApiKey(data.anthropicKey) : "";
+      const encGoo = data.googleKey ? encryptApiKey(data.googleKey) : "";
+      if (encOai) update.openai_key_encrypted = encOai;
+      if (encAnt) update.anthropic_key_encrypted = encAnt;
+      if (encGoo) update.google_key_encrypted = encGoo;
     }
 
     if (data.step === "preferences") {

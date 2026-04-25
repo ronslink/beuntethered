@@ -1,5 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { JetBrains_Mono } from "next/font/google";
+
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Untether — AI-Native Freelance Marketplace with Escrow Protection",
@@ -56,7 +59,7 @@ const STATS = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-on-surface overflow-hidden">
+    <div className={`${mono.variable} min-h-screen bg-background text-on-surface overflow-hidden`}>
 
       {/* ─── NAV ────────────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-2xl border-b border-outline-variant/15">
@@ -87,14 +90,14 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-primary">AI-Native Escrow Marketplace</span>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-primary" style={{ fontFamily: "var(--font-mono, monospace)" }}>AI-Native Escrow Marketplace</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black font-headline tracking-tighter leading-[0.95] mb-6">
             Stop paying for hours.
             <br />
-            <span className="bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] bg-clip-text text-transparent">
-              Start paying for verifiable software.
+            <span className="bg-gradient-to-r from-primary via-[#7c3aed] to-secondary bg-[length:200%_auto] bg-clip-text text-transparent tracking-[-0.03em]">
+              Start paying for verified software.
             </span>
           </h1>
 
@@ -107,18 +110,28 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/register?role=CLIENT"
-              className="px-8 py-4 bg-primary text-on-primary font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_15px_30px_rgba(var(--color-primary),0.3)] hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-2.5"
+              className="px-8 py-4 bg-on-surface text-surface font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.4)] hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-2.5 dark:bg-white dark:text-[#0a0e18]"
             >
               <span className="material-symbols-outlined text-[16px]">psychology</span>
-              Scope a Project with AI
+              Get Started Free — I&apos;m a Client
             </Link>
             <Link
               href="/register?role=FACILITATOR"
               className="px-8 py-4 border-2 border-outline-variant/30 text-on-surface font-black uppercase tracking-widest text-xs rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center gap-2.5"
             >
               <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-              Apply as a Facilitator
+              Apply as Facilitator — I Build Software
             </Link>
+          </div>
+
+          {/* Social proof pills */}
+          <div className="mt-10 flex flex-col items-center gap-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Trusted by teams building in</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {["Fintech", "Healthtech", "SaaS", "AI Infrastructure", "Web3"].map((tag) => (
+                <span key={tag} className="px-3 py-1 rounded-full border border-outline-variant/30 text-on-surface-variant text-[10px] font-bold">{tag}</span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -237,7 +250,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {STATS.map((stat, i) => (
                 <div key={i} className="bg-surface/50 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-6 text-center hover:border-primary/30 transition-colors">
-                  <p className="text-3xl font-black font-headline text-primary tracking-tighter mb-1">{stat.value}</p>
+                  <p className="text-3xl font-black text-primary tracking-tighter mb-1" style={{ fontFamily: "var(--font-mono, monospace)" }}>{stat.value}</p>
                   <p className="text-xs font-black uppercase tracking-widest text-on-surface mb-0.5">{stat.label}</p>
                   <p className="text-[10px] text-on-surface-variant">{stat.sub}</p>
                 </div>

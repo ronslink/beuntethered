@@ -91,10 +91,11 @@ const API_KEY_ALGORITHM = "aes-256-gcm";
 const API_KEY_IV_LENGTH = 16;
 const API_KEY_TAG_LENGTH = 16;
 
-function getMasterKey(): Buffer {
+function getMasterKey(): Buffer | null {
   const key = process.env.ENCRYPTION_MASTER_KEY;
   if (!key) {
-    throw new Error("ENCRYPTION_MASTER_KEY environment variable is not set");
+    // Key not configured — encryption unavailable. API key storage will be skipped.
+    return null;
   }
   // Support both raw hex (64 chars = 32 bytes) and base64-encoded keys
   if (key.length === 64) {
@@ -109,6 +110,9 @@ function getMasterKey(): Buffer {
  */
 export function encryptApiKey(plaintext: string): string {
   const key = getMasterKey();
+  // If master key is not configured, return empty string to allow graceful skip
+  if (!key || !plaintext) return "";
+
   const iv = randomBytes(API_KEY_IV_LENGTH);
   const cipher = createCipheriv(API_KEY_ALGORITHM, key, iv);
 
