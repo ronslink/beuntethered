@@ -25,8 +25,8 @@ export const metadata: Metadata = {
 const CONTRAST_ROWS = [
   { old: "Vague job posts nobody reads", now: "AI-generated Statements of Work" },
   { old: "Hourly tracking spyware", now: "Fixed-price milestone escrow" },
+  { old: "Blindly paying for unverified code", now: "AI Code Audits verify Acceptance Criteria" },
   { old: "20% platform fees on talent", now: "0% facilitator fees — they keep every dollar" },
-  { old: "AI banned from the workflow", now: "AI agents are first-class team members" },
   { old: "IP hostage situations", now: "Atomic Code Swaps — code unlocks on payment" },
 ];
 
@@ -39,7 +39,7 @@ const STATS = [
 const TRUST_BADGES = [
   { icon: "lock", text: "Stripe-secured escrow" },
   { icon: "verified_user", text: "Identity-verified facilitators" },
-  { icon: "gavel", text: "AI-powered dispute resolution" },
+  { icon: "gavel", text: "Autonomous AI code audits" },
   { icon: "shield", text: "AES-256 encrypted credentials" },
 ];
 
@@ -73,9 +73,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-base sm:text-lg text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed">
-            Tomorrow&apos;s software is built by humans orchestrating AI agents.
-            Untether is the marketplace built for that reality — AI scopes, AI-audited milestones, Stripe Escrow, and{" "}
-            <strong className="text-on-surface">0% facilitator fees</strong>.
+            Tomorrow&apos;s software is built collaboratively. On Untether, both clients and facilitators work alongside autonomous AI agents to perfectly scope, build, and objectively verify every milestone before escrow releases.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
