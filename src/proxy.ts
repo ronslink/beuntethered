@@ -8,10 +8,22 @@ const PUBLIC_PATHS = [
   "/_next/",
   "/favicon",
   "/onboarding",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/hire",
+  "/build",
+  "/pricing",
+  "/terms",
+  "/privacy",
 ];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Root landing page is always public
+  if (pathname === "/") return NextResponse.next();
 
   // Let public/static/auth paths pass through
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
