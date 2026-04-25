@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+import PublicNavbar from "@/components/layout/PublicNavbar";
+import InteractiveDemo from "@/components/marketing/InteractiveDemo";
+import TestimonialGrid from "@/components/marketing/TestimonialGrid";
+import FAQAccordion from "@/components/marketing/FAQAccordion";
 
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
@@ -26,33 +30,17 @@ const CONTRAST_ROWS = [
   { old: "IP hostage situations", now: "Atomic Code Swaps — code unlocks on payment" },
 ];
 
-const STEPS = [
-  {
-    icon: "psychology",
-    title: "AI Scoping",
-    body: "Describe your project in plain English. Our AI generates a phased Statement of Work with milestones, deliverables, and pricing — in seconds.",
-  },
-  {
-    icon: "smart_toy",
-    title: "AI-Augmented Delivery",
-    body: "Facilitators orchestrate AI coding agents alongside human expertise. Every milestone is built faster, audited by AI, and verified before escrow releases.",
-  },
-  {
-    icon: "groups",
-    title: "Facilitator Matching",
-    body: "We match your scope against vetted facilitators who blend domain expertise with AI tooling mastery. Review trust scores, AI audit history, and past deliveries.",
-  },
-  {
-    icon: "swap_horiz",
-    title: "Escrow & Atomic Swap",
-    body: "Fund each milestone via Stripe. When the facilitator delivers verified code, escrow releases instantly. No chasing invoices. No disputes.",
-  },
-];
-
 const STATS = [
   { label: "Facilitator Fee", value: "0%", sub: "They keep everything" },
   { label: "Client Premium", value: "8%", sub: "Escrow orchestration" },
   { label: "Payout Speed", value: "Instant", sub: "On milestone approval" },
+];
+
+const TRUST_BADGES = [
+  { icon: "lock", text: "Stripe-secured escrow" },
+  { icon: "verified_user", text: "Identity-verified facilitators" },
+  { icon: "gavel", text: "AI-powered dispute resolution" },
+  { icon: "shield", text: "AES-256 encrypted credentials" },
 ];
 
 /* ─── Page ─────────────────────────────────────────────────────────────────── */
@@ -62,24 +50,7 @@ export default function LandingPage() {
     <div className={`${mono.variable} min-h-screen bg-background text-on-surface overflow-hidden`}>
 
       {/* ─── NAV ────────────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-2xl border-b border-outline-variant/15">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>all_inclusive</span>
-            </div>
-            <span className="font-black font-headline text-sm tracking-tight text-on-surface">Untether</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors px-4 py-2 rounded-lg">
-              Sign In
-            </Link>
-            <Link href="/register" className="text-xs font-bold bg-primary text-on-primary px-5 py-2.5 rounded-xl hover:-translate-y-0.5 transition-all shadow-lg shadow-primary/20 active:scale-95">
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar />
 
       {/* ─── HERO ───────────────────────────────────────────────────────────── */}
       <section className="relative pt-32 pb-24 md:pt-44 md:pb-32 px-4">
@@ -187,34 +158,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── HOW IT WORKS ───────────────────────────────────────────────────── */}
+      {/* ─── INTERACTIVE HOW IT WORKS ───────────────────────────────────────── */}
       <section className="relative py-20 md:py-28 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-[10px] font-black uppercase tracking-widest text-tertiary mb-3">4 steps</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-tertiary mb-3">How it works</p>
             <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
               From idea to{" "}
               <span className="bg-gradient-to-r from-tertiary to-primary bg-clip-text text-transparent">verified delivery</span>
             </h2>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {STEPS.map((step, i) => (
-              <div key={i} className="group relative">
-                <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/10 blur opacity-0 group-hover:opacity-30 transition-all duration-500" />
-                <div className="bg-surface/50 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-8 relative z-10 h-full flex flex-col hover:border-outline-variant/40 transition-all">
-                  <div className="flex items-center gap-4 mb-5">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/10">
-                      <span className="material-symbols-outlined text-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>{step.icon}</span>
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Step {i + 1}</span>
-                  </div>
-                  <h3 className="text-lg font-black font-headline tracking-tight text-on-surface mb-3">{step.title}</h3>
-                  <p className="text-sm text-on-surface-variant leading-relaxed flex-1">{step.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <InteractiveDemo />
         </div>
       </section>
 
@@ -237,13 +191,21 @@ export default function LandingPage() {
                 so you can focus on delivering elite outcomes — with AI agents as your force multiplier.
                 No scope creep. No invoice chasing. No surprises.
               </p>
-              <Link
-                href="/register?role=FACILITATOR"
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-on-surface text-surface font-black uppercase tracking-widest text-xs rounded-xl hover:-translate-y-0.5 transition-all shadow-lg active:scale-95"
-              >
-                Join as a Facilitator
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </Link>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/register?role=FACILITATOR"
+                  className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-on-surface text-surface font-black uppercase tracking-widest text-xs rounded-xl hover:-translate-y-0.5 transition-all shadow-lg active:scale-95 dark:bg-white dark:text-[#0a0e18]"
+                >
+                  Join as a Facilitator
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </Link>
+                <Link
+                  href="/build"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 border border-outline-variant/30 text-on-surface-variant font-bold text-xs rounded-xl hover:border-primary/40 hover:text-on-surface transition-all"
+                >
+                  Learn more
+                </Link>
+              </div>
             </div>
 
             {/* Stats */}
@@ -260,6 +222,49 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ─── TESTIMONIALS ───────────────────────────────────────────────────── */}
+      <section className="relative py-20 md:py-28 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-[10px] font-black uppercase tracking-widest text-secondary mb-3">Social proof</p>
+            <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
+              What our users are <span className="text-primary">saying</span>
+            </h2>
+          </div>
+          <TestimonialGrid />
+        </div>
+      </section>
+
+      {/* ─── TRUST ARCHITECTURE ─────────────────────────────────────────────── */}
+      <section className="relative py-20 md:py-28 px-4">
+        <div className="absolute inset-0 bg-surface-container-low/30" />
+        <div className="max-w-4xl mx-auto relative z-10">
+          <div className="text-center mb-10">
+            <p className="text-[10px] font-black uppercase tracking-widest text-tertiary mb-3">Security</p>
+            <h2 className="text-2xl md:text-3xl font-black font-headline tracking-tighter">
+              Built on trust, secured by Stripe
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14">
+            {TRUST_BADGES.map((b, i) => (
+              <div key={i} className="bg-surface/50 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-5 flex flex-col items-center gap-3 text-center hover:border-primary/20 transition-colors">
+                <span className="material-symbols-outlined text-primary text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>{b.icon}</span>
+                <p className="text-[10px] font-bold text-on-surface-variant leading-snug">{b.text}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* FAQ */}
+          <div className="text-center mb-10">
+            <p className="text-[10px] font-black uppercase tracking-widest text-tertiary mb-3">FAQ</p>
+            <h2 className="text-2xl md:text-3xl font-black font-headline tracking-tighter">
+              Frequently asked questions
+            </h2>
+          </div>
+          <FAQAccordion />
+        </div>
+      </section>
+
       {/* ─── FINAL CTA ──────────────────────────────────────────────────────── */}
       <section className="relative py-24 md:py-32 px-4 text-center">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/3 to-transparent pointer-events-none" />
@@ -271,13 +276,22 @@ export default function LandingPage() {
           <p className="text-on-surface-variant mb-8">
             Join the marketplace where AI writes the scope, agents build alongside facilitators, and Stripe locks the escrow.
           </p>
-          <Link
-            href="/register"
-            className="inline-flex items-center gap-2.5 px-10 py-4 bg-primary text-on-primary font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_20px_40px_rgba(var(--color-primary),0.3)] hover:-translate-y-1 transition-all active:scale-95"
-          >
-            Get Started Free
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/hire"
+              className="px-8 py-4 bg-primary text-on-primary font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_20px_40px_rgba(var(--color-primary),0.3)] hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[16px]">psychology</span>
+              I&apos;m Hiring
+            </Link>
+            <Link
+              href="/build"
+              className="px-8 py-4 border-2 border-outline-variant/30 text-on-surface font-black uppercase tracking-widest text-xs rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+              I&apos;m Building
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -292,9 +306,11 @@ export default function LandingPage() {
             <span className="text-[10px] text-on-surface-variant ml-1">© {new Date().getFullYear()}</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-on-surface-variant">
-            <Link href="/terms" className="hover:text-on-surface transition-colors">Terms of Service</Link>
-            <Link href="/privacy" className="hover:text-on-surface transition-colors">Privacy Policy</Link>
-            <a href="mailto:support@untether.network" className="hover:text-on-surface transition-colors">Support</a>
+            <Link href="/hire" className="hover:text-on-surface transition-colors">For Clients</Link>
+            <Link href="/build" className="hover:text-on-surface transition-colors">For Facilitators</Link>
+            <Link href="/pricing" className="hover:text-on-surface transition-colors">Pricing</Link>
+            <Link href="/terms" className="hover:text-on-surface transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-on-surface transition-colors">Privacy</Link>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
             <span className="material-symbols-outlined text-[14px]">lock</span>
