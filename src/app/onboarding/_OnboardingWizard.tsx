@@ -539,7 +539,23 @@ export default function OnboardingWizard({
         </div>
 
         {step === totalSteps - 1 && (
-          <button onClick={() => { router.push("/dashboard"); }} className="w-full mt-3 text-center text-[10px] text-on-surface-variant hover:text-on-surface transition-colors">
+          <button
+            onClick={() => {
+              startTransition(async () => {
+                const finalData = isFacilitator
+                  ? { step: "byoc" as const, openaiKey: "", anthropicKey: "", googleKey: "" }
+                  : { step: "byoc" as const, openaiKey: "", anthropicKey: "", googleKey: "" };
+                const result = await completeOnboarding(finalData);
+                if (result.success) {
+                  router.push("/dashboard");
+                } else {
+                  setError(result.error ?? "Failed to complete onboarding.");
+                }
+              });
+            }}
+            disabled={isPending}
+            className="w-full mt-3 text-center text-[10px] text-on-surface-variant hover:text-on-surface transition-colors disabled:opacity-50"
+          >
             Skip for now — add API keys later in Settings
           </button>
         )}
