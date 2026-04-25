@@ -6,6 +6,7 @@ import AgentKeyClient from "@/components/settings/AgentKeyClient";
 import StripeDashboardButton from "@/components/settings/StripeDashboardButton";
 import { FacilitatorProfileSettings, ClientPreferencesSettings } from "@/components/settings/ProfileSettingsClient";
 import DisplayNameInput from "@/components/settings/DisplayNameInput";
+import NotificationSettings from "@/components/settings/NotificationSettings";
 
 export default async function SettingsPage() {
   const sessionUser = await getCurrentUser();
@@ -28,6 +29,10 @@ export default async function SettingsPage() {
       address_zip: true, address_country: true,
       // Legal
       tos_accepted_at: true,
+      // Notifications
+      notify_payment_updates: true,
+      notify_new_proposals: true,
+      notify_milestone_reviews: true,
     },
   });
   if (!user) redirect("/api/auth/signin");
@@ -168,26 +173,11 @@ export default async function SettingsPage() {
             <span className="material-symbols-outlined text-[18px] text-on-surface-variant">notifications</span>
             <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Email Notifications</h2>
           </div>
-          <div className="p-6 space-y-5">
-            {[
-              { label: "Payment Updates", desc: "When a milestone is funded or paid out.", active: true },
-              { label: "New Proposals", desc: "When a developer bids on your project.", active: false },
-              { label: "Milestone Reviews", desc: "When a deliverable is submitted for review.", active: true },
-            ].map(item => (
-              <div key={item.label} className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-on-surface">{item.label}</p>
-                  <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">{item.desc}</p>
-                </div>
-                <div className={`w-11 h-6 rounded-full relative cursor-pointer border transition-colors ${item.active ? "bg-primary border-primary/30" : "bg-surface-container-high border-outline-variant/30"}`}>
-                  <div className={`w-4 h-4 rounded-full absolute top-0.5 shadow-sm transition-all ${item.active ? "bg-on-primary right-1" : "bg-on-surface-variant left-1"}`} />
-                </div>
-              </div>
-            ))}
-            <p className="text-[10px] text-on-surface-variant/60 font-medium pt-2 border-t border-outline-variant/10">
-              Notification preferences are saved automatically.
-            </p>
-          </div>
+          <NotificationSettings initial={{
+            notify_payment_updates: user.notify_payment_updates,
+            notify_new_proposals: user.notify_new_proposals,
+            notify_milestone_reviews: user.notify_milestone_reviews,
+          }} />
         </section>
 
       </div>

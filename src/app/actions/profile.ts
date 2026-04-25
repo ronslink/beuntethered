@@ -27,3 +27,30 @@ export async function updateDisplayName(
     return { success: false, error: e.message ?? "Failed to update name." };
   }
 }
+
+export async function updateNotificationPreferences(
+  prefs: {
+    notify_payment_updates: boolean;
+    notify_new_proposals: boolean;
+    notify_milestone_reviews: boolean;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: "Not authenticated." };
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        notify_payment_updates: prefs.notify_payment_updates,
+        notify_new_proposals: prefs.notify_new_proposals,
+        notify_milestone_reviews: prefs.notify_milestone_reviews,
+      },
+    });
+
+    return { success: true };
+  } catch (e: any) {
+    console.error("updateNotificationPreferences error:", e);
+    return { success: false, error: e.message ?? "Failed to update preferences." };
+  }
+}

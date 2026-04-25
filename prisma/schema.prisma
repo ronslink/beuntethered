@@ -249,6 +249,11 @@ model User {
   facilitator_disputes    Dispute[]                    @relation("Dispute_facilitator_idToUser")
   sessions                Session[]
   squad_members           SquadMember[]
+
+  // ─── Notification Preferences ───────────────────────
+  notify_payment_updates    Boolean @default(true)
+  notify_new_proposals      Boolean @default(false)
+  notify_milestone_reviews  Boolean @default(true)
 }
 
 model VerificationToken {
