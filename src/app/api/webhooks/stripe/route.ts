@@ -42,6 +42,11 @@ export async function POST(req: Request) {
           include: { project: true, facilitator: true },
         });
 
+        // Idempotency: skip if already processed with this payment intent
+        if (milestone && milestone.stripe_payment_intent_id === paymentIntentId) {
+          return NextResponse.json({ received: true });
+        }
+
         if (milestone) {
           await prisma.milestone.update({
             where: { id: milestoneId },

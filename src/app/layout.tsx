@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Manrope } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { CookieConsent } from "@/components/layout/CookieConsent";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -14,8 +15,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Untether | Elite Expert HUD",
-  description: "Work Untethered. Track Results, Not Hours.",
+  title: "Untether — AI-Powered Freelance Marketplace with Escrow Protection",
+  description:
+    "Post projects, get AI-generated scopes, and hire vetted architects with milestone-based Stripe Escrow. Elite developers keep 100% of their rate.",
 };
 
 export default function RootLayout({
@@ -36,6 +38,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>

@@ -57,7 +57,7 @@ async function FacilitatorDashboard({ userId, userName }: { userId: string; user
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Developer Dashboard</p>
-            <h1 className="text-3xl lg:text-4xl font-black font-headline tracking-tighter text-on-surface uppercase leading-tight">
+            <h1 className="text-2xl lg:text-3xl font-semibold font-headline tracking-tight text-on-surface">
               Good to see you, {userName}
             </h1>
           </div>
@@ -261,7 +261,7 @@ async function ClientDashboard({ userId, userName }: { userId: string; userName:
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Client Dashboard</p>
-            <h1 className="text-3xl lg:text-4xl font-black font-headline tracking-tighter text-on-surface uppercase leading-tight">
+            <h1 className="text-2xl lg:text-3xl font-semibold font-headline tracking-tight text-on-surface">
               Good to see you, {userName}
             </h1>
           </div>

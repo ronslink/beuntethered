@@ -30,6 +30,14 @@ export async function POST(req: Request) {
       return new NextResponse("Milestone is not pending computation", { status: 400 });
     }
 
+    // ── Calculate Orchestration Premium ───────────────────────────────────
+    // Fee tiers: 8% marketplace, 5% BYOC (facilitator brought the client)
+    // Discovery milestones (25%) will be added when the billing_type enum is extended
+    const isByoc = milestone.project.is_byoc;
+    const feeRate = isByoc ? 0.05 : 0.08;
+    const milestoneAmountCents = Math.round(Number(milestone.amount) * 100);
+    const applicationFee = Math.round(milestoneAmountCents * feeRate);
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -41,18 +49,21 @@ export async function POST(req: Request) {
               name: `Untether Escrow: ${milestone.project.title}`,
               description: `Milestone Funding: ${milestone.title}`,
             },
-            unit_amount: Math.round(Number(milestone.amount) * 100),
+            unit_amount: milestoneAmountCents,
           },
           quantity: 1,
         },
       ],
       payment_intent_data: {
-         // Secure metadata injection for stateless webhook extraction natively!
+         application_fee_amount: applicationFee,
          metadata: {
             milestone_id: milestone.id,
             project_id: milestone.project.id,
             billing_type: milestone.project.billing_type,
          }
+      },
+      metadata: {
+        milestone_id: milestone.id,
       },
       success_url: `${process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/command-center/${milestone.project.id}`,
       cancel_url: `${process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/command-center/${milestone.project.id}`,

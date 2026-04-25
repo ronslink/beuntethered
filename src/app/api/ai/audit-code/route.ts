@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/auth";
 import { OpenAI } from "openai";
+import { decryptApiKey } from "@/lib/encryption";
 
 export async function POST(req: Request) {
   try {
@@ -21,12 +22,12 @@ export async function POST(req: Request) {
     });
 
     if (!milestone) return NextResponse.json({ error: "Milestone isolated out of bounds." }, { status: 404 });
-    if (!milestone.project.client || !milestone.project.client.openai_key_plaintext) {
+    if (!milestone.project.client || !milestone.project.client.openai_key_encrypted) {
        return NextResponse.json({ error: "Client AI Key not actively bound for autonomous execution." }, { status: 400 });
     }
 
     // Construct the Auditor Pipeline
-    const openai = new OpenAI({ apiKey: milestone.project.client.openai_key_plaintext });
+    const openai = new OpenAI({ apiKey: decryptApiKey(milestone.project.client.openai_key_encrypted) });
     const criteriaString = milestone.acceptance_criteria.length > 0 
       ? milestone.acceptance_criteria.join("\n") 
       : "No hard limits defined.";

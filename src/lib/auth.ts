@@ -2,6 +2,7 @@ import { PrismaAdapter as NextAuthPrismaAdapter } from "@next-auth/prisma-adapte
 import { PrismaClient } from "@prisma/client";
 import { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
+import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -32,6 +33,12 @@ export const authOptions: NextAuthOptions = {
     GithubProvider({
       clientId: process.env.GITHUB_ID as string,
       clientSecret: process.env.GITHUB_SECRET as string,
+    }),
+
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      authorization: { params: { prompt: "select_account" } },
     }),
 
     // Email + Password credentials provider

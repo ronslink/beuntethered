@@ -58,7 +58,9 @@ export async function POST(req: Request) {
     // (e.g. network retry or double-click) — no second transfer will be issued.
     const isByoc = milestone.project.is_byoc;
     const totalAmount = Number(milestone.amount) * 100;
-    const platformFee = isByoc ? 0 : Math.round(totalAmount * 0.05);
+    // Fee tiers: 8% marketplace, 5% BYOC (facilitator brought the client)
+    const feeRate = isByoc ? 0.05 : 0.08;
+    const platformFee = Math.round(totalAmount * feeRate);
     const payoutAmount = totalAmount - platformFee;
 
     let transfer;

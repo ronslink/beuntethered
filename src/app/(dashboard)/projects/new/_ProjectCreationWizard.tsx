@@ -321,7 +321,7 @@ export default function ProjectCreationWizard() {
                              disabled={!prompt.trim()}
                              className={`px-10 py-4 rounded-xl flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all shadow-[0_10px_20px_rgba(var(--color-primary),0.2)] ${!prompt.trim() ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed hidden' : 'bg-primary text-on-primary hover:-translate-y-1 hover:shadow-primary/40'}`}
                            >
-                              Initialize Neural Map
+                              Generate Statement of Work
                               <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                            </button>
                         </div>
@@ -450,7 +450,7 @@ export default function ProjectCreationWizard() {
                                  />
                               </div>
                               <div className="shrink-0 w-32 md:w-40 z-10">
-                                 <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">Duration Extent</label>
+                                 <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">Duration (Days)</label>
                                  <div className="flex items-center relative">
                                     <input 
                                        type="number" min={1}
@@ -466,7 +466,7 @@ export default function ProjectCreationWizard() {
                            <div className="p-8 space-y-6 bg-surface-container-lowest">
                               <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2 border-b border-outline-variant/10 pb-4">
                                  <span className="material-symbols-outlined text-[18px]">rule_folder</span>
-                                 Deliverables & Features Space ({m.deliverables?.length || 0})
+                                 Deliverables ({m.deliverables?.length || 0})
                               </p>
                               
                               <div className="space-y-4">
@@ -498,13 +498,13 @@ export default function ProjectCreationWizard() {
                                  className="w-full mt-4 py-4 rounded-xl border-2 border-dashed border-outline-variant/20 text-on-surface-variant hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm font-bold shadow-sm"
                               >
                                  <span className="material-symbols-outlined text-[20px]">add</span>
-                                 Add Dedicated Feature Vector
+                                 Add Deliverable
                               </button>
                            </div>
 
                            <div className="p-8 border-t border-outline-variant/20 bg-surface/30">
                               <div className="bg-surface-container p-5 rounded-2xl border border-secondary/20 shadow-inner">
-                                 <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-3 flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">verified_user</span> Milestone Review Matrix</p>
+                                 <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-3 flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">verified_user</span> Acceptance Criteria</p>
                                  <textarea 
                                     value={m.acceptance_criteria || ''}
                                     onChange={(e) => updateMilestoneField(idx, 'acceptance_criteria', e.target.value)}
@@ -624,20 +624,20 @@ export default function ProjectCreationWizard() {
                {isSquadLoading ? (
                   <div className="flex flex-col items-center justify-center py-20">
                      <span className="material-symbols-outlined text-6xl text-on-surface-variant animate-spin mb-6" style={{ animationDuration: '3s' }}>radar</span>
-                     <h3 className="text-2xl font-bold font-headline text-on-surface">Vector Mapping Embeddings...</h3>
-                     <p className="text-on-surface-variant text-sm mt-2 max-w-sm text-center">Parsing the 1536-dimensional matrix of your Executive Summary against the Global Pool</p>
+                     <h3 className="text-2xl font-bold font-headline text-on-surface">Analyzing Match Suitability...</h3>
+                     <p className="text-on-surface-variant text-sm mt-2 max-w-sm text-center">Matching your Statement of Work against our global pool of facilitators</p>
                   </div>
                ) : (
                   <div className="space-y-10">
                      <div className="text-center max-w-2xl mx-auto">
-                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border mb-4 inline-block ${squad.length > 0 ? 'bg-secondary/10 text-secondary border-secondary/20' : 'bg-surface-variant/20 text-on-surface-variant border-outline-variant/30'}`}>pgvector MATCH COMPLETE</span>
+                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border mb-4 inline-block ${squad.length > 0 ? 'bg-secondary/10 text-secondary border-secondary/20' : 'bg-surface-variant/20 text-on-surface-variant border-outline-variant/30'}`}>MATCH ANALYSIS COMPLETE</span>
                        <h3 className="text-4xl font-extrabold text-on-surface font-headline leading-snug">
                          {squad.length > 0 ? 'Elite Facilitators Located' : 'No Immediate Match Found'}
                        </h3>
                        <p className="text-on-surface-variant mt-3 text-sm">
                          {squad.length > 0 
-                           ? `We've found recommended developers that match your project.`
-                           : `Your unique constraint matrix returned no available matching Elite engineers in the exclusive pool. You can still dispatch this to the Open Marketplace to gather external bids.`}
+                           ? `We've found recommended facilitators that match your project.`
+                           : `We couldn't find a perfect match right now, but you can post this to the Open Marketplace to gather bids.`}
                        </p>
                      </div>
 
@@ -758,10 +758,10 @@ export default function ProjectCreationWizard() {
                         {isPending ? (
                            <>
                             <span className="material-symbols-outlined animate-spin text-[18px]">refresh</span>
-                            <span>Executing Bounds...</span>
+                            <span>Saving Project...</span>
                            </>
                         ) : selectedFacilitators.length > 0 ? (
-                           <>Dispatch Invite & Post Array <span className="material-symbols-outlined text-[18px]">send</span></>
+                           <>Invite & Post Project <span className="material-symbols-outlined text-[18px]">send</span></>
                         ) : (
                            <>Post to Open Marketplace</>
                         )}

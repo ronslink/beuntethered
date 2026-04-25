@@ -3,6 +3,9 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123");
 
 /**
  * Validates physical Arbiter bounds
@@ -26,13 +29,14 @@ export async function resolveDisputeForClient(disputeId: string) {
 
     if (!dispute || dispute.status !== "OPEN") throw new Error("Dispute is structurally inactive.");
 
-    // Trigger local API route for the Refund loop using system bounds
-    // In standard environments we'd do `fetch(process.env.NEXT_PUBLIC_APP_URL + "/api/stripe/refund")`
-    // but we can also execute Stripe natively. Since I built the endpoint, we will mock the proxy
-    // by executing the DB bounds physically here to ensure atomic safety with TimelineEvents.
-    
-    // Instead of raw HTTP call, we physically align the state logic here for transaction safety:
-    // (We assume the Stripe Endpoint processes side-effects if hit externally).
+    // ── Trigger Stripe Refund ───────────────────────────────────────────
+    // Refund the escrowed funds back to the client via Stripe
+    if (dispute.milestone.stripe_payment_intent_id) {
+      await stripe.refunds.create({
+        payment_intent: dispute.milestone.stripe_payment_intent_id,
+      });
+    }
+
     
     await prisma.$transaction([
       prisma.dispute.update({

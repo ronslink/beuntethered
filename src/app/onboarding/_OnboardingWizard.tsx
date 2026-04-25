@@ -272,7 +272,7 @@ export default function OnboardingWizard({
             {tos && <span className="material-symbols-outlined text-on-primary text-[14px]">check</span>}
           </button>
           <p className="text-sm text-on-surface-variant leading-relaxed">
-            I agree to the <span className="text-primary font-bold underline cursor-pointer">Terms of Service</span> and <span className="text-primary font-bold underline cursor-pointer">Privacy Policy</span>.
+            I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-bold underline cursor-pointer hover:text-on-surface transition-colors">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-bold underline cursor-pointer hover:text-on-surface transition-colors">Privacy Policy</a>.
             Payments and identity verification are handled by Stripe.
           </p>
         </label>

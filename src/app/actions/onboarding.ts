@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
+import { encryptApiKey } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 
 // ─── Types ────────────────────────────────────────────
@@ -49,9 +50,9 @@ export async function saveOnboardingStep(
     }
 
     if (data.step === "byoc") {
-      if (data.openaiKey) update.openai_key_plaintext = data.openaiKey;
-      if (data.anthropicKey) update.anthropic_key_plaintext = data.anthropicKey;
-      if (data.googleKey) update.google_key_encrypted = data.googleKey;
+      if (data.openaiKey) update.openai_key_encrypted = encryptApiKey(data.openaiKey);
+      if (data.anthropicKey) update.anthropic_key_encrypted = encryptApiKey(data.anthropicKey);
+      if (data.googleKey) update.google_key_encrypted = encryptApiKey(data.googleKey);
     }
 
     if (data.step === "preferences") {
