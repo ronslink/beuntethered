@@ -47,11 +47,22 @@ export function FacilitatorSubmitGateway({ milestoneId }: { milestoneId: string 
   );
 }
 
-export function ClientReviewGateway({ milestoneId, previewUrl }: { milestoneId: string, previewUrl: string }) {
+export function ClientReviewGateway({ 
+  milestoneId, 
+  previewUrl, 
+  aiAuditStatus = "NONE" 
+}: { 
+  milestoneId: string, 
+  previewUrl: string,
+  aiAuditStatus?: "PENDING" | "SUCCESS" | "FAILED" | "NONE"
+}) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleApprove = async () => {
+    if (aiAuditStatus === "FAILED") {
+       if (!confirm("WARNING: The AI Code Audit FAILED to verify the Acceptance Criteria.\n\nAre you absolutely sure you want to override the AI, release Escrow, and accept the payload as-is?")) return;
+    }
     if (!confirm("By approving, the Escrow funds will instantly transfer to the Facilitator, and your Encrypted Payload will permanently unlock. Proceed?")) return;
     
     setLoading(true);
@@ -75,13 +86,45 @@ export function ClientReviewGateway({ milestoneId, previewUrl }: { milestoneId: 
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-4 bg-tertiary/10 p-5 rounded-2xl border border-tertiary/30 w-full max-w-2xl">
+    <div className="flex flex-col sm:flex-row items-center gap-4 bg-tertiary/10 p-5 rounded-2xl border border-tertiary/30 w-full max-w-2xl relative overflow-hidden">
+        
+        {/* AI Audit Banner Overlay */}
+        {aiAuditStatus !== "NONE" && (
+           <div className={`absolute top-0 left-0 right-0 h-1 flex`}>
+              <div className={`h-full flex-1 ${aiAuditStatus === 'SUCCESS' ? 'bg-green-500' : aiAuditStatus === 'FAILED' ? 'bg-error' : 'bg-amber-500 animate-pulse'}`} />
+           </div>
+        )}
+
         <div className="flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-tertiary mb-1">Staging Ready</p>
-            <p className="text-sm font-medium text-on-surface">The facilitator has deployed the application. Test it thoroughly.</p>
+            <div className="flex items-center gap-3 mb-1">
+               <p className="text-[10px] font-bold uppercase tracking-widest text-tertiary">Staging Ready</p>
+               {aiAuditStatus === "SUCCESS" && (
+                 <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-green-500/20 text-green-600 border border-green-500/30 flex items-center gap-1">
+                   <span className="material-symbols-outlined text-[11px]" style={{fontVariationSettings: "'FILL' 1"}}>verified</span> AI Verified
+                 </span>
+               )}
+               {aiAuditStatus === "FAILED" && (
+                 <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-error/20 text-error border border-error/30 flex items-center gap-1">
+                   <span className="material-symbols-outlined text-[11px]" style={{fontVariationSettings: "'FILL' 1"}}>warning</span> AI Audit Failed
+                 </span>
+               )}
+               {aiAuditStatus === "PENDING" && (
+                 <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-amber-500/20 text-amber-600 border border-amber-500/30 flex items-center gap-1">
+                   <span className="material-symbols-outlined text-[11px] animate-spin">sync</span> AI Auditing...
+                 </span>
+               )}
+            </div>
+            
+            {aiAuditStatus === "FAILED" ? (
+               <p className="text-sm font-medium text-error leading-snug max-w-md">
+                 The autonomous AI Auditor flagged that this deliverable does <strong className="font-bold">not</strong> meet the locked Acceptance Criteria. Please review carefully.
+               </p>
+            ) : (
+               <p className="text-sm font-medium text-on-surface">The facilitator has deployed the application. Test it thoroughly.</p>
+            )}
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-3 w-full sm:w-auto mt-3 sm:mt-0">
             <a 
                 href={previewUrl} 
                 target="_blank" 

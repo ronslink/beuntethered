@@ -329,9 +329,20 @@ export default async function ProjectCommandCenter({
                               {isFacilitator && !isHubLocked && milestone.status === "FUNDED_IN_ESCROW" && (
                                 <FacilitatorSubmitGateway milestoneId={milestone.id} />
                               )}
-                              {isClient && milestone.status === "SUBMITTED_FOR_REVIEW" && milestone.live_preview_url && (
-                                <ClientReviewGateway milestoneId={milestone.id} previewUrl={milestone.live_preview_url} />
-                              )}
+                              {isClient && milestone.status === "SUBMITTED_FOR_REVIEW" && milestone.live_preview_url && (() => {
+                                const systemEvents = (project.timeline_events as any[]).filter(e => e.type === "SYSTEM" && e.milestone_id === milestone.id);
+                                let auditStatus: "PENDING" | "SUCCESS" | "FAILED" | "NONE" = "PENDING";
+                                if (systemEvents.length > 0) {
+                                  const latest = systemEvents[0];
+                                  if (latest.status === "SUCCESS") auditStatus = "SUCCESS";
+                                  else if (latest.status === "FAILED") auditStatus = "FAILED";
+                                } else {
+                                  auditStatus = "PENDING";
+                                }
+                                return (
+                                  <ClientReviewGateway milestoneId={milestone.id} previewUrl={milestone.live_preview_url} aiAuditStatus={auditStatus} />
+                                );
+                              })()}
                               {isClient && milestone.status === "APPROVED_AND_PAID" && milestone.payload_storage_path && (
                                 <a
                                   href={`/api/stripe/download-payload?id=${milestone.id}`}

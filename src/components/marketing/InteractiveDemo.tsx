@@ -44,16 +44,16 @@ const TABS = [
   },
   {
     id: "deliver",
-    icon: "swap_horiz",
-    label: "Verified Delivery",
-    headline: "Code ships. Payment clears.",
-    body: "Facilitators submit each milestone with live preview URLs, AI audit reports, and deliverable artifacts. Once you approve, escrow releases instantly to their Stripe account. No invoices, no net-30, no chasing.",
+    icon: "verified",
+    label: "Verifiable Deliverables",
+    headline: "AI Verified. Escrow Released.",
+    body: "Every deliverable is evaluated by an autonomous AI Code Auditor against the exact Acceptance Criteria locked in the Statement of Work. You see the pass/fail result directly in your approval gateway, removing all technical ambiguity before releasing the Stripe escrow.",
     features: [
-      "Live preview per milestone",
-      "AI code audit reports",
-      "Instant Stripe payout on approval",
+      "Objective AI Code Audits",
+      "Live preview environments",
+      "Data-driven approval gateway",
     ],
-    visual: "verified",
+    visual: "gavel",
   },
 ];
 

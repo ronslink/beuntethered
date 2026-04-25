@@ -4,9 +4,11 @@ import { OpenAI } from "openai";
 import { decryptApiKey } from "@/lib/encryption";
 
 export async function POST(req: Request) {
+  let globalMilestoneId: string | undefined;
   try {
     const body = await req.json();
     const { milestone_id, payload_url, agent_key } = body;
+    globalMilestoneId = milestone_id;
 
     if (!milestone_id || !payload_url) {
       return NextResponse.json({ error: "Missing physical ingestion bounds." }, { status: 400 });
@@ -73,6 +75,28 @@ You must output exclusively a valid JSON object matching this exact interface:
     return NextResponse.json({ success: true, audit: parsedAudit });
   } catch (error: any) {
     console.error("AI Auditor Fault:", error);
+    
+    // Attempt to write a fallback failure to the timeline so the UI doesn't hang in PENDING
+    try {
+      if (globalMilestoneId) {
+        const ms = await prisma.milestone.findUnique({ where: { id: globalMilestoneId } });
+        if (ms) {
+          await prisma.timelineEvent.create({
+            data: {
+               project_id: ms.project_id,
+               milestone_id: ms.id,
+               type: "SYSTEM",
+               status: "FAILED",
+               description: `AI Audit crashed during execution: ${error.message || "Unknown error"}`,
+               author: "Daktari Orchestrator"
+            }
+          });
+        }
+      }
+    } catch (fallbackErr) {
+      console.error("Fallback timeline write failed:", fallbackErr);
+    }
+
     return NextResponse.json({ error: "Execution matrix failure" }, { status: 500 });
   }
 }
