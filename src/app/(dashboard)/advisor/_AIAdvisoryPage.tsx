@@ -11,41 +11,72 @@ export default function AIAdvisoryPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<any>(null);
   
+  // Triage state
+  const [triageResult, setTriageResult] = useState<any>(null);
+  const [rejectionMessage, setRejectionMessage] = useState("");
+  
   // Validation loop
   const [clientEmail, setClientEmail] = useState("");
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
 
+  // Loading status messages — plain English
   useEffect(() => {
     if (isGenerating && !sowData) {
-      setLoadingStatus("Agent 1: Architecting baseline structure...");
-      const timer = setTimeout(() => {
-        setLoadingStatus("Agent 2: Creating payment milestones...");
-      }, 3500);
-      return () => clearTimeout(timer);
+      if (triageResult) {
+        setLoadingStatus(`Generating your ${triageResult.summary || 'project'} scope...`);
+      } else {
+        setLoadingStatus("Understanding your request...");
+      }
     }
-  }, [isGenerating, sowData]);
+  }, [isGenerating, sowData, triageResult]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || prompt.trim().length < 5) return;
 
     setIsGenerating(true);
     setSowData(null);
+    setTriageResult(null);
+    setRejectionMessage("");
 
     try {
-      const response = await fetch("/api/ai/generate-sow", {
+      // Step 1: Fast triage via M2.7-highspeed
+      const triageRes = await fetch("/api/ai/triage-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
+      });
+
+      const triage = await triageRes.json();
+
+      if (!triage.in_scope) {
+        setRejectionMessage(triage.reason || "This doesn't look like a remote digital service. BeUntethered connects you with freelancers for digital work — writing, design, software, marketing, and more.");
+        setIsGenerating(false);
+        return;
+      }
+
+      setTriageResult(triage);
+      setLoadingStatus(`Looks like ${triage.summary?.toLowerCase() || 'a project'} — generating your scope now...`);
+
+      // Step 2: Generate SOW routed by category + complexity
+      const response = await fetch("/api/ai/generate-sow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          prompt,
+          category: triage.category,
+          complexity: triage.complexity,
+        }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
 
       setSowData(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setRejectionMessage(err.message || "Something went wrong. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -178,34 +209,39 @@ export default function AIAdvisoryPage() {
                   <div className="absolute w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse delay-75"></div>
                   <div className="absolute w-32 h-32 bg-secondary/30 rounded-full blur-2xl animate-pulse delay-150"></div>
                   
-                  {loadingStatus.includes("Agent 1") ? (
-                    <span className="material-symbols-outlined text-6xl text-primary animate-pulse shadow-primary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+                  {triageResult ? (
+                    <span className="material-symbols-outlined text-6xl text-secondary animate-bounce shadow-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>edit_note</span>
                   ) : (
-                    <span className="material-symbols-outlined text-6xl text-secondary animate-bounce shadow-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>precision_manufacturing</span>
+                    <span className="material-symbols-outlined text-6xl text-primary animate-pulse shadow-primary" style={{ fontVariationSettings: "'FILL' 1" }}>search_insights</span>
                   )}
                 </div>
                 
-                {/* Glowing neon UI skeleton during initial loading state */}
-                <div className="w-full max-w-sm px-8">
-                   <div className="h-6 w-3/4 bg-primary/20 rounded-full mx-auto animate-pulse mb-6 relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/40 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
-                   </div>
-                   <div className="space-y-4">
-                     <div className="h-3 w-full bg-secondary/10 rounded-full relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-secondary/30 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
-                     </div>
-                     <div className="h-3 w-5/6 bg-secondary/10 rounded-full mx-auto relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-secondary/30 to-transparent -translate-x-full animate-[shimmer_2s_infinite_0.5s]"></div>
-                     </div>
-                   </div>
-                </div>
+                {triageResult && (
+                  <div className="flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20">
+                    <span className="material-symbols-outlined text-secondary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-secondary">{triageResult.category?.replace(/_/g, ' ')} · {triageResult.complexity}</span>
+                  </div>
+                )}
 
-                <h3 className="text-2xl font-bold font-headline mt-8 text-on-surface bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-[gradient_2s_linear_infinite] bg-clip-text text-transparent">
+                <h3 className="text-2xl font-bold font-headline mt-4 text-on-surface bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-[gradient_2s_linear_infinite] bg-clip-text text-transparent">
                   {loadingStatus}
                 </h3>
-                <p className="text-on-surface-variant text-[10px] mt-3 font-bold uppercase tracking-widest text-center max-w-xs animate-pulse opacity-70">
-                  Executing Double-Pass Architectural Synthesis
-                </p>
+             </div>
+           ) : !sowData && rejectionMessage ? (
+             <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                <div className="relative flex items-center justify-center mb-6">
+                  <div className="absolute w-32 h-32 bg-error/10 rounded-full blur-3xl"></div>
+                  <span className="material-symbols-outlined text-6xl text-error/80" style={{ fontVariationSettings: "'FILL' 1" }}>block</span>
+                </div>
+                <h3 className="text-xl font-bold font-headline text-on-surface mb-3">Can't scope this one</h3>
+                <p className="text-on-surface-variant max-w-md leading-relaxed">{rejectionMessage}</p>
+                <button 
+                  type="button" 
+                  onClick={() => { setRejectionMessage(""); setPrompt(""); }}
+                  className="mt-6 px-6 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface font-bold text-sm uppercase tracking-widest hover:border-primary/50 hover:text-primary transition-all"
+                >
+                  Try Something Else
+                </button>
              </div>
            ) : sowData ? (
              <div className="relative z-10 w-full h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -252,7 +288,7 @@ export default function AIAdvisoryPage() {
 
                 <div className="border-t border-outline-variant/20 pt-8 mt-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-30 bg-surface py-2 rounded-xl">
                    <div className="shrink-0">
-                     <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">Total Verified Valuation</p>
+                     <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">Total Project Cost</p>
                      <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">{sowData.totalAmount ? formatCurrency(sowData.totalAmount) : 'Pending...'}</p>
                    </div>
                    

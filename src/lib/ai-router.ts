@@ -4,29 +4,48 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { prisma } from './auth';
 import { decryptApiKey } from './encryption';
 
+// Shared fetch wrapper that strips $schema keys (MiniMax rejects them)
+function createMinimaxFetch() {
+  return async (url: string | URL | Request, options?: any) => {
+    if (options?.body && typeof options.body === 'string') {
+      try {
+        const body = JSON.parse(options.body);
+        const removeSchema = (obj: any) => {
+          if (Array.isArray(obj)) obj.forEach(removeSchema);
+          else if (obj !== null && typeof obj === 'object') {
+            delete obj['$schema'];
+            Object.values(obj).forEach(removeSchema);
+          }
+        };
+        removeSchema(body);
+        options.body = JSON.stringify(body);
+      } catch(e) {}
+    }
+    return fetch(url, options as RequestInit);
+  };
+}
+
 function getFallbackProvider() {
-  const moonshot = createOpenAI({
+  const minimax = createOpenAI({
      apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
      baseURL: 'https://api.minimaxi.chat/v1',
-     fetch: async (url, options) => {
-       if (options?.body && typeof options.body === 'string') {
-         try {
-           const body = JSON.parse(options.body);
-           const removeSchema = (obj: any) => {
-             if (Array.isArray(obj)) obj.forEach(removeSchema);
-             else if (obj !== null && typeof obj === 'object') {
-               delete obj['$schema'];
-               Object.values(obj).forEach(removeSchema);
-             }
-           };
-           removeSchema(body);
-           options.body = JSON.stringify(body);
-         } catch(e) {}
-       }
-       return fetch(url, options as RequestInit);
-     }
+     fetch: createMinimaxFetch(),
   });
-  return moonshot.chat('MiniMax-M2.7');
+  return minimax.chat('MiniMax-M2.7');
+}
+
+/**
+ * M2.7-highspeed: identical output quality, faster inference.
+ * Used for triage/classification where sub-second latency matters.
+ * Automatic cache support — no configuration needed.
+ */
+export function getHighspeedProvider() {
+  const minimax = createOpenAI({
+     apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
+     baseURL: 'https://api.minimaxi.chat/v1',
+     fetch: createMinimaxFetch(),
+  });
+  return minimax.chat('MiniMax-M2.7-highspeed');
 }
 
 export async function getDynamicAIProvider(userId: string) {

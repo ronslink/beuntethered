@@ -2,7 +2,33 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+First, create the local environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+This repository includes a ready-to-use local `.env.local` for development. It points Prisma at the `beuntethered_local` database on `localhost:5433` so it does not collide with a default Postgres install on `5432` or older local data.
+
+Start the local database:
+
+```bash
+npm run db:up
+```
+
+Create the local database/schema if needed:
+
+```bash
+npm run db:init
+```
+
+Sync the local database to the current Prisma schema:
+
+```bash
+npm run db:push
+```
+
+Then run the development server:
 
 ```bash
 npm run dev
