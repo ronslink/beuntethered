@@ -5,6 +5,13 @@ import { getDynamicAIProvider } from "@/lib/ai-router";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
 import { alignMilestoneDurationsToTimeline, extractRequestedTimelineDays, normalizeGeneratedSow } from "@/lib/milestone-quality";
 import { getMilestoneVerificationPatternGuide } from "@/lib/milestone-proof";
+import {
+  executiveSummaryWithScopeConstraints,
+  extractBudgetConstraint,
+  extractRegionConstraints,
+  summarizeScopeConstraints,
+  type ScopeConstraints,
+} from "@/lib/scope-constraints";
 import { sowGenerationInputSchema } from "@/lib/validators";
 
 // Single-pass generation — 60s is plenty
@@ -43,6 +50,7 @@ type GeneratedMilestone = {
 };
 
 type GeneratedSow = {
+  executiveSummary?: unknown;
   milestones?: unknown;
   [key: string]: unknown;
 };
@@ -266,14 +274,28 @@ Example (full web application):
 };
 
 // ─── Build the prompt for each complexity tier ────────────────────────────
-function buildSowPrompt(category: string, complexity: string, prompt: string, mode: string, desiredTimeline: string) {
+function buildSowPrompt(
+  category: string,
+  complexity: string,
+  prompt: string,
+  mode: string,
+  desiredTimeline: string,
+  scopeConstraints: ScopeConstraints
+) {
   const priceRange = PRICING[category] || PRICING.other_software;
   const tierPrice = priceRange[complexity as keyof typeof priceRange] || priceRange.medium;
   const examples = EXAMPLES[complexity as keyof typeof EXAMPLES] || EXAMPLES.medium;
+  const scopeConstraintSummary = summarizeScopeConstraints(scopeConstraints);
   
   const timelineHint = desiredTimeline 
     ? `\nThe client wants this done within: "${desiredTimeline}". Fit your timeline to this.`
     : '';
+  const preservedConstraints = scopeConstraintSummary.length
+    ? `
+CLIENT-PROVIDED CONSTRAINTS TO PRESERVE EXACTLY:
+${scopeConstraintSummary.map((item) => `- ${item}`).join("\n")}
+Do not omit, merge, reinterpret, or summarize away named regions, budget, or timeline constraints. If the client names North America, Asia, and Middle East, all three must appear in the executiveSummary and relevant milestone descriptions.`
+    : "";
 
   const isDiscovery = mode === 'DISCOVERY';
 
@@ -285,6 +307,7 @@ Return ONLY a JSON object. No markdown, no extra text.
 
 This is a $1,000 discovery/architecture session — single milestone only.
 The milestone must be meaningful, realistic, actionable, and verifiable. Acceptance criteria must be a short pass/fail checklist.
+${preservedConstraints}
 
 ${MILESTONE_QUALITY_RUBRIC}
 UNTETHER VERIFICATION PATTERNS:
@@ -341,6 +364,7 @@ ${VERIFICATION_PATTERN_GUIDE}
 - Acceptance criteria must include at least two pass/fail checks tied to user-visible behavior, delivered artifacts, preview links, source archives, logs, reports, or handoff evidence.
 - Milestones should usually be 3-15 days; split anything too broad into smaller reviewable outcomes.
 - Price realistically for this category (${category.replace(/_/g, ' ')}).${timelineHint}
+${preservedConstraints}
 
 Here are examples of the tone and structure I want:
 ${examples}
@@ -380,9 +404,15 @@ export async function POST(req: Request) {
 
     const { prompt, mode, desiredTimeline, category, complexity } = parsedInput.data;
     const dynamicModel = await getDynamicAIProvider(user.id);
+    const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+    const scopeConstraints = {
+      regions: extractRegionConstraints(prompt),
+      budget: extractBudgetConstraint(prompt),
+      timelineDays: requestedTimelineDays,
+    };
 
     // Build category+complexity routed prompt
-    const sowPrompt = buildSowPrompt(category, complexity, prompt, mode, desiredTimeline);
+    const sowPrompt = buildSowPrompt(category, complexity, prompt, mode, desiredTimeline, scopeConstraints);
 
     // Single-pass generation
     const { text: rawOutput } = await generateText({
@@ -422,11 +452,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
-    const parsed = alignMilestoneDurationsToTimeline(
+    const normalized = alignMilestoneDurationsToTimeline(
       normalizeSowDeliverables(parsedJson),
       requestedTimelineDays
     );
+    const parsed = {
+      ...normalized,
+      executiveSummary: executiveSummaryWithScopeConstraints(normalized.executiveSummary, scopeConstraints),
+    };
     return NextResponse.json(parsed);
 
   } catch (error: any) {

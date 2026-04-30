@@ -11,6 +11,11 @@ import {
   normalizeGeneratedSow,
   type MilestoneQualityAssessment,
 } from "@/lib/milestone-quality";
+import {
+  extractBudgetConstraint,
+  extractRegionConstraints,
+  summarizeScopeConstraints,
+} from "@/lib/scope-constraints";
 
 export default function ProjectCreationWizard() {
   const router = useRouter();
@@ -191,8 +196,9 @@ export default function ProjectCreationWizard() {
       setTriageResult(triage);
       setLoadingStatus(`Looks like ${triage.summary?.toLowerCase() || 'a project'}. Generating your scope now...`);
 
+      const promptTimelineDays = extractRequestedTimelineDays(prompt);
       const effectiveDesiredTimeline = desiredTimeline.trim() || (
-        extractRequestedTimelineDays(prompt) ? `${extractRequestedTimelineDays(prompt)} days` : ""
+        promptTimelineDays ? `${promptTimelineDays} days` : ""
       );
 
       // Step 2: Generate SOW routed by category + complexity
@@ -288,6 +294,12 @@ export default function ProjectCreationWizard() {
     : null;
   const allMilestonesReady = milestoneQualityAssessments.length > 0 && milestoneQualityAssessments.every((assessment) => assessment.passes);
   const milestoneIssueCount = milestoneQualityAssessments.reduce((sum: number, assessment) => sum + assessment.blockingIssues.length, 0);
+  const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+  const capturedScopeConstraints = summarizeScopeConstraints({
+    regions: extractRegionConstraints(prompt),
+    budget: extractBudgetConstraint(prompt),
+    timelineDays: requestedTimelineDays,
+  });
 
   return (
     <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-5rem)] flex flex-col relative overflow-hidden">
@@ -408,6 +420,26 @@ export default function ProjectCreationWizard() {
                               </div>
                            ))}
                         </div>
+
+                        {capturedScopeConstraints.length > 0 && (
+                           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-primary">Captured constraints</p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                 {capturedScopeConstraints.map((constraint) => (
+                                    <span
+                                      key={constraint}
+                                      className="inline-flex items-center gap-1.5 rounded-md border border-primary/20 bg-surface px-3 py-1.5 text-xs font-bold text-on-surface"
+                                    >
+                                       <span className="material-symbols-outlined text-[14px] text-primary">keep</span>
+                                       {constraint}
+                                    </span>
+                                 ))}
+                              </div>
+                              <p className="mt-3 text-xs leading-5 text-on-surface-variant">
+                                 These details will be preserved in the generated scope. If a region, budget, or timeline is missing, add it to the description before generating.
+                              </p>
+                           </div>
+                        )}
 
                         {/* Timeline / Deadline Input */}
                         <div className="flex flex-col md:flex-row gap-4">
