@@ -52,22 +52,40 @@ test("facilitator sees recent BYOC packet and client invite renders trust scope"
         ],
       },
       activity_logs: {
-        create: {
-          actor_id: facilitator.id,
-          action: "PROJECT_CREATED",
-          entity_type: "Project",
-          entity_id: "seeded-byoc-project",
-          metadata: {
-            operation: "BYOC_INVITE_CREATED",
-            actor_project_role: "FACILITATOR",
-            byoc: true,
-            milestone_count: 2,
-            gross_amount_cents: 420000,
-            platform_fee_cents: 21000,
-            client_total_cents: 441000,
-            facilitator_payout_cents: 420000,
+        create: [
+          {
+            actor_id: facilitator.id,
+            action: "PROJECT_CREATED",
+            entity_type: "Project",
+            entity_id: "seeded-byoc-project",
+            metadata: {
+              operation: "BYOC_INVITE_CREATED",
+              actor_project_role: "FACILITATOR",
+              byoc: true,
+              milestone_count: 2,
+              gross_amount_cents: 420000,
+              platform_fee_cents: 21000,
+              client_total_cents: 441000,
+              facilitator_payout_cents: 420000,
+            },
           },
-        },
+          {
+            actor_id: facilitator.id,
+            action: "SYSTEM_EVENT",
+            entity_type: "Project",
+            entity_id: "seeded-byoc-delivery",
+            metadata: {
+              operation: "BYOC_INVITE_DELIVERY_RECORDED",
+              actor_project_role: "FACILITATOR",
+              byoc: true,
+              invited_client_email: `${prefix}-client@example.com`,
+              email_delivery_sent: false,
+              email_delivery_skipped: "RESEND_API_KEY_MISSING",
+              existing_client_account: false,
+              in_app_notification_sent: false,
+            },
+          },
+        ],
       },
     },
   });
@@ -107,6 +125,8 @@ test("facilitator sees recent BYOC packet and client invite renders trust scope"
     await expect(page.getByText("Buyer workspace active").first()).toBeVisible();
     await expect(page.getByText("Email locked").first()).toBeVisible();
     await expect(page.getByText("Waiting for invited buyer").first()).toBeVisible();
+    await expect(page.getByText("Email: email unavailable")).toBeVisible();
+    await expect(page.getByText("In-app: not matched")).toBeVisible();
     await expect(page.getByText(`${prefix}-client@example.com`)).toBeVisible();
     await expect(page.getByText("$4,200").first()).toBeVisible();
     await expect(page.locator(`a[href="/invite/${inviteToken}"]`).first()).toBeVisible();

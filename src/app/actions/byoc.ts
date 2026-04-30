@@ -181,6 +181,12 @@ export async function generateBYOCInvite(sowData: any) {
         createdAt: project.created_at.toISOString(),
         clientTotalCents: totals.clientTotalCents,
         facilitatorPayoutCents: totals.facilitatorPayoutCents,
+        delivery: {
+          emailSent: emailDelivery.sent,
+          emailSkipped: emailDelivery.sent ? null : emailDelivery.skipped ?? null,
+          existingClientAccount: existingInviteUser?.role === "CLIENT",
+          inAppNotificationSent,
+        },
       },
     };
   } catch (error: any) {

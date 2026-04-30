@@ -45,6 +45,12 @@ type RecentBYOCPacket = {
   createdAt: string;
   clientTotalCents: number;
   facilitatorPayoutCents: number;
+  delivery?: {
+    emailSent: boolean;
+    emailSkipped: string | null;
+    existingClientAccount: boolean;
+    inAppNotificationSent: boolean;
+  } | null;
 };
 
 function asList(value: unknown): string[] {
@@ -110,6 +116,13 @@ function getPacketState(packet: RecentBYOCPacket) {
 
 function formatTransitionMode(value?: string) {
   if (!value) return "new external project";
+  return value.replace(/_/g, " ").toLowerCase();
+}
+
+function formatDeliverySkippedReason(value?: string | null) {
+  if (!value) return "not sent";
+  if (value === "RESEND_API_KEY_MISSING") return "email unavailable";
+  if (value === "NO_CLIENT_EMAIL") return "no client email";
   return value.replace(/_/g, " ").toLowerCase();
 }
 
@@ -283,7 +296,16 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
         }
         if (res.packet) {
           setPackets((current) => [
-            { ...res.packet, clientId: null },
+            {
+              ...res.packet,
+              clientId: null,
+              delivery: {
+                emailSent: res.emailDelivery?.sent === true,
+                emailSkipped: res.emailDelivery?.sent ? null : res.emailDelivery?.skipped ?? null,
+                existingClientAccount: res.inAppNotification?.skipped !== "NO_EXISTING_CLIENT_ACCOUNT",
+                inAppNotificationSent: res.inAppNotification?.sent === true,
+              },
+            },
             ...current.filter((packet) => packet.id !== res.packet.id),
           ].slice(0, 5));
         }
@@ -504,6 +526,24 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                               <p className="mt-1 truncate text-[11px] text-on-surface-variant">
                                 Invited: {packet.clientEmail}
                               </p>
+                            )}
+                            {packet.delivery && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                <span className={`rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${
+                                  packet.delivery.emailSent
+                                    ? "border-tertiary/20 bg-tertiary/10 text-tertiary"
+                                    : "border-secondary/20 bg-secondary/10 text-secondary"
+                                }`}>
+                                  Email: {packet.delivery.emailSent ? "sent" : formatDeliverySkippedReason(packet.delivery.emailSkipped)}
+                                </span>
+                                <span className={`rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${
+                                  packet.delivery.inAppNotificationSent
+                                    ? "border-tertiary/20 bg-tertiary/10 text-tertiary"
+                                    : "border-outline-variant/25 bg-surface text-on-surface-variant"
+                                }`}>
+                                  In-app: {packet.delivery.inAppNotificationSent ? "ready" : packet.delivery.existingClientAccount ? "pending" : "not matched"}
+                                </span>
+                              </div>
                             )}
                           </div>
                           <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-widest ${packetState.tone}`}>

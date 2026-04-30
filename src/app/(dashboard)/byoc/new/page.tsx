@@ -31,11 +31,25 @@ export default async function BYOCPage() {
       milestones: {
         select: { amount: true },
       },
+      activity_logs: {
+        orderBy: { created_at: "desc" },
+        take: 8,
+        select: { metadata: true },
+      },
     },
   });
 
   const recentPackets = recentProjects.map((project) => {
     const totals = calculateBYOCInviteTotals(project.milestones.map((milestone) => ({ amount: Number(milestone.amount) })));
+    const deliveryLog = project.activity_logs.find((log) => {
+      const metadata = log.metadata;
+      return metadata && typeof metadata === "object" && !Array.isArray(metadata) && (metadata as any).operation === "BYOC_INVITE_DELIVERY_RECORDED";
+    });
+    const deliveryMetadata =
+      deliveryLog?.metadata && typeof deliveryLog.metadata === "object" && !Array.isArray(deliveryLog.metadata)
+        ? (deliveryLog.metadata as Record<string, unknown>)
+        : null;
+
     return {
       id: project.id,
       title: project.title,
@@ -46,6 +60,14 @@ export default async function BYOCPage() {
       createdAt: project.created_at.toISOString(),
       clientTotalCents: totals.clientTotalCents,
       facilitatorPayoutCents: totals.facilitatorPayoutCents,
+      delivery: deliveryMetadata
+        ? {
+            emailSent: deliveryMetadata.email_delivery_sent === true,
+            emailSkipped: typeof deliveryMetadata.email_delivery_skipped === "string" ? deliveryMetadata.email_delivery_skipped : null,
+            existingClientAccount: deliveryMetadata.existing_client_account === true,
+            inAppNotificationSent: deliveryMetadata.in_app_notification_sent === true,
+          }
+        : null,
     };
   });
 
