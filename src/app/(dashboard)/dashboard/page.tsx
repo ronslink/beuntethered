@@ -24,10 +24,62 @@ const PROJECT_STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   CANCELLED:     { label: "Cancelled",     dot: "bg-outline-variant/30" },
 };
 
+type InviteErrorCode = "client_account_required" | "wrong_client_email";
+
+function getInviteErrorCopy(inviteError?: string) {
+  if (inviteError === "client_account_required") {
+    return {
+      title: "Client account required",
+      body: "This private invite is for a buyer workspace. Sign in with a client account or create one before claiming the delivery packet.",
+      href: "/register?role=client",
+      action: "Create Client Account",
+    };
+  }
+
+  if (inviteError === "wrong_client_email") {
+    return {
+      title: "Invite email mismatch",
+      body: "This private delivery packet is locked to the client email selected by the facilitator. Sign in with that email or ask the facilitator to issue a new invite.",
+      href: "/settings",
+      action: "Review Account",
+    };
+  }
+
+  return null;
+}
+
+function InviteErrorBanner({ inviteError }: { inviteError?: string }) {
+  const copy = getInviteErrorCopy(inviteError);
+  if (!copy) return null;
+
+  return (
+    <section className="mb-6 rounded-lg border border-secondary/25 bg-secondary/10 p-4 text-on-surface">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary/15 text-secondary">
+            <span className="material-symbols-outlined text-[18px]">lock_person</span>
+          </span>
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-secondary">{copy.title}</p>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-on-surface-variant">{copy.body}</p>
+          </div>
+        </div>
+        <Link
+          href={copy.href}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:opacity-90"
+        >
+          {copy.action}
+          <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 // ──────────────────────────────────────────────
 // FACILITATOR DASHBOARD
 // ──────────────────────────────────────────────
-async function FacilitatorDashboard({ userId, userName }: { userId: string; userName: string }) {
+async function FacilitatorDashboard({ userId, userName, inviteError }: { userId: string; userName: string; inviteError?: string }) {
   const projects = await prisma.project.findMany({
     where: { milestones: { some: { facilitator_id: userId } } },
     include: { client: true, milestones: { orderBy: { id: "asc" } } },
@@ -131,6 +183,7 @@ async function FacilitatorDashboard({ userId, userName }: { userId: string; user
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
+      <InviteErrorBanner inviteError={inviteError} />
       {/* ── Header ── */}
       <header className="relative z-10 mb-8 px-4 lg:px-0">
         <div className="flex flex-wrap items-end justify-between gap-6">
@@ -347,7 +400,7 @@ async function FacilitatorDashboard({ userId, userName }: { userId: string; user
 // ──────────────────────────────────────────────
 // CLIENT DASHBOARD
 // ──────────────────────────────────────────────
-async function ClientDashboard({ userId, userName }: { userId: string; userName: string }) {
+async function ClientDashboard({ userId, userName, inviteError }: { userId: string; userName: string; inviteError?: string }) {
   const projects = await prisma.project.findMany({
     where: buyerProjectListWhere(userId),
     include: {
@@ -437,6 +490,7 @@ async function ClientDashboard({ userId, userName }: { userId: string; userName:
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
+      <InviteErrorBanner inviteError={inviteError} />
       {/* ── Header ── */}
       <header className="relative z-10 mb-8 px-4 lg:px-0">
         <div className="flex flex-wrap items-end justify-between gap-6">
@@ -663,15 +717,21 @@ async function ClientDashboard({ userId, userName }: { userId: string; userName:
 // ──────────────────────────────────────────────
 // MAIN EXPORT
 // ──────────────────────────────────────────────
-export default async function ExpertDashboard() {
+export default async function ExpertDashboard({
+  searchParams,
+}: {
+  searchParams?: Promise<{ invite_error?: InviteErrorCode }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
 
   const firstName = user.name?.split(" ")[0] || "there";
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const inviteError = resolvedSearchParams.invite_error;
 
   if (user.role === "FACILITATOR") {
-    return <FacilitatorDashboard userId={user.id} userName={firstName} />;
+    return <FacilitatorDashboard userId={user.id} userName={firstName} inviteError={inviteError} />;
   }
 
-  return <ClientDashboard userId={user.id} userName={firstName} />;
+  return <ClientDashboard userId={user.id} userName={firstName} inviteError={inviteError} />;
 }
