@@ -2,9 +2,17 @@ import { prisma } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { calculateBYOCInviteTotals } from "@/lib/byoc-sow";
+import { getCurrentUser } from "@/lib/session";
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return "the invited email";
+  return `${local.slice(0, 1)}***@${domain}`;
+}
 
 export default async function BYOCMagicLinkClaim(props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
+  const user = await getCurrentUser();
 
   const project = await prisma.project.findUnique({
     where: { invite_token: params.token },
@@ -34,6 +42,39 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
   // we bypass external friction logic
   const callbackUrl = `/invite/${params.token}/claim`;
   const signInUrl = `/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+  const invitedEmail = project.invited_client_email?.toLowerCase() ?? null;
+  const userEmail = user?.email.toLowerCase() ?? null;
+  const isWrongRole = Boolean(user && user.role !== "CLIENT");
+  const isWrongInvitedEmail = Boolean(userEmail && invitedEmail && userEmail !== invitedEmail);
+  const canClaimNow = Boolean(user && user.role === "CLIENT" && !isWrongInvitedEmail);
+  const claimHref = canClaimNow ? callbackUrl : signInUrl;
+  const claimCopy = !user
+    ? {
+        title: "Create your client account to continue",
+        body: "Claiming links this private scope to your workspace so you can fund milestones, review evidence, and manage approvals.",
+        action: "Create Account & Claim",
+        tone: "primary" as const,
+      }
+    : isWrongRole
+      ? {
+          title: "Client account required",
+          body: "You are signed in as a facilitator. This private invite must be claimed from a buyer/client account.",
+          action: "Switch to Client Account",
+          tone: "secondary" as const,
+        }
+      : isWrongInvitedEmail
+        ? {
+            title: "Invite email mismatch",
+            body: `This packet is locked to ${maskEmail(invitedEmail!)}. Sign in with that client email or ask your facilitator to issue a new invite.`,
+            action: "Review Account",
+            tone: "secondary" as const,
+          }
+        : {
+            title: "Ready to claim",
+            body: "This account can claim the private delivery packet and move the scope into your workspace.",
+            action: "Claim Project",
+            tone: "primary" as const,
+          };
 
   return (
     <main className="min-h-screen bg-surface px-4 py-8 text-on-surface sm:px-6 lg:px-8">
@@ -186,11 +227,18 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
 
             <div className="sticky top-6 rounded-lg border border-primary/25 bg-surface p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-widest text-primary">Claim Project</p>
-              <h3 className="mt-2 text-lg font-black">Create your client account to continue</h3>
+              <h3 className="mt-2 text-lg font-black">{claimCopy.title}</h3>
               <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                Claiming links this private scope to your workspace so you can fund milestones, review evidence,
-                and manage approvals.
+                {claimCopy.body}
               </p>
+              {invitedEmail && (
+                <div className="mt-4 rounded-lg border border-primary/15 bg-primary/5 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary">Private claim guard</p>
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                    This invite is restricted to {maskEmail(invitedEmail)}.
+                  </p>
+                </div>
+              )}
               <div className="mt-4 rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-4">
                 <div className="flex justify-between gap-4 text-sm">
                   <span className="text-on-surface-variant">Project value</span>
@@ -206,11 +254,13 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
                 </div>
               </div>
               <Link
-                href={signInUrl}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-xs font-black uppercase tracking-widest text-on-primary shadow-sm transition hover:opacity-90"
+                href={isWrongRole ? "/dashboard?invite_error=client_account_required" : isWrongInvitedEmail ? "/dashboard?invite_error=wrong_client_email" : claimHref}
+                className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-sm transition hover:opacity-90 ${
+                  claimCopy.tone === "secondary" ? "bg-secondary" : "bg-primary"
+                }`}
               >
-                <span className="material-symbols-outlined text-[16px]">login</span>
-                Create Account & Claim
+                <span className="material-symbols-outlined text-[16px]">{canClaimNow ? "task_alt" : "login"}</span>
+                {claimCopy.action}
               </Link>
               <p className="mt-3 text-center text-[11px] leading-5 text-on-surface-variant">
                 Funding happens after account setup and project claim.
