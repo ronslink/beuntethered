@@ -131,11 +131,13 @@ curl -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3200/api/alerts/sa
 Run these before merging or deploying:
 
 ```bash
-npm run db:push
+npm run deploy:check
 npm run verify
 ```
 
 Current smoke coverage includes registration, public positioning, project creation, facilitator trust profiles, invite-to-bid, bid comparison, settings/payment readiness, activity logs, Stripe webhook reconciliation, and the full delivery lifecycle.
+
+For production Vercel + Supabase deployment, see [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md). Production database changes should use `npm run db:migrate:deploy` with `DATABASE_URL` pointed at the intended Supabase environment. Do not use `prisma db push` against production.
 
 ## Vercel Checklist
 
