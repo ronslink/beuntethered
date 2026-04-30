@@ -117,6 +117,12 @@ const PROJECT_TARGET_PATTERNS: { label: string; pattern: RegExp; budget: number;
     days: 18,
   },
   {
+    label: "Database migration",
+    pattern: /\bdatabase\s+migration\b|\bmigrate\s+(?:an?\s+|the\s+|our\s+)?(?:postgres|postgresql|mysql|mssql|sql\s+server|oracle|mongodb|mongo|supabase|database|db)\b|\b(?:postgres|postgresql|mysql|mssql|sql\s+server|oracle|mongodb|mongo|supabase)\s+migration\b|\bschema\s+migration\b|\bdatabase\s+schema\s+(?:migration|mapping)\b|\brollback\s+plan\b[\s\S]{0,80}\b(?:database|schema|migration)\b/i,
+    budget: 8000,
+    days: 30,
+  },
+  {
     label: "Portal",
     pattern: /\b(?:client|customer|employee|vendor|partner|member)\s+portal\b|\bself[-\s]?service\s+portal\b|\bportal\s+(?:for|with)\b/i,
     budget: 9000,

@@ -72,6 +72,13 @@ test("extracts broader marketplace project targets", () => {
   );
 });
 
+test("extracts database migration as a distinct delivery target", () => {
+  assert.deepEqual(
+    extractProjectTargets("Migrate our Postgres database to Supabase with schema migration, rollback plan, and validation report."),
+    ["Database migration"]
+  );
+});
+
 test("extracts commerce and operations project targets", () => {
   assert.deepEqual(
     extractProjectTargets("Build an e-commerce store with inventory management, appointment booking, and a CMS blog."),
@@ -91,6 +98,13 @@ test("estimates larger marketplace-style targets conservatively", () => {
 
   assert.ok(estimate.budget >= 30000);
   assert.ok(estimate.days >= 100);
+});
+
+test("estimates database migration as a guarded cutover project", () => {
+  const estimate = estimateProjectTargets(["Database migration"]);
+
+  assert.ok(estimate.budget >= 8000);
+  assert.ok(estimate.days >= 30);
 });
 
 test("summarizes captured scope constraints for buyer review", () => {
