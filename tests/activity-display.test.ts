@@ -4,6 +4,7 @@ import {
   buildActivityNotificationCopy,
   getActivityEvidenceDetails,
   getActivityLabel,
+  getActivityNarrative,
   getActorScopeLabel,
   getProjectActivityHref,
   isWorkspaceAdminActivity,
@@ -13,6 +14,7 @@ test("activity labels use operation metadata for system events", () => {
   assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "SOW_UPDATED" }), "Scope updated");
   assert.equal(getActivityLabel("PROJECT_CREATED", { operation: "BYOC_INVITE_CREATED" }), "BYOC invite created");
   assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "BYOC_INVITE_CLAIMED" }), "BYOC invite claimed");
+  assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "ARBITRATION_REFUND" }), "Arbitration refund");
   assert.equal(
     getActivityLabel("SYSTEM_EVENT", { operation: "BYOC_INVITE_DELIVERY_RECORDED" }),
     "BYOC invite delivery recorded",
@@ -22,6 +24,30 @@ test("activity labels use operation metadata for system events", () => {
     "BYOC client project created",
   );
   assert.equal(getActivityLabel("BID_SHORTLISTED"), "Bid shortlisted");
+});
+
+test("activity evidence details make arbitration outcomes readable", () => {
+  const metadata = {
+    operation: "ARBITRATION_REFUND",
+    standing: "CLIENT",
+    client_refund_cents: 453600,
+    latest_audit_score: 64,
+    latest_audit_passing: false,
+    resolution_note: "Preview failed and required evidence was missing.",
+    evidence_summary: {
+      submitted_evidence_count: 2,
+      release_attestation_count: 1,
+    },
+  };
+
+  assert.deepEqual(getActivityEvidenceDetails(metadata), [
+    { label: "Ruling", value: "client", tone: "attention" },
+    { label: "Client refund", value: "$4,536", tone: "attention" },
+    { label: "Audit", value: "64% failed", tone: "attention" },
+    { label: "Evidence", value: "2", tone: "neutral" },
+    { label: "Attestations", value: "1", tone: "positive" },
+  ]);
+  assert.equal(getActivityNarrative(metadata), "Preview failed and required evidence was missing.");
 });
 
 test("activity scope labels distinguish workspace admin actions", () => {

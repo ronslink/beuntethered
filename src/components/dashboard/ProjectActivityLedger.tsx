@@ -4,6 +4,7 @@ import {
   getActivityMetadata,
   getActorScopeLabel,
   getActivityEvidenceDetails,
+  getActivityNarrative,
   getProjectActivityHref,
   isWorkspaceAdminActivity,
 } from "@/lib/activity-display";
@@ -86,6 +87,7 @@ export default function ProjectActivityLedger({
             const actorName = log.actor?.name || log.actor?.email || "System";
             const scopeLabel = getActorScopeLabel(metadata, log.actor?.role);
             const evidenceDetails = getActivityEvidenceDetails(metadata);
+            const narrative = getActivityNarrative(metadata);
             const isAdminAction = isWorkspaceAdminActivity(metadata);
             const href = log.href ?? (log.project ? getProjectActivityHref(log.project) : null);
             const content = (
@@ -103,9 +105,14 @@ export default function ProjectActivityLedger({
                         {log.project.title}
                       </p>
                     )}
+                    {narrative && (
+                      <p className="mt-3 line-clamp-3 rounded-md border border-outline-variant/15 bg-surface px-3 py-2 text-xs font-medium leading-5 text-on-surface-variant">
+                        {narrative}
+                      </p>
+                    )}
                     {evidenceDetails.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {evidenceDetails.slice(0, 4).map((detail) => (
+                        {evidenceDetails.slice(0, 6).map((detail) => (
                           <span
                             key={`${detail.label}-${detail.value}`}
                             className={`rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${

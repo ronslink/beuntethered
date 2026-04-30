@@ -35,6 +35,8 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   PAYMENT_RELEASED: "Payment released",
   DISPUTE_OPENED: "Dispute opened",
   DISPUTE_RESOLVED: "Dispute resolved",
+  ARBITRATION_REFUND: "Arbitration refund",
+  ARBITRATION_RELEASE: "Arbitration release",
 };
 
 export function getActivityMetadata(metadata: unknown): ActivityMetadata {
@@ -78,6 +80,12 @@ export type ActivityEvidenceDetail = {
   value: string;
   tone: "neutral" | "positive" | "attention";
 };
+
+function getEvidenceSummary(metadata: ActivityMetadata) {
+  const summary = metadata.evidence_summary;
+  if (!summary || typeof summary !== "object" || Array.isArray(summary)) return null;
+  return summary as Record<string, unknown>;
+}
 
 export function getActivityEvidenceDetails(metadata: ActivityMetadata): ActivityEvidenceDetail[] {
   const operation = typeof metadata.operation === "string" ? metadata.operation : null;
@@ -133,7 +141,54 @@ export function getActivityEvidenceDetails(metadata: ActivityMetadata): Activity
     return details.filter((detail): detail is ActivityEvidenceDetail => Boolean(detail));
   }
 
+  if (
+    operation === "ARBITRATION_REFUND" ||
+    operation === "ARBITRATION_RELEASE" ||
+    metadata.arbitration_refund === true ||
+    metadata.arbitration_release === true ||
+    typeof metadata.standing === "string"
+  ) {
+    const evidenceSummary = getEvidenceSummary(metadata);
+    const standing = typeof metadata.standing === "string" ? metadata.standing : null;
+    const clientRefund = formatCents(metadata.client_refund_cents);
+    const facilitatorPayout = formatCents(metadata.facilitator_payout_cents);
+    const latestAuditScore = evidenceSummary?.latest_audit_score ?? metadata.latest_audit_score;
+    const latestAuditPassing = evidenceSummary?.latest_audit_passing ?? metadata.latest_audit_passing;
+    const details: Array<ActivityEvidenceDetail | null> = [
+      standing ? { label: "Ruling", value: formatMetadataValue(standing) ?? standing, tone: "attention" } : null,
+      clientRefund ? { label: "Client refund", value: clientRefund, tone: "attention" } : null,
+      facilitatorPayout ? { label: "Payout", value: facilitatorPayout, tone: "positive" } : null,
+      typeof latestAuditScore === "number"
+        ? {
+            label: "Audit",
+            value: `${latestAuditScore}%${latestAuditPassing === false ? " failed" : ""}`,
+            tone: latestAuditPassing === false ? "attention" : "positive",
+          }
+        : null,
+      typeof evidenceSummary?.submitted_evidence_count === "number"
+        ? { label: "Evidence", value: String(evidenceSummary.submitted_evidence_count), tone: "neutral" }
+        : null,
+      typeof evidenceSummary?.release_attestation_count === "number" && evidenceSummary.release_attestation_count > 0
+        ? { label: "Attestations", value: String(evidenceSummary.release_attestation_count), tone: "positive" }
+        : null,
+    ];
+    return details.filter((detail): detail is ActivityEvidenceDetail => Boolean(detail));
+  }
+
   return [];
+}
+
+export function getActivityNarrative(metadata: ActivityMetadata) {
+  if (typeof metadata.resolution_note === "string" && metadata.resolution_note.trim()) {
+    return metadata.resolution_note.trim();
+  }
+
+  const evidenceSummary = getEvidenceSummary(metadata);
+  if (typeof evidenceSummary?.proof_summary === "string" && evidenceSummary.proof_summary.trim()) {
+    return evidenceSummary.proof_summary.trim();
+  }
+
+  return null;
 }
 
 export function getProjectActivityHref(project: ActivityProjectLink) {
