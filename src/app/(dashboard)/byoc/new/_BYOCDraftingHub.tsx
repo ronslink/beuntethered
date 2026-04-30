@@ -41,6 +41,7 @@ type RecentBYOCPacket = {
   status: string;
   inviteToken: string | null;
   clientEmail: string | null;
+  clientId?: string | null;
   createdAt: string;
   clientTotalCents: number;
   facilitatorPayoutCents: number;
@@ -72,6 +73,39 @@ function formatCategory(value?: string) {
 
 function formatStatus(value: string) {
   return value.replace(/_/g, " ").toLowerCase();
+}
+
+function getPacketState(packet: RecentBYOCPacket) {
+  if (packet.clientId || !packet.inviteToken) {
+    return {
+      label: packet.status === "ACTIVE" ? "Claimed" : formatStatus(packet.status),
+      detail: packet.status === "ACTIVE" ? "Buyer workspace active" : "Moved into governed work",
+      icon: "task_alt",
+      tone: "border-tertiary/25 bg-tertiary/10 text-tertiary",
+      href: `/command-center/${packet.id}`,
+      action: "Open Work",
+    };
+  }
+
+  if (packet.clientEmail) {
+    return {
+      label: "Email locked",
+      detail: "Waiting for invited buyer",
+      icon: "lock_person",
+      tone: "border-primary/25 bg-primary/10 text-primary",
+      href: `/invite/${packet.inviteToken}`,
+      action: "Open Invite",
+    };
+  }
+
+  return {
+    label: "Awaiting claim",
+    detail: "Share the private invite link",
+    icon: "outgoing_mail",
+    tone: "border-secondary/25 bg-secondary/10 text-secondary",
+    href: `/invite/${packet.inviteToken}`,
+    action: "Open Invite",
+  };
 }
 
 function formatTransitionMode(value?: string) {
@@ -245,7 +279,10 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
           setDeliveryStatus("Invite link created. Add a client email next time to send it automatically.");
         }
         if (res.packet) {
-          setPackets((current) => [res.packet, ...current.filter((packet) => packet.id !== res.packet.id)].slice(0, 5));
+          setPackets((current) => [
+            { ...res.packet, clientId: null },
+            ...current.filter((packet) => packet.id !== res.packet.id),
+          ].slice(0, 5));
         }
       } else {
         alert(res.error || "Unable to create invite link.");
@@ -448,8 +485,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
               <div className="mt-4 space-y-3">
                 {packets.length > 0 ? (
                   packets.map((packet) => {
-                    const href = packet.inviteToken ? `/invite/${packet.inviteToken}` : `/command-center/${packet.id}`;
-                    const isInvite = Boolean(packet.inviteToken);
+                    const packetState = getPacketState(packet);
                     return (
                       <div
                         key={packet.id}
@@ -459,7 +495,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                           <div className="min-w-0">
                             <p className="truncate text-sm font-black text-on-surface">{packet.title}</p>
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                              {formatStatus(packet.status)} · {formatDate(packet.createdAt)}
+                              {packetState.detail} · {formatDate(packet.createdAt)}
                             </p>
                             {packet.clientEmail && (
                               <p className="mt-1 truncate text-[11px] text-on-surface-variant">
@@ -467,8 +503,9 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                               </p>
                             )}
                           </div>
-                          <span className="rounded-md border border-outline-variant/30 bg-surface px-2 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
-                            {packet.inviteToken ? "Invite" : "Work"}
+                          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-widest ${packetState.tone}`}>
+                            <span className="material-symbols-outlined text-[13px]">{packetState.icon}</span>
+                            {packetState.label}
                           </span>
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -483,11 +520,11 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <a
-                            href={href}
+                            href={packetState.href}
                             className="inline-flex items-center justify-center gap-1.5 rounded-md border border-outline-variant/35 bg-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface transition hover:border-primary/40 hover:text-primary"
                           >
-                            <span className="material-symbols-outlined text-[14px]">{isInvite ? "open_in_new" : "rocket_launch"}</span>
-                            {isInvite ? "Open Invite" : "Open Work"}
+                            <span className="material-symbols-outlined text-[14px]">{packet.inviteToken ? "open_in_new" : "rocket_launch"}</span>
+                            {packetState.action}
                           </a>
                           {packet.inviteToken && (
                             <button
