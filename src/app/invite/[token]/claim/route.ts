@@ -94,6 +94,20 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
           byoc: true,
         },
       }),
+      createSystemNotification({
+        userId: user.id,
+        message: `Private project "${project.title}" is now in your workspace. Review the scope and fund the first milestone to begin.`,
+        type: "MILESTONE",
+        href: `/command-center/${project.id}`,
+        sourceKey: `byoc_invite_claimed_buyer_${project.id}_${user.id}`,
+        metadata: {
+          project_id: project.id,
+          facilitator_id: project.creator_id,
+          organization_id: clientOrganization?.id ?? null,
+          byoc: true,
+          next_action: "FUND_FIRST_MILESTONE",
+        },
+      }),
     ]);
 
     return NextResponse.redirect(new URL(`/projects/${project.id}`, req.url));

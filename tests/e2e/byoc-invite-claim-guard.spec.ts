@@ -156,6 +156,17 @@ test("BYOC invite claim atomically assigns the buyer workspace once", async ({ p
     expect(claimed.invite_token).toBeNull();
     expect(claimed.activity_logs.some((log) => (log.metadata as any)?.operation === "BYOC_INVITE_CLAIMED")).toBe(true);
 
+    const buyerNotification = await prisma.notification.findUnique({
+      where: { source_key: `byoc_invite_claimed_buyer_${project.id}_${client.id}` },
+      select: { user_id: true, type: true, href: true, metadata: true, message: true },
+    });
+
+    expect(buyerNotification?.user_id).toBe(client.id);
+    expect(buyerNotification?.type).toBe("MILESTONE");
+    expect(buyerNotification?.href).toBe(`/command-center/${project.id}`);
+    expect((buyerNotification?.metadata as any)?.next_action).toBe("FUND_FIRST_MILESTONE");
+    expect(buyerNotification?.message).toContain("fund the first milestone");
+
     await page.goto(`/invite/${inviteToken}/claim`);
     await expect(page).toHaveURL(/\/dashboard/);
 
