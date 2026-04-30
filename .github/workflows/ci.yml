@@ -38,6 +38,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -51,8 +53,17 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
-      - name: Scan staged additions
-        run: npm run secrets:scan
+      - name: Scan incoming diff for secrets
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            npm run secrets:scan:range -- "origin/${{ github.base_ref }}...HEAD"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            npm run secrets:scan:range -- "${{ github.event.before }}..HEAD"
+          else
+            npm run secrets:scan:range -- "HEAD~1..HEAD"
+          fi
 
       - name: Lint
         run: npm run lint
@@ -98,6 +109,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4

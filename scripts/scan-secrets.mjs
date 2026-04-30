@@ -9,7 +9,9 @@ const SECRET_PATTERNS = [
   { name: "OpenAI-style project key", pattern: /sk-proj-[A-Za-z0-9_-]{24,}/ },
 ];
 
-const mode = process.argv.includes("--tracked") ? "tracked" : "staged";
+const rangeIndex = process.argv.indexOf("--range");
+const diffRange = rangeIndex >= 0 ? process.argv[rangeIndex + 1] : "";
+const mode = process.argv.includes("--tracked") ? "tracked" : diffRange ? "range" : "staged";
 
 function git(args) {
   try {
@@ -50,6 +52,25 @@ function scanStagedAdditions() {
   return findings;
 }
 
+function scanDiffRange(range) {
+  const findings = [];
+  let currentFile = "";
+  const diff = git(["diff", "--unified=0", range, "--", ":(exclude)package-lock.json"]);
+
+  for (const line of diff.split(/\r?\n/)) {
+    if (line.startsWith("diff --git ")) {
+      const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+      currentFile = match?.[2] || "";
+      continue;
+    }
+
+    if (!line.startsWith("+") || line.startsWith("+++")) continue;
+    scanText({ file: currentFile, line, findings });
+  }
+
+  return findings;
+}
+
 function scanTrackedFiles() {
   const findings = [];
   const files = git(["ls-files", "-z"])
@@ -74,10 +95,11 @@ function scanTrackedFiles() {
   return findings;
 }
 
-const findings = mode === "tracked" ? scanTrackedFiles() : scanStagedAdditions();
+const findings = mode === "tracked" ? scanTrackedFiles() : mode === "range" ? scanDiffRange(diffRange) : scanStagedAdditions();
+const target = mode === "tracked" ? "tracked files" : mode === "range" ? `diff range ${diffRange}` : "staged additions";
 
 if (findings.length > 0) {
-  console.error(`Potential secrets found in ${mode === "tracked" ? "tracked files" : "staged additions"}:`);
+  console.error(`Potential secrets found in ${target}:`);
   for (const finding of findings) {
     const location = [finding.file, finding.lineNumber].filter(Boolean).join(":");
     console.error(`- ${finding.name}${location ? ` in ${location}` : ""}`);
@@ -86,4 +108,4 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log(`No high-risk secret patterns found in ${mode === "tracked" ? "tracked files" : "staged additions"}.`);
+console.log(`No high-risk secret patterns found in ${target}.`);
