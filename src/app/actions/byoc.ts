@@ -10,6 +10,8 @@ import { byocInviteInputSchema } from "@/lib/validators";
 import { buildBYOCSowSnapshot, calculateBYOCInviteTotals } from "@/lib/byoc-sow";
 import { sendBYOCInvite } from "@/lib/resend";
 import { validateBYOCInviteRecipient } from "@/lib/byoc-recipient";
+import { createSystemNotification } from "@/lib/notifications";
+import { buildBYOCInviteReviewNotification } from "@/lib/byoc-notifications";
 
 export async function generateBYOCInvite(sowData: any) {
   try {
@@ -124,6 +126,20 @@ export async function generateBYOCInvite(sowData: any) {
     const emailDelivery = invitedClientEmail
       ? await sendBYOCInvite(invitedClientEmail, project.title, inviteToken)
       : { sent: false as const, skipped: "NO_CLIENT_EMAIL" as const };
+
+    if (existingInviteUser?.role === "CLIENT") {
+      const notification = buildBYOCInviteReviewNotification({
+        projectId: project.id,
+        projectTitle: project.title,
+        facilitatorName: user.name || user.email,
+        inviteToken,
+        transitionMode: parsed.data.transitionMode,
+      });
+      await createSystemNotification({
+        userId: existingInviteUser.id,
+        ...notification,
+      });
+    }
 
     return {
       success: true,

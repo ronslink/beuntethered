@@ -112,17 +112,17 @@ export async function sendBYOCInvite(clientEmail: string, projectTitle: string, 
     return await sendTransactionalEmail({
       from: "Untether Escrow <escrow@untether.network>",
       to: clientEmail,
-      subject: `[ACTION REQUIRED] Secure Statement of Work: ${projectTitle}`,
+      subject: `[ACTION REQUIRED] Private delivery packet: ${projectTitle}`,
       html: `
         <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-          <h2 style="color: #6366f1;">Secure Escrow Initialization</h2>
-          <p>Your expert facilitator has prepared a secure Statement of Work for you on Untether.</p>
+          <h2 style="color: #334155;">Review your private delivery packet</h2>
+          <p>Your facilitator has prepared a milestone-based software delivery packet on Untether.</p>
           <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
             <h3 style="margin-top:0;">${escapeHtml(projectTitle)}</h3>
-            <p style="color: #475569; font-size: 14px;">Review exactly how the AI Auditor will evaluate the final code architecture before Escrow resolves.</p>
+            <p style="color: #475569; font-size: 14px;">Review the scope, escrow totals, milestone evidence expectations, and what Untether will govern from claim forward.</p>
           </div>
-          <a href="${buildAppUrl(`/invite/${token}`)}" style="display: inline-block; background-color: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: bold; margin-top: 10px;">Review Scope & Fund Escrow</a>
-          <p style="margin-top: 30px; font-size: 12px; color: #94a3b8;">Untether Secure Payment Network</p>
+          <a href="${buildAppUrl(`/invite/${token}`)}" style="display: inline-block; background-color: #4f46e5; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: bold; margin-top: 10px;">Review Scope & Claim Project</a>
+          <p style="margin-top: 30px; font-size: 12px; color: #94a3b8;">Untether verified software delivery</p>
         </div>
       `
     });
