@@ -16,6 +16,7 @@ import {
   extractRegionConstraints,
   summarizeScopeConstraints,
 } from "@/lib/scope-constraints";
+import { assessScopeIntake } from "@/lib/scope-intake-quality";
 
 export default function ProjectCreationWizard() {
   const router = useRouter();
@@ -176,6 +177,14 @@ export default function ProjectCreationWizard() {
     setRejectionMessage("");
 
     try {
+      const intakeAssessment = assessScopeIntake(prompt);
+      if (intakeAssessment.status === "needs_detail") {
+        setToastMessage("Add the missing scope details highlighted by the advisor.");
+        setTimeout(() => setToastMessage(""), 2400);
+        setIsGenerating(false);
+        return;
+      }
+
       // Step 1: Fast triage via M2.7-highspeed (sub-second)
       const triageRes = await fetch("/api/ai/triage-prompt", {
         method: "POST",
@@ -300,6 +309,10 @@ export default function ProjectCreationWizard() {
     budget: extractBudgetConstraint(prompt),
     timelineDays: requestedTimelineDays,
   });
+  const intakeAssessment = assessScopeIntake(prompt);
+  const intakeBlockers = intakeAssessment.issues.filter((issue) => issue.severity === "blocker");
+  const intakeWarnings = intakeAssessment.issues.filter((issue) => issue.severity === "warning");
+  const hasIntakeBlockers = prompt.trim().length >= 5 && intakeBlockers.length > 0;
 
   return (
     <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-5rem)] flex flex-col relative overflow-hidden">
@@ -441,6 +454,60 @@ export default function ProjectCreationWizard() {
                            </div>
                         )}
 
+                        {prompt.trim().length >= 5 && intakeAssessment.issues.length > 0 && (
+                           <div className={`rounded-lg border p-4 ${intakeAssessment.status === "needs_detail" ? "border-error/25 bg-error/5" : "border-tertiary/25 bg-tertiary/5"}`}>
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                 <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${intakeAssessment.status === "needs_detail" ? "text-error" : "text-tertiary"}`}>
+                                       Scope advisor
+                                    </p>
+                                    <h3 className="mt-1 text-sm font-black text-on-surface">
+                                       {intakeAssessment.status === "needs_detail"
+                                         ? "More detail is needed before this can become a valid milestone."
+                                         : "This can be scoped, but these details would improve the result."}
+                                    </h3>
+                                    <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
+                                       Milestones need a buyer-visible outcome, realistic delivery boundaries, and evidence the client can inspect before approval.
+                                    </p>
+                                 </div>
+                                 <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2 text-right">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Readiness</p>
+                                    <p className="text-lg font-black text-on-surface">{intakeAssessment.score}%</p>
+                                 </div>
+                              </div>
+
+                              <div className="mt-4 grid gap-3">
+                                 {[...intakeBlockers, ...intakeWarnings].map((issue) => (
+                                    <div key={issue.code} className="rounded-lg border border-outline-variant/15 bg-surface/70 p-3">
+                                       <div className="flex items-start gap-2">
+                                          <span className={`material-symbols-outlined mt-0.5 text-[16px] ${issue.severity === "blocker" ? "text-error" : "text-tertiary"}`}>
+                                             {issue.severity === "blocker" ? "error" : "tips_and_updates"}
+                                          </span>
+                                          <div>
+                                             <p className="text-xs font-black text-on-surface">{issue.label}</p>
+                                             <p className="mt-1 text-xs leading-5 text-on-surface-variant">{issue.why}</p>
+                                             <p className="mt-1 text-xs font-bold leading-5 text-on-surface">{issue.hint}</p>
+                                          </div>
+                                       </div>
+                                    </div>
+                                 ))}
+                              </div>
+
+                              <div className="mt-4 rounded-lg border border-primary/15 bg-primary/5 p-3">
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-primary">Try adding this kind of detail</p>
+                                 <p className="mt-2 text-xs leading-5 text-on-surface-variant">{intakeAssessment.suggestedPrompt}</p>
+                                 <button
+                                   type="button"
+                                   onClick={() => setPrompt(intakeAssessment.suggestedPrompt)}
+                                   className="mt-3 inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary transition-colors hover:bg-primary/90"
+                                 >
+                                    <span className="material-symbols-outlined text-[14px]">edit_note</span>
+                                    Use Guided Rewrite
+                                 </button>
+                              </div>
+                           </div>
+                        )}
+
                         {/* Timeline / Deadline Input */}
                         <div className="flex flex-col md:flex-row gap-4">
                            <div className="flex-1 relative">
@@ -466,10 +533,10 @@ export default function ProjectCreationWizard() {
                         <div className="flex justify-end pt-4">
                            <button
                              type="submit"
-                             disabled={prompt.trim().length < 5 || isGenerating}
-                             className={`px-8 py-3 rounded-md flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all ${prompt.trim().length < 5 || isGenerating ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-70' : 'bg-primary text-on-primary hover:bg-primary/90'}`}
+                             disabled={prompt.trim().length < 5 || isGenerating || hasIntakeBlockers}
+                             className={`px-8 py-3 rounded-md flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all ${prompt.trim().length < 5 || isGenerating || hasIntakeBlockers ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-70' : 'bg-primary text-on-primary hover:bg-primary/90'}`}
                            >
-                              {prompt.trim().length < 5 ? "Describe Project First" : "Generate Statement of Work"}
+                              {prompt.trim().length < 5 ? "Describe Project First" : hasIntakeBlockers ? "Resolve Scope Details" : "Generate Statement of Work"}
                               <span className="material-symbols-outlined text-[18px]">{prompt.trim().length < 5 ? "edit_note" : "arrow_forward"}</span>
                            </button>
                         </div>
