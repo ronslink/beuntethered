@@ -13,6 +13,10 @@ test("activity labels use operation metadata for system events", () => {
   assert.equal(getActivityLabel("PROJECT_CREATED", { operation: "BYOC_INVITE_CREATED" }), "BYOC invite created");
   assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "BYOC_INVITE_CLAIMED" }), "BYOC invite claimed");
   assert.equal(
+    getActivityLabel("SYSTEM_EVENT", { operation: "BYOC_INVITE_DELIVERY_RECORDED" }),
+    "BYOC invite delivery recorded",
+  );
+  assert.equal(
     getActivityLabel("PROJECT_CREATED", { operation: "BYOC_REGISTERED_CLIENT_PROJECT_CREATED" }),
     "BYOC client project created",
   );

@@ -27,3 +27,26 @@ export function buildBYOCInviteReviewNotification({
     },
   };
 }
+
+export function buildBYOCInviteDeliveryMetadata({
+  invitedClientEmail,
+  existingClientAccount,
+  emailDelivery,
+  inAppNotificationSent,
+}: {
+  invitedClientEmail: string | null;
+  existingClientAccount: boolean;
+  emailDelivery: { sent: true } | { sent: false; skipped?: string };
+  inAppNotificationSent: boolean;
+}) {
+  return {
+    operation: "BYOC_INVITE_DELIVERY_RECORDED",
+    actor_project_role: "FACILITATOR",
+    byoc: true,
+    invited_client_email: invitedClientEmail,
+    existing_client_account: existingClientAccount,
+    email_delivery_sent: emailDelivery.sent,
+    email_delivery_skipped: emailDelivery.sent ? null : emailDelivery.skipped ?? "UNKNOWN",
+    in_app_notification_sent: inAppNotificationSent,
+  };
+}

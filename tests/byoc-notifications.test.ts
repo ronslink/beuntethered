@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildBYOCInviteReviewNotification } from "../src/lib/byoc-notifications.ts";
+import {
+  buildBYOCInviteDeliveryMetadata,
+  buildBYOCInviteReviewNotification,
+} from "../src/lib/byoc-notifications.ts";
 
 test("builds a buyer next-action notification for existing BYOC invite recipients", () => {
   const notification = buildBYOCInviteReviewNotification({
@@ -22,4 +25,25 @@ test("builds a buyer next-action notification for existing BYOC invite recipient
     transition_mode: "RUNNING_PROJECT",
     next_action: "REVIEW_BYOC_PACKET",
   });
+});
+
+test("builds durable delivery metadata for BYOC packet audit trails", () => {
+  assert.deepEqual(
+    buildBYOCInviteDeliveryMetadata({
+      invitedClientEmail: "buyer@example.com",
+      existingClientAccount: true,
+      emailDelivery: { sent: false, skipped: "RESEND_API_KEY_MISSING" },
+      inAppNotificationSent: true,
+    }),
+    {
+      operation: "BYOC_INVITE_DELIVERY_RECORDED",
+      actor_project_role: "FACILITATOR",
+      byoc: true,
+      invited_client_email: "buyer@example.com",
+      existing_client_account: true,
+      email_delivery_sent: false,
+      email_delivery_skipped: "RESEND_API_KEY_MISSING",
+      in_app_notification_sent: true,
+    },
+  );
 });

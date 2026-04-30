@@ -278,6 +278,9 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
         } else {
           setDeliveryStatus("Invite link created. Add a client email next time to send it automatically.");
         }
+        if (res.inAppNotification?.sent) {
+          setDeliveryStatus((current) => `${current} The buyer also has an in-app review action.`);
+        }
         if (res.packet) {
           setPackets((current) => [
             { ...res.packet, clientId: null },

@@ -11,7 +11,7 @@ import { buildBYOCSowSnapshot, calculateBYOCInviteTotals } from "@/lib/byoc-sow"
 import { sendBYOCInvite } from "@/lib/resend";
 import { validateBYOCInviteRecipient } from "@/lib/byoc-recipient";
 import { createSystemNotification } from "@/lib/notifications";
-import { buildBYOCInviteReviewNotification } from "@/lib/byoc-notifications";
+import { buildBYOCInviteDeliveryMetadata, buildBYOCInviteReviewNotification } from "@/lib/byoc-notifications";
 
 export async function generateBYOCInvite(sowData: any) {
   try {
@@ -127,6 +127,7 @@ export async function generateBYOCInvite(sowData: any) {
       ? await sendBYOCInvite(invitedClientEmail, project.title, inviteToken)
       : { sent: false as const, skipped: "NO_CLIENT_EMAIL" as const };
 
+    let inAppNotificationSent = false;
     if (existingInviteUser?.role === "CLIENT") {
       const notification = buildBYOCInviteReviewNotification({
         projectId: project.id,
@@ -135,17 +136,42 @@ export async function generateBYOCInvite(sowData: any) {
         inviteToken,
         transitionMode: parsed.data.transitionMode,
       });
-      await createSystemNotification({
-        userId: existingInviteUser.id,
-        ...notification,
-      });
+      try {
+        await createSystemNotification({
+          userId: existingInviteUser.id,
+          ...notification,
+        });
+        inAppNotificationSent = true;
+      } catch (notificationError) {
+        console.error("BYOC invite notification failed:", notificationError);
+      }
     }
+
+    await prisma.activityLog.create({
+      data: {
+        project_id: project.id,
+        actor_id: user.id,
+        action: "SYSTEM_EVENT",
+        entity_type: "Project",
+        entity_id: project.id,
+        metadata: buildBYOCInviteDeliveryMetadata({
+          invitedClientEmail,
+          existingClientAccount: existingInviteUser?.role === "CLIENT",
+          emailDelivery,
+          inAppNotificationSent,
+        }),
+      },
+    });
 
     return {
       success: true,
       inviteToken,
       projectId: project.id,
       emailDelivery,
+      inAppNotification: {
+        sent: inAppNotificationSent,
+        skipped: existingInviteUser?.role === "CLIENT" ? null : "NO_EXISTING_CLIENT_ACCOUNT",
+      },
       packet: {
         id: project.id,
         title: project.title,

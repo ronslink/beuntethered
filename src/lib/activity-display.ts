@@ -22,6 +22,7 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   INVITE_ACCEPTED_BY_PROPOSAL: "Invite accepted by proposal",
   BYOC_INVITE_CREATED: "BYOC invite created",
   BYOC_INVITE_CLAIMED: "BYOC invite claimed",
+  BYOC_INVITE_DELIVERY_RECORDED: "BYOC invite delivery recorded",
   BYOC_REGISTERED_CLIENT_PROJECT_CREATED: "BYOC client project created",
   LISTING_ARCHIVED: "Listing archived",
   SOW_UPDATED: "Scope updated",
