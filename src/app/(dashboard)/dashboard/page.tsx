@@ -24,7 +24,7 @@ const PROJECT_STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   CANCELLED:     { label: "Cancelled",     dot: "bg-outline-variant/30" },
 };
 
-type InviteErrorCode = "client_account_required" | "wrong_client_email";
+type InviteErrorCode = "client_account_required" | "wrong_client_email" | "already_claimed";
 type DashboardRole = "CLIENT" | "FACILITATOR";
 
 function getInviteErrorCopy(inviteError?: string, role?: DashboardRole) {
@@ -52,6 +52,15 @@ function getInviteErrorCopy(inviteError?: string, role?: DashboardRole) {
       body: "This private delivery packet is locked to the client email selected by the facilitator. Sign in with that email or ask the facilitator to issue a new invite.",
       href: "/settings",
       action: "Review Account",
+    };
+  }
+
+  if (inviteError === "already_claimed") {
+    return {
+      title: "Invite already claimed",
+      body: "This private delivery packet has already been claimed or moved into a buyer workspace. Open your projects or ask the facilitator for a fresh invite if this looks wrong.",
+      href: "/projects",
+      action: "Review Projects",
     };
   }
 

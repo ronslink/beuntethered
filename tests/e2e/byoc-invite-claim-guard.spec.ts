@@ -60,3 +60,121 @@ test("BYOC invite page blocks signed-in clients using the wrong invited email", 
     await cleanupByEmailPrefix(prefix);
   }
 });
+
+test("BYOC invite claim atomically assigns the buyer workspace once", async ({ page }) => {
+  const prefix = `playwright-byoc-claim-once-${Date.now()}`;
+  const facilitatorEmail = `${prefix}-facilitator@example.com`;
+  const clientEmail = `${prefix}-client@example.com`;
+  const inviteToken = `playwright-byoc-claim-${Date.now()}`;
+  let organizationId: string | null = null;
+
+  await cleanupByEmailPrefix("playwright-byoc-claim-once-");
+  const facilitator = await seedUser({
+    email: facilitatorEmail,
+    role: "FACILITATOR",
+    name: "BYOC Claim Facilitator",
+  });
+  const client = await seedUser({
+    email: clientEmail,
+    role: "CLIENT",
+    name: "BYOC Claim Buyer",
+  });
+  const organization = await prisma.organization.create({
+    data: {
+      owner_id: client.id,
+      name: "BYOC Claim Workspace",
+      type: "SMB",
+      billing_email: clientEmail,
+      members: {
+        create: {
+          user_id: client.id,
+          role: "OWNER",
+        },
+      },
+    },
+  });
+  organizationId = organization.id;
+
+  const project = await prisma.project.create({
+    data: {
+      creator_id: facilitator.id,
+      title: "Private Operations Repair",
+      ai_generated_sow:
+        "Private BYOC Scope: Private Operations Repair\n\nBYOC Transition Baseline\nTransition mode: running project\nPlatform responsibility starts from the accepted packet and funded milestones onward.",
+      is_byoc: true,
+      invite_token: inviteToken,
+      invited_client_email: clientEmail,
+      status: "DRAFT",
+      milestones: {
+        create: {
+          facilitator_id: facilitator.id,
+          title: "Operations repair handoff",
+          amount: 2800,
+          estimated_duration_days: 6,
+          description: "Deliver a working repair package with staging evidence and buyer acceptance checklist.",
+          deliverables: ["Staging URL", "Repository branch", "Evidence checklist"],
+          acceptance_criteria: ["Buyer can access staging", "Checklist maps each feature to evidence"],
+        },
+      },
+    },
+  });
+
+  try {
+    await signInAs(page, clientEmail);
+    const authCookie = (await page.context().cookies()).find((cookie) => cookie.name === "next-auth.session-token");
+    expect(authCookie).toBeTruthy();
+    await page.context().addCookies([
+      {
+        name: "next-auth.session-token",
+        value: authCookie!.value,
+        url: "http://localhost:3200",
+        httpOnly: true,
+        sameSite: "Lax",
+        expires: authCookie!.expires,
+      },
+    ]);
+    await page.goto(`/invite/${inviteToken}/claim`);
+    await expect(page).toHaveURL(new RegExp(`/(projects|command-center)/${project.id}`));
+
+    const claimed = await prisma.project.findUniqueOrThrow({
+      where: { id: project.id },
+      select: {
+        client_id: true,
+        organization_id: true,
+        status: true,
+        invite_token: true,
+        activity_logs: {
+          where: { action: "SYSTEM_EVENT" },
+          select: { metadata: true },
+        },
+      },
+    });
+
+    expect(claimed.client_id).toBe(client.id);
+    expect(claimed.organization_id).toBe(organization.id);
+    expect(claimed.status).toBe("ACTIVE");
+    expect(claimed.invite_token).toBeNull();
+    expect(claimed.activity_logs.some((log) => (log.metadata as any)?.operation === "BYOC_INVITE_CLAIMED")).toBe(true);
+
+    await page.goto(`/invite/${inviteToken}/claim`);
+    await expect(page).toHaveURL(/\/dashboard/);
+
+    const stillClaimed = await prisma.project.findUniqueOrThrow({
+      where: { id: project.id },
+      select: { client_id: true, organization_id: true, status: true, invite_token: true },
+    });
+    expect(stillClaimed).toEqual({
+      client_id: client.id,
+      organization_id: organization.id,
+      status: "ACTIVE",
+      invite_token: null,
+    });
+  } finally {
+    if (organizationId) {
+      await prisma.project.updateMany({ where: { organization_id: organizationId }, data: { organization_id: null } });
+      await prisma.organizationMember.deleteMany({ where: { organization_id: organizationId } });
+      await prisma.organization.deleteMany({ where: { id: organizationId } });
+    }
+    await cleanupByEmailPrefix(prefix);
+  }
+});

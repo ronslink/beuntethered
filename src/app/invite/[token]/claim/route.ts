@@ -17,7 +17,16 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
     }
 
     const project = await prisma.project.findUnique({
-      where: { invite_token: params.token }
+      where: { invite_token: params.token },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        is_byoc: true,
+        creator_id: true,
+        client_id: true,
+        invited_client_email: true,
+      },
     });
 
     if (!project || project.status !== "DRAFT" || !project.is_byoc) {
@@ -28,14 +37,36 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
       return NextResponse.redirect(new URL("/dashboard?invite_error=wrong_client_email", req.url));
     }
 
-    await prisma.project.update({
-      where: { id: project.id },
+    const clientOrganization = await prisma.organization.findFirst({
+      where: {
+        OR: [
+          { owner_id: user.id },
+          { members: { some: { user_id: user.id } } },
+        ],
+      },
+      select: { id: true },
+      orderBy: { created_at: "asc" },
+    });
+
+    const claimed = await prisma.project.updateMany({
+      where: {
+        id: project.id,
+        status: "DRAFT",
+        is_byoc: true,
+        invite_token: params.token,
+        client_id: null,
+      },
       data: {
         client_id: user.id,
+        organization_id: clientOrganization?.id ?? null,
         status: "ACTIVE",
         invite_token: null
       }
     });
+
+    if (claimed.count !== 1) {
+      return NextResponse.redirect(new URL("/dashboard?invite_error=already_claimed", req.url));
+    }
 
     await Promise.all([
       recordActivity({
@@ -48,6 +79,7 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
           operation: "BYOC_INVITE_CLAIMED",
           actor_project_role: "CLIENT",
           byoc: true,
+          organization_id: clientOrganization?.id ?? null,
         },
       }),
       createSystemNotification({
