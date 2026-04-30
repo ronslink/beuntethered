@@ -272,7 +272,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
 
               <label className="mt-3 block">
                 <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                  Client email for private claim guard
+                  Buyer client email for private claim guard
                 </span>
                 <input
                   type="email"
@@ -286,7 +286,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
 
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-5 text-on-surface-variant">
-                  Best results include target users, required systems, budget, evidence, and launch definition.
+                  Best results include target users, required systems, budget, evidence, and launch definition. Use the buyer's email, not your facilitator account.
                 </p>
                 <button
                   type="submit"

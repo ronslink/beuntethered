@@ -9,6 +9,7 @@ import { normalizeMilestoneForStorage } from "@/lib/milestone-quality";
 import { byocInviteInputSchema } from "@/lib/validators";
 import { buildBYOCSowSnapshot, calculateBYOCInviteTotals } from "@/lib/byoc-sow";
 import { sendBYOCInvite } from "@/lib/resend";
+import { validateBYOCInviteRecipient } from "@/lib/byoc-recipient";
 
 export async function generateBYOCInvite(sowData: any) {
   try {
@@ -39,6 +40,24 @@ export async function generateBYOCInvite(sowData: any) {
     const totals = calculateBYOCInviteTotals(normalizedMilestones);
     const inviteToken = randomBytes(16).toString("hex");
     const invitedClientEmail = parsed.data.clientEmail ?? null;
+    const existingInviteUser = invitedClientEmail
+      ? await prisma.user.findUnique({
+          where: { email: invitedClientEmail },
+          select: { id: true, role: true },
+        })
+      : null;
+    const recipientCheck = validateBYOCInviteRecipient({
+      invitedEmail: invitedClientEmail,
+      existingUser: existingInviteUser,
+      facilitatorId: user.id,
+    });
+    if (!recipientCheck.valid) {
+      return {
+        success: false,
+        error: recipientCheck.message,
+        code: recipientCheck.code,
+      };
+    }
 
     const project = await prisma.$transaction(async (tx) => {
       const draft = await tx.project.create({

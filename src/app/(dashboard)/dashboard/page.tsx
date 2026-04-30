@@ -25,8 +25,9 @@ const PROJECT_STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
 };
 
 type InviteErrorCode = "client_account_required" | "wrong_client_email";
+type DashboardRole = "CLIENT" | "FACILITATOR";
 
-function getInviteErrorCopy(inviteError?: string) {
+function getInviteErrorCopy(inviteError?: string, role?: DashboardRole) {
   if (inviteError === "client_account_required") {
     return {
       title: "Client account required",
@@ -37,6 +38,15 @@ function getInviteErrorCopy(inviteError?: string) {
   }
 
   if (inviteError === "wrong_client_email") {
+    if (role === "FACILITATOR") {
+      return {
+        title: "Client account required",
+        body: "You are signed in as a facilitator. BYOC invite links are claimed by the buyer/client account that will fund and approve the project.",
+        href: "/byoc/new",
+        action: "Back to BYOC",
+      };
+    }
+
     return {
       title: "Invite email mismatch",
       body: "This private delivery packet is locked to the client email selected by the facilitator. Sign in with that email or ask the facilitator to issue a new invite.",
@@ -48,8 +58,8 @@ function getInviteErrorCopy(inviteError?: string) {
   return null;
 }
 
-function InviteErrorBanner({ inviteError }: { inviteError?: string }) {
-  const copy = getInviteErrorCopy(inviteError);
+function InviteErrorBanner({ inviteError, role }: { inviteError?: string; role?: DashboardRole }) {
+  const copy = getInviteErrorCopy(inviteError, role);
   if (!copy) return null;
 
   return (
@@ -183,7 +193,7 @@ async function FacilitatorDashboard({ userId, userName, inviteError }: { userId:
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
-      <InviteErrorBanner inviteError={inviteError} />
+      <InviteErrorBanner inviteError={inviteError} role="FACILITATOR" />
       {/* ── Header ── */}
       <header className="relative z-10 mb-8 px-4 lg:px-0">
         <div className="flex flex-wrap items-end justify-between gap-6">
@@ -490,7 +500,7 @@ async function ClientDashboard({ userId, userName, inviteError }: { userId: stri
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
-      <InviteErrorBanner inviteError={inviteError} />
+      <InviteErrorBanner inviteError={inviteError} role="CLIENT" />
       {/* ── Header ── */}
       <header className="relative z-10 mb-8 px-4 lg:px-0">
         <div className="flex flex-wrap items-end justify-between gap-6">
