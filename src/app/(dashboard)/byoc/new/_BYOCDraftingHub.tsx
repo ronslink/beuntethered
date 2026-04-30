@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { generateBYOCInvite } from "@/app/actions/byoc";
+import { getBYOCPacketState } from "@/lib/byoc-packet-state";
 
 type SOWMilestone = {
   title: string;
@@ -84,70 +85,6 @@ function formatCategory(value?: string) {
 
 function formatStatus(value: string) {
   return value.replace(/_/g, " ").toLowerCase();
-}
-
-function getPacketState(packet: RecentBYOCPacket) {
-  if (packet.clientId || !packet.inviteToken) {
-    const firstMilestoneStatus = packet.firstMilestone?.status;
-    if (packet.status === "ACTIVE" && firstMilestoneStatus === "PENDING") {
-      return {
-        label: "Awaiting funding",
-        detail: "Buyer claimed packet",
-        icon: "account_balance_wallet",
-        tone: "border-secondary/25 bg-secondary/10 text-secondary",
-        href: `/command-center/${packet.id}`,
-        action: "Open Funding",
-      };
-    }
-    if (packet.status === "ACTIVE" && firstMilestoneStatus === "FUNDED_IN_ESCROW") {
-      return {
-        label: "Delivery open",
-        detail: "First milestone funded",
-        icon: "rocket_launch",
-        tone: "border-tertiary/25 bg-tertiary/10 text-tertiary",
-        href: `/command-center/${packet.id}`,
-        action: "Open Work",
-      };
-    }
-    if (packet.status === "ACTIVE" && firstMilestoneStatus === "SUBMITTED_FOR_REVIEW") {
-      return {
-        label: "In review",
-        detail: "Buyer review needed",
-        icon: "rate_review",
-        tone: "border-primary/25 bg-primary/10 text-primary",
-        href: `/command-center/${packet.id}`,
-        action: "Open Review",
-      };
-    }
-    return {
-      label: packet.status === "ACTIVE" ? "Claimed" : formatStatus(packet.status),
-      detail: packet.status === "ACTIVE" ? "Buyer workspace active" : "Moved into governed work",
-      icon: "task_alt",
-      tone: "border-tertiary/25 bg-tertiary/10 text-tertiary",
-      href: `/command-center/${packet.id}`,
-      action: "Open Work",
-    };
-  }
-
-  if (packet.clientEmail) {
-    return {
-      label: "Email locked",
-      detail: "Waiting for invited buyer",
-      icon: "lock_person",
-      tone: "border-primary/25 bg-primary/10 text-primary",
-      href: `/invite/${packet.inviteToken}`,
-      action: "Open Invite",
-    };
-  }
-
-  return {
-    label: "Awaiting claim",
-    detail: "Share the private invite link",
-    icon: "outgoing_mail",
-    tone: "border-secondary/25 bg-secondary/10 text-secondary",
-    href: `/invite/${packet.inviteToken}`,
-    action: "Open Invite",
-  };
 }
 
 function formatTransitionMode(value?: string) {
@@ -547,7 +484,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
               <div className="mt-4 space-y-3">
                 {packets.length > 0 ? (
                   packets.map((packet) => {
-                    const packetState = getPacketState(packet);
+                    const packetState = getBYOCPacketState(packet);
                     return (
                       <div
                         key={packet.id}
