@@ -91,10 +91,13 @@ test("client sees enterprise bid comparison evidence", async ({ page }) => {
     await expect(page.getByRole("columnheader", { name: "AI Evidence" })).toBeVisible();
     await expect(page.getByText("Evidence Facilitator").first()).toBeVisible();
     await expect(page.getByText("Top Pick").first()).toBeVisible();
+    await expect(page.getByText("Award Gate Checklist").first()).toBeVisible();
+    await expect(page.getByText("4/5 ready").first()).toBeVisible();
+    await expect(page.getByText("Facilitator verified").first()).toBeVisible();
     await expect(page.getByText("75%").first()).toBeVisible();
     await expect(page.getByText("$7,000").first()).toBeVisible();
     await expect(page.getByText("$6,800").first()).toBeVisible();
-    await expect(page.getByText("The facilitator must connect Stripe Express before this proposal can be accepted.")).toBeVisible();
+    await expect(page.getByText("The facilitator must connect Stripe Express before this proposal can be accepted.").first()).toBeVisible();
     await expect(page.getByRole("button", { name: /^check Accept$/ })).toBeDisabled();
     await expect(page.getByText("Decision Audit Trail")).toBeVisible();
     await expect(page.getByText("Bid shortlisted")).toBeVisible();
@@ -197,6 +200,7 @@ test("client accepting a verified proposal awards only one bid", async ({ page }
     await page.goto(`/projects/${project.id}`);
 
     await expect(page.getByText("Verified Proposal Award Project").first()).toBeVisible();
+    await expect(page.getByText("5/5 ready").first()).toBeVisible();
     await page.getByRole("button", { name: /^check Accept$/ }).first().click();
     await expect(page).toHaveURL(new RegExp(`/command-center/${project.id}`));
 

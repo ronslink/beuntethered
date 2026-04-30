@@ -133,6 +133,88 @@ function TrustEvidence({ developer }: { developer: Bid["developer"] }) {
   );
 }
 
+function hasEvidenceLanguage(bid: Bid, milestones: ReturnType<typeof safeMilestones>) {
+  const proposalText = [
+    bid.technical_approach,
+    bid.tech_stack_reason,
+    JSON.stringify(milestones ?? []),
+    JSON.stringify(bid.ai_score_card?.flags ?? []),
+  ].join(" ").toLowerCase();
+
+  return /\b(acceptance|audit|evidence|demo|staging|release|handoff|verification|verified|artifact|report|criteria|test|quality)\b/.test(proposalText);
+}
+
+function AwardGateChecklist({
+  bid,
+  milestones,
+  awardReadiness,
+}: {
+  bid: Bid;
+  milestones: ReturnType<typeof safeMilestones>;
+  awardReadiness: ReturnType<typeof getFacilitatorAwardReadiness>;
+}) {
+  const hasMilestonePlan = Boolean(milestones?.length);
+  const hasEvidencePlan = hasEvidenceLanguage(bid, milestones);
+  const hasEscrowClarity = (bid.required_escrow_pct ?? 0) > 0;
+  const aiRecommendation = bid.ai_score_card?.recommendation;
+  const aiReady = ["TOP_PICK", "STRONG"].includes(aiRecommendation);
+
+  const gates = [
+    {
+      label: "Facilitator verified",
+      ok: awardReadiness.ok,
+      detail: awardReadiness.ok ? "Stripe and required verification gates are ready." : awardReadiness.error,
+    },
+    {
+      label: "Milestone plan present",
+      ok: hasMilestonePlan,
+      detail: hasMilestonePlan ? `${milestones?.length} milestone${milestones?.length === 1 ? "" : "s"} proposed.` : "Ask for milestone pricing before award.",
+    },
+    {
+      label: "Evidence language included",
+      ok: hasEvidencePlan,
+      detail: hasEvidencePlan ? "Proposal mentions reviewable proof or acceptance checks." : "Ask what artifact proves each milestone is complete.",
+    },
+    {
+      label: "Escrow ask clear",
+      ok: hasEscrowClarity,
+      detail: hasEscrowClarity ? `${bid.required_escrow_pct ?? 100}% requested before start.` : "Escrow requirement is missing.",
+    },
+    {
+      label: "AI recommendation acceptable",
+      ok: aiReady,
+      detail: aiRecommendation ? `${aiRecommendation.replace(/_/g, " ").toLowerCase()} recommendation.` : "AI evidence is still pending.",
+    },
+  ];
+  const readyCount = gates.filter((gate) => gate.ok).length;
+
+  return (
+    <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/45 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Award Gate Checklist</p>
+        <span className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${
+          readyCount === gates.length ? "border-[#059669]/30 bg-[#059669]/10 text-[#059669]" : "border-secondary/30 bg-secondary/10 text-secondary"
+        }`}>
+          {readyCount}/{gates.length} ready
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {gates.map((gate) => (
+          <div key={gate.label} className="flex items-start gap-2 rounded-md bg-surface px-2.5 py-2 text-[10px]">
+            <span className={`material-symbols-outlined mt-0.5 text-[14px] ${gate.ok ? "text-[#059669]" : "text-secondary"}`}>
+              {gate.ok ? "check_circle" : "error"}
+            </span>
+            <div>
+              <p className="font-black text-on-surface">{gate.label}</p>
+              <p className="mt-0.5 leading-4 text-on-surface-variant">{gate.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ScoreCard({ score }: { score: any }) {
   if (!score) return (
     <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-3 text-[10px] text-on-surface-variant">
@@ -286,6 +368,7 @@ function BidCard({
         </div>
 
         <TrustEvidence developer={bid.developer} />
+        <AwardGateChecklist bid={bid} milestones={proposedMs} awardReadiness={awardReadiness} />
 
         {!awardReadiness.ok && (
           <div className="rounded-lg border border-secondary/20 bg-secondary/5 px-3 py-2.5 text-xs font-bold text-secondary">
