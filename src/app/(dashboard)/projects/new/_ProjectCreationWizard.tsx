@@ -22,6 +22,7 @@ import {
 } from "@/lib/scope-constraints";
 import { assessScopeFeasibility } from "@/lib/scope-feasibility";
 import { assessScopeIntake } from "@/lib/scope-intake-quality";
+import { buildScopeRevisionGuidance, isScopeRevisionHelpRequest } from "@/lib/scope-revision-guidance";
 import {
   PROJECT_PROBLEM_STARTERS,
   buildStarterPrompt,
@@ -68,6 +69,8 @@ export default function ProjectCreationWizard() {
   const [sowData, setSowData] = useState<any>(null);
   const [scopeConversation, setScopeConversation] = useState<string[]>([]);
   const [scopeRevisionNote, setScopeRevisionNote] = useState("");
+  const [scopeRevisionHelp, setScopeRevisionHelp] = useState<string[]>([]);
+  const [suggestedScopeRevision, setSuggestedScopeRevision] = useState("");
 
   // Triage state
   const [triageResult, setTriageResult] = useState<any>(null);
@@ -303,6 +306,17 @@ export default function ProjectCreationWizard() {
   const handleRefineScope = async () => {
     if (!editableSoW || !scopeRevisionNote.trim() || !triageResult) return;
 
+    if (isScopeRevisionHelpRequest(scopeRevisionNote)) {
+      const guidance = buildCurrentScopeRevisionGuidance();
+      setScopeRevisionHelp(guidance.guidance);
+      setSuggestedScopeRevision(guidance.suggestedRevision);
+      setToastMessage("I added guidance below. Refine Scope needs a concrete change to apply.");
+      setTimeout(() => setToastMessage(""), 2800);
+      return;
+    }
+
+    setScopeRevisionHelp([]);
+    setSuggestedScopeRevision("");
     setIsGenerating(true);
     setLoadingStatus("Refining your scope with the full conversation...");
 
@@ -530,6 +544,29 @@ export default function ProjectCreationWizard() {
         ? "Aggressive constraints can be posted with clear warnings."
         : "Market-ready for a first scope.";
   const hasIntakeBlockers = prompt.trim().length >= 5 && (intakeBlockers.length > 0 || missingBudgetOrTimeline);
+
+  const buildCurrentScopeRevisionGuidance = () => {
+    const milestoneIssues = Array.isArray(editableSoW?.milestones)
+      ? editableSoW.milestones.flatMap((milestone: any) => {
+          const assessment = assessMilestoneQuality(milestone);
+          const title = String(milestone?.title || "Untitled milestone");
+          return assessment.blockingIssues.slice(0, 2).map((issue) => ({
+            title,
+            issue,
+            guidance: guidanceForIssue(issue),
+          }));
+        })
+      : [];
+
+    return buildScopeRevisionGuidance({
+      milestoneIssues,
+      feasibilityStatus: feasibilityAssessment.status,
+      feasibilityNextSteps: feasibilityAssessment.nextSteps,
+      leanScopeOptions: feasibilityAssessment.leanScopeOptions,
+      budgetAmount: capturedBudgetAmount,
+      timelineDays: requestedTimelineDays,
+    });
+  };
 
   const resolveMilestoneIssues = () => {
     const firstFailingIndex = milestoneQualityAssessments.findIndex((assessment) => !assessment.passes);
@@ -1147,7 +1184,11 @@ export default function ProjectCreationWizard() {
                   <div className="mt-4 flex flex-col gap-3 md:flex-row">
                      <textarea
                         value={scopeRevisionNote}
-                        onChange={(e) => setScopeRevisionNote(e.target.value)}
+                        onChange={(e) => {
+                           setScopeRevisionNote(e.target.value);
+                           if (scopeRevisionHelp.length > 0) setScopeRevisionHelp([]);
+                           if (suggestedScopeRevision) setSuggestedScopeRevision("");
+                        }}
                         rows={3}
                         className="min-h-24 flex-1 resize-none rounded-lg border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary/50"
                         placeholder="Example: Keep the $15,000 budget and 30-day duration, but split compliance into its own milestone and make the chatbot a later checkpoint."
@@ -1162,6 +1203,37 @@ export default function ProjectCreationWizard() {
                         Refine Scope
                      </button>
                   </div>
+                  {scopeRevisionHelp.length > 0 && (
+                     <div className="mt-4 rounded-lg border border-secondary/20 bg-secondary/5 p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                           <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Revision guidance</p>
+                              <h4 className="mt-1 text-sm font-black text-on-surface">Here is what needs attention</h4>
+                              <div className="mt-3 space-y-2">
+                                 {scopeRevisionHelp.map((item) => (
+                                    <p key={item} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
+                                       <span className="material-symbols-outlined mt-0.5 text-[14px] text-secondary">arrow_right_alt</span>
+                                       <span>{item}</span>
+                                    </p>
+                                 ))}
+                              </div>
+                           </div>
+                           {suggestedScopeRevision && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                   setScopeRevisionNote(suggestedScopeRevision);
+                                   setScopeRevisionHelp([]);
+                                }}
+                                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-secondary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-secondary transition-colors hover:bg-secondary/90"
+                              >
+                                 <span className="material-symbols-outlined text-[14px]">edit_note</span>
+                                 Use Suggested Revision
+                              </button>
+                           )}
+                        </div>
+                     </div>
+                  )}
                </div>
 
                <div className={`max-w-4xl mx-auto rounded-lg border p-4 ${feasibilityPanelClass}`}>
