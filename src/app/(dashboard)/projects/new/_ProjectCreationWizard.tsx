@@ -23,6 +23,57 @@ import {
 import { assessScopeFeasibility } from "@/lib/scope-feasibility";
 import { assessScopeIntake } from "@/lib/scope-intake-quality";
 
+const PROJECT_STARTERS = [
+  {
+    label: "Web App MVP",
+    icon: "web_asset",
+    budget: 16000,
+    days: 55,
+    prompt:
+      "Build a SaaS web app MVP for customers and admins with account creation, role-based access, Stripe billing, core dashboard screens, audit logs, staging demo evidence, screenshots, QA report, and launch handoff documentation.",
+  },
+  {
+    label: "Customer Portal",
+    icon: "account_box",
+    budget: 9000,
+    days: 34,
+    prompt:
+      "Build a customer portal for clients and admins with secure login, profile management, document upload, status tracking, notification preferences, admin review dashboard, staging link, screenshots, QA evidence, and handoff notes.",
+  },
+  {
+    label: "Marketplace",
+    icon: "storefront",
+    budget: 28000,
+    days: 90,
+    prompt:
+      "Build a two-sided marketplace for buyers, providers, and admins with listings, search, proposal submission, milestone checkout, messaging, admin reporting, audit logs, staging demo, source archive, QA report, and launch documentation.",
+  },
+  {
+    label: "Mobile + Backend",
+    icon: "smartphone",
+    budget: 18000,
+    days: 60,
+    prompt:
+      "Build an iOS and Android app with a mobile app backend for customers and admins, including authentication, core user workflow, push notification readiness, admin management dashboard, API documentation, test evidence, screenshots, and release handoff.",
+  },
+  {
+    label: "AI Assistant",
+    icon: "psychology",
+    budget: 9000,
+    days: 30,
+    prompt:
+      "Build an AI assistant for employees and admins with a knowledge base, guarded response flow, conversation history, admin content controls, analytics dashboard, test prompts, evaluation report, staging demo, and handoff documentation.",
+  },
+  {
+    label: "Database Migration",
+    icon: "database",
+    budget: 8000,
+    days: 30,
+    prompt:
+      "Migrate the existing database to a new production-ready schema with source mapping, data validation, rollback plan, staged cutover checklist, admin verification report, migration logs, and post-migration handoff documentation.",
+  },
+] as const;
+
 export default function ProjectCreationWizard() {
   const router = useRouter();
 
@@ -369,6 +420,16 @@ export default function ProjectCreationWizard() {
     setPrompt((current) => `${current.trim()}${starter}`);
   };
 
+  const applyProjectStarter = (starter: (typeof PROJECT_STARTERS)[number]) => {
+    setMode("EXECUTION");
+    setPrompt(`${starter.prompt} Budget is $${starter.budget.toLocaleString("en-US")} and target timeline is ${starter.days} days.`);
+    setBudgetInput(String(starter.budget));
+    setTimelineInput(String(starter.days));
+    setDesiredTimeline(`${starter.days} days`);
+    setToastMessage(`${starter.label} starter loaded. Edit anything that does not fit.`);
+    setTimeout(() => setToastMessage(""), 2400);
+  };
+
   const handleSkipAndPostToMarketplace = () => {
     if (blockUnrealisticExecutionPost()) return;
 
@@ -573,6 +634,38 @@ export default function ProjectCreationWizard() {
                               $1k Discovery Sprint
                            </button>
                         </div>
+
+                        {prompt.trim().length < 5 && (
+                           <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 p-4">
+                              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                                 <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Common starting points</p>
+                                    <h3 className="mt-1 text-sm font-black text-on-surface">Start from a familiar software scope</h3>
+                                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                       Choose a starter to prefill an editable prompt, budget, and timeline. The AI still validates the scope before generating milestones.
+                                    </p>
+                                 </div>
+                              </div>
+                              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                 {PROJECT_STARTERS.map((starter) => (
+                                    <button
+                                      key={starter.label}
+                                      type="button"
+                                      onClick={() => applyProjectStarter(starter)}
+                                      className="group flex items-start gap-3 rounded-lg border border-outline-variant/20 bg-surface p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                                    >
+                                       <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">{starter.icon}</span>
+                                       <span className="min-w-0">
+                                          <span className="block text-xs font-black text-on-surface">{starter.label}</span>
+                                          <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                             {formatCurrency(starter.budget)} / {starter.days} days
+                                          </span>
+                                       </span>
+                                    </button>
+                                 ))}
+                              </div>
+                           </div>
+                        )}
 
                         <div className="relative group">
                            <textarea
