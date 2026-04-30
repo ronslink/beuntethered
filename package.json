@@ -12,6 +12,7 @@
     "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-e2e.ps1",
     "test:e2e:ui": "playwright test --ui",
     "secrets:scan": "node scripts/scan-secrets.mjs",
+    "secrets:scan:tracked": "node scripts/scan-secrets.mjs --tracked",
     "verify": "npm run lint && npx tsc --noEmit && npm test && npm run test:e2e && npm run build",
     "db:up": "docker compose up -d db",
     "db:init": "node scripts/local-db-init.mjs",
