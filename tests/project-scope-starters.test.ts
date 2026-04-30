@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assessScopeFeasibility } from "../src/lib/scope-feasibility.ts";
 import { assessScopeIntake } from "../src/lib/scope-intake-quality.ts";
-import { buildStarterPrompt, PROJECT_SCOPE_STARTERS } from "../src/lib/project-scope-starters.ts";
+import {
+  PROJECT_PROBLEM_STARTERS,
+  PROJECT_SCOPE_STARTERS,
+  buildStarterPrompt,
+} from "../src/lib/project-scope-starters.ts";
 
 test("project starters are unique and buyer editable", () => {
   const labels = PROJECT_SCOPE_STARTERS.map((starter) => starter.label);
@@ -23,6 +27,31 @@ test("project starters pass intake and feasibility checks", () => {
     });
 
     assert.equal(intake.status, "ready", `${starter.label} should be intake-ready`);
+    assert.equal(intake.issues.length, 0, `${starter.label} should not need extra buyer detail`);
+    assert.notEqual(feasibility.status, "unrealistic", `${starter.label} should not start blocked`);
+    assert.equal(feasibility.canPostExecution, true, `${starter.label} should be postable after review`);
+  }
+});
+
+test("problem starters translate business problems into postable SOW prompts", () => {
+  assert.ok(PROJECT_PROBLEM_STARTERS.length >= 3);
+  assert.ok(
+    PROJECT_PROBLEM_STARTERS.some((starter) =>
+      starter.problem.toLowerCase().includes("quickbooks")
+    )
+  );
+
+  for (const starter of PROJECT_PROBLEM_STARTERS) {
+    const prompt = buildStarterPrompt(starter);
+    const intake = assessScopeIntake(prompt);
+    const feasibility = assessScopeFeasibility({
+      prompt,
+      budgetAmount: starter.budget,
+      timelineDays: starter.days,
+    });
+
+    assert.ok(starter.problem.length > 80, `${starter.label} should describe the buyer problem`);
+    assert.equal(intake.status, "ready", `${starter.label} should become intake-ready`);
     assert.equal(intake.issues.length, 0, `${starter.label} should not need extra buyer detail`);
     assert.notEqual(feasibility.status, "unrealistic", `${starter.label} should not start blocked`);
     assert.equal(feasibility.canPostExecution, true, `${starter.label} should be postable after review`);

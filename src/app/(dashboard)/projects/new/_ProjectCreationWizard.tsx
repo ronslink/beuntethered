@@ -23,8 +23,10 @@ import {
 import { assessScopeFeasibility } from "@/lib/scope-feasibility";
 import { assessScopeIntake } from "@/lib/scope-intake-quality";
 import {
+  PROJECT_PROBLEM_STARTERS,
   buildStarterPrompt,
   PROJECT_SCOPE_STARTERS,
+  type ProjectProblemStarter,
   type ProjectScopeStarter,
 } from "@/lib/project-scope-starters";
 
@@ -407,6 +409,16 @@ export default function ProjectCreationWizard() {
     setTimeout(() => setToastMessage(""), 2400);
   };
 
+  const applyProblemStarter = (starter: ProjectProblemStarter) => {
+    setMode("EXECUTION");
+    setPrompt(buildStarterPrompt(starter));
+    setBudgetInput(String(starter.budget));
+    setTimelineInput(String(starter.days));
+    setDesiredTimeline(`${starter.days} days`);
+    setToastMessage(`${starter.label} problem statement translated into an editable SOW prompt.`);
+    setTimeout(() => setToastMessage(""), 2400);
+  };
+
   const handleSkipAndPostToMarketplace = () => {
     if (blockUnrealisticExecutionPost()) return;
 
@@ -639,6 +651,41 @@ export default function ProjectCreationWizard() {
                               ))}
                            </div>
                         </div>
+
+                        {prompt.trim().length < 5 && (
+                           <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 p-4">
+                              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                                 <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Problem statement starters</p>
+                                    <h3 className="mt-1 text-sm font-black text-on-surface">Start with the business problem</h3>
+                                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                       Choose one when you know the outcome you want, but not the technical SOW language yet. Each starter stays editable before validation.
+                                    </p>
+                                 </div>
+                              </div>
+                              <div className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-3">
+                                 {PROJECT_PROBLEM_STARTERS.map((starter) => (
+                                    <button
+                                      key={starter.label}
+                                      type="button"
+                                      onClick={() => applyProblemStarter(starter)}
+                                      className="group flex flex-col gap-3 rounded-lg border border-outline-variant/20 bg-surface p-3 text-left transition-colors hover:border-secondary/40 hover:bg-secondary/5"
+                                    >
+                                       <span className="flex items-start gap-3">
+                                          <span className="material-symbols-outlined mt-0.5 text-[18px] text-secondary">{starter.icon}</span>
+                                          <span className="min-w-0">
+                                             <span className="block text-xs font-black text-on-surface">{starter.label}</span>
+                                             <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                                {formatCurrency(starter.budget)} / {starter.days} days
+                                             </span>
+                                          </span>
+                                       </span>
+                                       <span className="text-xs leading-5 text-on-surface-variant">{starter.problem}</span>
+                                    </button>
+                                 ))}
+                              </div>
+                           </div>
+                        )}
 
                         {prompt.trim().length < 5 && (
                            <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 p-4">
