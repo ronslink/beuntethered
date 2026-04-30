@@ -6,9 +6,22 @@ export type ScopeIntakeIssue = {
   severity: "blocker" | "warning";
 };
 
+export type ProblemScopePattern = {
+  id:
+    | "payment_accounting_sync"
+    | "lead_crm_routing"
+    | "reporting_automation"
+    | "data_migration"
+    | "business_system_integration";
+  label: string;
+  description: string;
+  proofExamples: string[];
+};
+
 export type ScopeIntakeAssessment = {
   status: "ready" | "needs_detail";
   inputStyle: "delivery_scope" | "problem_statement";
+  problemPattern?: ProblemScopePattern;
   score: number;
   issues: ScopeIntakeIssue[];
   guidingQuestions: string[];
@@ -31,13 +44,13 @@ const CONSTRAINT_TERMS =
   /\b(budget|timeline|deadline|days|weeks|months|by\s+\w+|usd|\$|compliance|country|countries|market|markets|region|regions|launch-readiness|launch ready)\b/i;
 
 const PROBLEM_STATEMENT_TERMS =
-  /\b(i|we|our|my)\s+(want|need|would like|have to|are trying|struggle|spend|lose|miss)|\b(problem|pain|manual|lost|broken|struggling|too much time|so that|directly into)\b/i;
+  /\b(i|we|our|my)\s+(want|need|would like|have to|are trying|struggle|spend|lose|miss)|\b(problem|pain|manual|lost|broken|struggling|too much time|spends?\s+hours|so that|directly into)\b/i;
 
 const PROBLEM_ACTION_TERMS =
-  /\b(integrate|connect|sync|capture|automate|import|export|route|notify|reconcile|reduce|avoid|eliminate|replace)\b/i;
+  /\b(integrate|connect|sync|capture|automate|import|export|route|notify|reconcile|copy|copying|reduce|avoid|eliminate|replace)\b/i;
 
 const SYSTEM_INTEGRATION_TERMS =
-  /\b(quickbooks|xero|stripe|shopify|woocommerce|crm|salesforce|hubspot|website|store|booking|invoice|accounting|api|database|spreadsheet|excel|google sheets|payment|payments)\b/i;
+  /\b(quickbooks|xero|stripe|shopify|woocommerce|crm|salesforce|hubspot|website|store|booking|invoice|accounting|api|database|spreadsheet|spreadsheets|excel|google sheets|payment|payments)\b/i;
 
 const TRIGGER_TERMS =
   /\b(when|whenever|after|on\s+(payment|checkout|signup|order|booking|submission|invoice)|trigger|event|webhook|submit|submission|checkout|scheduled|weekly|daily)\b/i;
@@ -47,6 +60,39 @@ const SUCCESS_RESULT_TERMS =
 
 const EXCEPTION_TERMS =
   /\b(error|failed|failure|duplicate|retry|exception|manual review|reconciliation|rollback|audit|log|logs|missing|rejected)\b/i;
+
+const PROBLEM_PATTERNS: readonly ProblemScopePattern[] = [
+  {
+    id: "payment_accounting_sync",
+    label: "Payment + Accounting Sync",
+    description: "A payment, invoice, tax, or reconciliation flow connecting customer transactions to finance records.",
+    proofExamples: ["staging test payment", "accounting sync log", "invoice or receipt screenshot", "reconciliation report"],
+  },
+  {
+    id: "lead_crm_routing",
+    label: "Lead Capture + CRM Routing",
+    description: "A website, form, or sales inquiry workflow that needs to create and route CRM records reliably.",
+    proofExamples: ["test lead submission", "CRM record screenshot", "duplicate handling log", "notification proof"],
+  },
+  {
+    id: "reporting_automation",
+    label: "Reporting Automation",
+    description: "A recurring reporting workflow that should reduce copying data between tools and produce reviewable reports.",
+    proofExamples: ["generated report export", "scheduled run log", "source data mapping", "dashboard screenshot"],
+  },
+  {
+    id: "data_migration",
+    label: "Data Migration",
+    description: "A controlled data move, cleanup, import, or cutover between systems or schemas.",
+    proofExamples: ["migration validation report", "row count comparison", "rollback plan", "cutover checklist"],
+  },
+  {
+    id: "business_system_integration",
+    label: "Business System Integration",
+    description: "A system-to-system workflow where data needs to move accurately with clear review and exception handling.",
+    proofExamples: ["integration test log", "before/after record screenshots", "error queue review", "handoff notes"],
+  },
+] as const;
 
 const PURE_PROCESS_PATTERNS = [
   /\b(testing|qa|bug fixes?|debugging|polish|support|maintenance|meetings?|consultation|advice)\b/i,
@@ -75,6 +121,26 @@ function detectInputStyle(text: string): ScopeIntakeAssessment["inputStyle"] {
     (PROBLEM_ACTION_TERMS.test(text) || SYSTEM_INTEGRATION_TERMS.test(text))
     ? "problem_statement"
     : "delivery_scope";
+}
+
+function detectProblemPattern(text: string): ProblemScopePattern | undefined {
+  if (/\b(payment|payments|checkout|invoice|receipt|quickbooks|xero|accounting|stripe|shopify|woocommerce|reconciliation|tax)\b/i.test(text)) {
+    return PROBLEM_PATTERNS[0];
+  }
+
+  if (/\b(lead|leads|crm|salesforce|hubspot|sales|inquiry|inquiries|contact form|prospect)\b/i.test(text)) {
+    return PROBLEM_PATTERNS[1];
+  }
+
+  if (/\b(report|reports|reporting|dashboard|analytics|weekly|monthly|spreadsheet|excel|google sheets|copying data)\b/i.test(text)) {
+    return PROBLEM_PATTERNS[2];
+  }
+
+  if (/\b(database|migration|migrate|cutover|schema|import|export|move data|data cleanup|legacy)\b/i.test(text)) {
+    return PROBLEM_PATTERNS[3];
+  }
+
+  return PROBLEM_PATTERNS[4];
 }
 
 function buildProblemStatementQuestions(text: string) {
@@ -137,6 +203,7 @@ export function assessScopeIntake(prompt: string): ScopeIntakeAssessment {
   const text = normalize(prompt);
   const issues: ScopeIntakeIssue[] = [];
   const inputStyle = detectInputStyle(text);
+  const problemPattern = inputStyle === "problem_statement" ? detectProblemPattern(text) : undefined;
 
   if (text.length < 30) {
     appendIssue(issues, {
@@ -218,28 +285,35 @@ export function assessScopeIntake(prompt: string): ScopeIntakeAssessment {
   return {
     status: blockerCount > 0 ? "needs_detail" : "ready",
     inputStyle,
+    problemPattern,
     score,
     issues,
     guidingQuestions: buildGuidingQuestions(issues, text, inputStyle),
-    suggestedPrompt: buildSuggestedScopePrompt(text, issues, inputStyle),
+    suggestedPrompt: buildSuggestedScopePrompt(text, issues, inputStyle, problemPattern),
   };
 }
 
 export function buildSuggestedScopePrompt(
   prompt: string,
   issues: ScopeIntakeIssue[],
-  inputStyle: ScopeIntakeAssessment["inputStyle"] = "delivery_scope"
+  inputStyle: ScopeIntakeAssessment["inputStyle"] = "delivery_scope",
+  problemPattern?: ProblemScopePattern
 ) {
   if (inputStyle === "problem_statement") {
+    const approvalEvidence = problemPattern
+      ? problemPattern.proofExamples.join(", ")
+      : "staging test transaction, screenshots, sync logs, reports, QA evidence, handoff notes";
+
     return [
       `Business problem: ${prompt}${prompt.endsWith(".") ? "" : "."}`,
+      problemPattern ? `Likely project pattern: ${problemPattern.label}.` : "",
       "Desired outcome: [what should happen automatically when the work is complete].",
       "Current systems: [website/store/booking flow/source system] and [accounting/CRM/reporting/target system].",
       "Primary users: [customers/employees/admins/managers] need to [main actions].",
       "Exceptions: [missing data, duplicate records, failed syncs, refunds, retries, manual review].",
-      "Approval evidence: [staging test transaction, screenshots, sync logs, reports, QA evidence, handoff notes].",
+      `Approval evidence: [${approvalEvidence}].`,
       "Constraints: [budget], [timeline], [countries/regions], and [required systems/compliance needs].",
-    ].join(" ");
+    ].filter(Boolean).join(" ");
   }
 
   const needsUsers = issues.some((issue) => issue.code === "missing_users");

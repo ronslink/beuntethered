@@ -41,11 +41,32 @@ test("detects business problem statements and asks workflow-specific questions",
 
   assert.equal(assessment.status, "ready");
   assert.equal(assessment.inputStyle, "problem_statement");
+  assert.equal(assessment.problemPattern?.id, "payment_accounting_sync");
+  assert.equal(assessment.problemPattern?.label, "Payment + Accounting Sync");
+  assert.ok(assessment.problemPattern?.proofExamples.some((proof) => /accounting sync log/.test(proof)));
   assert.ok(assessment.guidingQuestions.some((question) => /trigger the workflow/.test(question)));
   assert.ok(assessment.guidingQuestions.some((question) => /missing, duplicated, rejected/.test(question)));
   assert.match(assessment.suggestedPrompt, /Business problem:/);
+  assert.match(assessment.suggestedPrompt, /Likely project pattern: Payment \+ Accounting Sync/);
   assert.match(assessment.suggestedPrompt, /Current systems:/);
-  assert.match(assessment.suggestedPrompt, /Approval evidence:/);
+  assert.match(assessment.suggestedPrompt, /accounting sync log/);
+});
+
+test("classifies common problem statement patterns beyond accounting", () => {
+  const leadWorkflow = assessScopeIntake(
+    "We need website leads from our contact form routed into HubSpot so the sales team can follow up without missing inquiries."
+  );
+  const reportingWorkflow = assessScopeIntake(
+    "Our team spends hours copying data from spreadsheets into a weekly dashboard report for managers."
+  );
+
+  assert.equal(leadWorkflow.inputStyle, "problem_statement");
+  assert.equal(leadWorkflow.problemPattern?.id, "lead_crm_routing");
+  assert.ok(leadWorkflow.suggestedPrompt.includes("CRM record screenshot"));
+
+  assert.equal(reportingWorkflow.inputStyle, "problem_statement");
+  assert.equal(reportingWorkflow.problemPattern?.id, "reporting_automation");
+  assert.ok(reportingWorkflow.suggestedPrompt.includes("generated report export"));
 });
 
 test("accepts a clear, verifiable software delivery prompt", () => {

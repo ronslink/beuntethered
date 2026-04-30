@@ -748,6 +748,28 @@ export default function ProjectCreationWizard() {
                                  </button>
                               </div>
 
+                              {intakeAssessment.problemPattern && (
+                                 <div className="mt-3 rounded-md border border-secondary/15 bg-surface p-3">
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                       <div>
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Detected pattern</p>
+                                          <p className="mt-1 text-xs font-black text-on-surface">{intakeAssessment.problemPattern.label}</p>
+                                          <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">{intakeAssessment.problemPattern.description}</p>
+                                       </div>
+                                       <div className="flex flex-wrap gap-1.5 md:max-w-sm md:justify-end">
+                                          {intakeAssessment.problemPattern.proofExamples.map((proof) => (
+                                             <span
+                                               key={proof}
+                                               className="rounded-md border border-secondary/15 bg-secondary/5 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-secondary"
+                                             >
+                                                {proof}
+                                             </span>
+                                          ))}
+                                       </div>
+                                    </div>
+                                 </div>
+                              )}
+
                               {intakeAssessment.guidingQuestions.length > 0 && (
                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
                                     {intakeAssessment.guidingQuestions.slice(0, 4).map((question) => (
