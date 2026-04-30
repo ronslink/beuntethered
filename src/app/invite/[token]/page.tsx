@@ -2,40 +2,13 @@ import { prisma } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { calculateBYOCInviteTotals } from "@/lib/byoc-sow";
+import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
 import { getCurrentUser } from "@/lib/session";
 
 function maskEmail(email: string) {
   const [local, domain] = email.split("@");
   if (!local || !domain) return "the invited email";
   return `${local.slice(0, 1)}***@${domain}`;
-}
-
-function readSowLine(sow: string | null, label: string) {
-  if (!sow) return null;
-  const line = sow
-    .split("\n")
-    .find((entry) => entry.toLowerCase().startsWith(`${label.toLowerCase()}:`));
-  return line ? line.slice(label.length + 1).trim() : null;
-}
-
-function getTransitionBaseline(sow: string | null) {
-  const transitionMode = readSowLine(sow, "Transition mode");
-  const currentState = readSowLine(sow, "Current project state");
-  const priorWork = readSowLine(sow, "Prior work or existing assets");
-  const remainingWork = readSowLine(sow, "Remaining work to govern in Untether");
-  const knownRisks = readSowLine(sow, "Known risks or open questions");
-
-  if (!transitionMode && !currentState && !priorWork && !remainingWork && !knownRisks) {
-    return null;
-  }
-
-  return {
-    transitionMode: transitionMode || "new external project",
-    currentState,
-    priorWork,
-    remainingWork,
-    knownRisks,
-  };
 }
 
 export default async function BYOCMagicLinkClaim(props: { params: Promise<{ token: string }> }) {
@@ -65,7 +38,7 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
   const totalValuation = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
   const totals = calculateBYOCInviteTotals(project.milestones.map((milestone) => ({ amount: Number(milestone.amount) })));
   const facilitatorName = project.creator.name || "Your facilitator";
-  const transitionBaseline = getTransitionBaseline(project.ai_generated_sow);
+  const transitionBaseline = getBYOCTransitionBaseline(project.ai_generated_sow);
 
   // If they are already heavily onboarded and mapping correctly natively as a Client,
   // we bypass external friction logic

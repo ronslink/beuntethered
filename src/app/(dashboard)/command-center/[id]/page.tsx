@@ -14,6 +14,7 @@ import ProjectActivityLedger from "@/components/dashboard/ProjectActivityLedger"
 import { getMilestoneReadiness } from "@/lib/milestone-readiness";
 import { getMilestoneProofPlan } from "@/lib/milestone-proof";
 import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
+import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
 
 export default async function ProjectCommandCenter({
   params,
@@ -99,6 +100,16 @@ export default async function ProjectCommandCenter({
   const isHubLocked = isRetainer && !project.github_repo_url;
   const isCompleted = project.status === "COMPLETED";
   const totalValue = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
+  const transitionBaseline = project.is_byoc ? getBYOCTransitionBaseline(project.ai_generated_sow) : null;
+  const transitionBaselineFields = transitionBaseline
+    ? [
+        ["Mode", transitionBaseline.transitionMode],
+        ["Current state", transitionBaseline.currentState],
+        ["Prior work/assets", transitionBaseline.priorWork],
+        ["Remaining governed work", transitionBaseline.remainingWork],
+        ["Known risks", transitionBaseline.knownRisks],
+      ].filter((entry): entry is [string, string] => Boolean(entry[1]))
+    : [];
   const integrationProject = {
     id: project.id,
     title: project.title,
@@ -311,6 +322,24 @@ export default async function ProjectCommandCenter({
               This agreement binds the Scope of Work between the funding client and executing facilitator. It serves as the source of truth for escrow release and dispute review.
             </p>
 
+            {transitionBaseline && transitionBaselineFields.length > 0 && (
+              <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 p-5">
+                <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
+                  <span className="material-symbols-outlined text-[13px]">assignment_turned_in</span>
+                  BYOC Transition Baseline
+                </p>
+                <p className="text-sm font-bold text-on-surface">Governed scope from claim forward</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {transitionBaselineFields.map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-primary/15 bg-surface p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+                      <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-surface rounded-2xl border border-outline-variant/20 border-l-4 border-l-secondary p-5 mb-6">
               <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[13px]">lock</span> Locked Scope of Work
@@ -337,6 +366,35 @@ export default async function ProjectCommandCenter({
 
           {/* Left: Milestone Timeline */}
           <div className="lg:col-span-2 space-y-3">
+            {transitionBaseline && transitionBaselineFields.length > 0 && (
+              <section className="mb-5 rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="max-w-2xl">
+                    <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
+                      <span className="material-symbols-outlined text-[14px]">assignment_turned_in</span>
+                      BYOC Transition Baseline
+                    </p>
+                    <h2 className="mt-1 text-lg font-black text-on-surface">Governed scope from claim forward</h2>
+                    <p className="mt-2 text-xs font-medium leading-5 text-on-surface-variant">
+                      This running project entered Untether through a private delivery packet. Prior work is recorded as context unless it appears inside a funded milestone; payment, evidence, audits, and disputes attach from this accepted packet forward.
+                    </p>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/20 bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                    <span className="material-symbols-outlined text-[13px]">lock_clock</span>
+                    Claim baseline
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {transitionBaselineFields.map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-primary/15 bg-surface p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+                      <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-sm font-black font-headline uppercase tracking-widest text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[18px]">layers</span>

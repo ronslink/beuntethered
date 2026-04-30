@@ -100,7 +100,17 @@ test("BYOC invite claim atomically assigns the buyer workspace once", async ({ p
       creator_id: facilitator.id,
       title: "Private Operations Repair",
       ai_generated_sow:
-        "Private BYOC Scope: Private Operations Repair\n\nBYOC Transition Baseline\nTransition mode: running project\nPlatform responsibility starts from the accepted packet and funded milestones onward.",
+        [
+          "Private BYOC Scope: Private Operations Repair",
+          "",
+          "BYOC Transition Baseline",
+          "Transition mode: running project",
+          "Current project state: Client has a partially working operations console in staging.",
+          "Prior work or existing assets: Existing repository, staging URL, and production incident notes.",
+          "Remaining work to govern in Untether: Stabilize the console, verify the repair, and provide release evidence.",
+          "Known risks or open questions: Production credentials are not yet available.",
+          "Platform responsibility starts from the accepted packet and funded milestones onward.",
+        ].join("\n"),
       is_byoc: true,
       invite_token: inviteToken,
       invited_client_email: clientEmail,
@@ -135,6 +145,9 @@ test("BYOC invite claim atomically assigns the buyer workspace once", async ({ p
     ]);
     await page.goto(`/invite/${inviteToken}/claim`);
     await expect(page).toHaveURL(new RegExp(`/(projects|command-center)/${project.id}`));
+    await expect(page.getByText(/BYOC Transition Baseline/)).toBeVisible();
+    await expect(page.getByText("Governed scope from claim forward")).toBeVisible();
+    await expect(page.getByText("Client has a partially working operations console in staging.")).toBeVisible();
 
     const claimed = await prisma.project.findUniqueOrThrow({
       where: { id: project.id },
