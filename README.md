@@ -46,6 +46,38 @@ Then run:
 npm run db:migrate:deploy
 ```
 
+If deploy still reports `New migrations cannot be applied before the error is recovered from`,
+inspect the target database migration ledger first:
+
+```bash
+npm run db:migrations:status
+```
+
+The current repository contains a single production baseline migration:
+`0001_current_schema`. If Supabase/Vercel is still blocked by older failed rows such
+as `0001_baseline` or `0002_trust_marketplace_foundation`, resolve only the failed
+rows in that target database, then rerun deploy:
+
+```bash
+npx prisma migrate resolve --rolled-back 0001_baseline
+npx prisma migrate resolve --rolled-back 0002_trust_marketplace_foundation
+npm run db:migrate:deploy
+```
+
+Do not reset a production schema that contains real users, projects, bids, payments,
+or audit records. Use the schema reset above only for an empty failed preview/prototype
+database.
+
+If the target database already has the expected tables from older applied migrations
+and `0001_current_schema` is pending, verify the schema first, then mark the current
+baseline as applied instead of replaying it over existing tables:
+
+```bash
+npm run db:migrations:status
+npx prisma migrate resolve --applied 0001_current_schema
+npm run db:migrate:deploy
+```
+
 Run the dev server:
 
 ```bash

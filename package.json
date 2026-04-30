@@ -23,6 +23,7 @@
     "db:migrate": "node scripts/local-db-sync.mjs",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrations:status": "node scripts/check-prisma-migrations.mjs",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio"
