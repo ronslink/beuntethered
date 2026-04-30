@@ -31,6 +31,21 @@ The historical Prisma migration folder is retained for production/Supabase basel
 deploy workflows; a fresh local Docker database should not replay the Supabase baseline
 migrations directly.
 
+Production/Supabase deploys use `npm run db:migrate:deploy`. If a database previously
+failed on the old `0002_trust_marketplace_foundation` migration before any real data
+was created, reset the empty schema once, then rerun deploy:
+
+```sql
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+```
+
+Then run:
+
+```bash
+npm run db:migrate:deploy
+```
+
 Run the dev server:
 
 ```bash
