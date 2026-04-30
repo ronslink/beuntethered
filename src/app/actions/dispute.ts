@@ -20,6 +20,7 @@ import { userCanManageBuyerProject } from "@/lib/project-access";
 import type { Prisma } from "@prisma/client";
 import { sendDisputeOpenedAlert } from "@/lib/resend";
 import { shouldSendEmailForPreference } from "@/lib/email-preferences";
+import { getPlatformAdminEmail } from "@/lib/platform-admin";
 
 type UploadedDisputeEvidence = Awaited<ReturnType<typeof uploadAttachmentFile>>;
 
@@ -32,6 +33,47 @@ type OpenDisputeParams = {
   appmapFile?: File | null;
   evidenceFiles?: File[];
 };
+
+async function notifyPlatformAdminDisputeOpened({
+  disputeId,
+  projectId,
+  projectTitle,
+  milestoneId,
+  milestoneTitle,
+  openedByRole,
+  reason,
+}: {
+  disputeId: string;
+  projectId: string;
+  projectTitle: string;
+  milestoneId: string;
+  milestoneTitle: string;
+  openedByRole: "CLIENT" | "FACILITATOR";
+  reason: string;
+}) {
+  const adminEmail = getPlatformAdminEmail();
+  const admin = await prisma.user.findUnique({
+    where: { email: adminEmail },
+    select: { id: true },
+  });
+
+  if (!admin) return;
+
+  await createSystemNotification({
+    userId: admin.id,
+    message: `New arbitration case on "${projectTitle}" opened by ${openedByRole.toLowerCase()}: ${reason.slice(0, 100)}${reason.length > 100 ? "..." : ""}`,
+    type: "ERROR",
+    href: "/admin/disputes",
+    sourceKey: `admin_dispute_opened_${disputeId}`,
+    metadata: {
+      dispute_id: disputeId,
+      project_id: projectId,
+      milestone_id: milestoneId,
+      milestone_title: milestoneTitle,
+      opened_by_role: openedByRole,
+    },
+  });
+}
 
 async function createDispute(params: OpenDisputeParams): Promise<{ success: boolean; error?: string }> {
   try {
@@ -247,6 +289,16 @@ async function createDispute(params: OpenDisputeParams): Promise<{ success: bool
         reason,
       });
     }
+
+    await notifyPlatformAdminDisputeOpened({
+      disputeId: createdDispute.id,
+      projectId,
+      projectTitle: project.title,
+      milestoneId: targetMilestone.id,
+      milestoneTitle: targetMilestone.title,
+      openedByRole,
+      reason,
+    });
 
     await recordActivity({
       projectId,
