@@ -1,5 +1,6 @@
 import { getBasicAIProviderPreference, getGemmaServerConfig, getGroqConfig, resolveBasicAIProvider } from "./ai-provider-config.ts";
 import { getEmailConfiguration } from "./email-config.ts";
+import { getPlatformAdminEmail } from "./platform-admin.ts";
 import { getStripeSecretKey, getStripeWebhookSecret } from "./stripe.ts";
 
 type ReadinessEnv = Record<string, string | undefined>;
@@ -20,6 +21,10 @@ export type PlatformReadinessReport = {
   overallStatus: ReadinessStatus;
   checks: ReadinessCheck[];
   summary: Record<ReadinessStatus, number>;
+};
+
+type PlatformReadinessOptions = {
+  platformAdminAccountExists?: boolean;
 };
 
 function readEnv(env: ReadinessEnv, key: string) {
@@ -195,7 +200,35 @@ function checkStorage(env: ReadinessEnv): ReadinessCheck {
   };
 }
 
-export function buildPlatformReadinessReport(env: ReadinessEnv = process.env, now = new Date()): PlatformReadinessReport {
+function checkTrustOperations(env: ReadinessEnv, options: PlatformReadinessOptions): ReadinessCheck[] {
+  if (typeof options.platformAdminAccountExists !== "boolean") return [];
+
+  const adminEmail = getPlatformAdminEmail(env);
+  return [
+    options.platformAdminAccountExists
+      ? {
+          id: "platform-admin-account",
+          area: "Trust Operations",
+          label: "Platform admin account",
+          status: "READY",
+          detail: `Admin user ${adminEmail} exists for arbitration and verification notifications.`,
+        }
+      : {
+          id: "platform-admin-account",
+          area: "Trust Operations",
+          label: "Platform admin account",
+          status: "BLOCKED",
+          detail: `Configured admin email ${adminEmail} does not match an application user.`,
+          remediation: "Create or promote the configured ADMIN_EMAIL user before relying on admin alerts.",
+        },
+  ];
+}
+
+export function buildPlatformReadinessReport(
+  env: ReadinessEnv = process.env,
+  now = new Date(),
+  options: PlatformReadinessOptions = {}
+): PlatformReadinessReport {
   const email = getEmailConfiguration(env);
   const checks: ReadinessCheck[] = [
     {
@@ -247,6 +280,7 @@ export function buildPlatformReadinessReport(env: ReadinessEnv = process.env, no
       value: readEnv(env, "CRON_SECRET"),
       remediation: "Set CRON_SECRET for scheduled saved-search alert jobs.",
     }),
+    ...checkTrustOperations(env, options),
     ...checkStripe(env),
     ...checkAI(env),
     {

@@ -18,6 +18,7 @@ const readyEnv = {
   EMAIL_FROM: "Untether Ops <ops@example.com>",
   BLOB_READ_WRITE_TOKEN: "vercel_blob_token",
   GITHUB_WEBHOOK_SECRET: "github-secret",
+  ADMIN_EMAIL: "admin@example.com",
 };
 
 test("platform readiness reports all-ready production configuration", () => {
@@ -51,4 +52,19 @@ test("platform readiness warns on non-critical launch configuration", () => {
   assert.equal(report.summary.BLOCKED, 0);
   assert.ok(report.checks.some((check) => check.id === "email-provider" && check.status === "WARNING"));
   assert.ok(report.checks.some((check) => check.id === "attachment-storage" && check.status === "WARNING"));
+});
+
+test("platform readiness blocks missing platform admin account when checked", () => {
+  const report = buildPlatformReadinessReport(
+    readyEnv,
+    new Date("2026-04-29T00:00:00.000Z"),
+    { platformAdminAccountExists: false }
+  );
+
+  assert.equal(report.overallStatus, "BLOCKED");
+  assert.ok(
+    report.checks.some(
+      (check) => check.id === "platform-admin-account" && check.status === "BLOCKED"
+    )
+  );
 });

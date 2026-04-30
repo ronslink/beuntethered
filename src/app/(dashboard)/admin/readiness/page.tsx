@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { buildPlatformReadinessReport, type ReadinessStatus } from "@/lib/platform-readiness";
-import { isPlatformAdminEmail } from "@/lib/platform-admin";
+import { getPlatformAdminEmail, isPlatformAdminEmail } from "@/lib/platform-admin";
+import { prisma } from "@/lib/auth";
 
 const statusStyles: Record<ReadinessStatus, { badge: string; icon: string; label: string }> = {
   READY: {
@@ -27,7 +28,13 @@ export default async function AdminReadinessPage() {
     redirect("/dashboard");
   }
 
-  const report = buildPlatformReadinessReport();
+  const platformAdminAccount = await prisma.user.findUnique({
+    where: { email: getPlatformAdminEmail() },
+    select: { id: true },
+  });
+  const report = buildPlatformReadinessReport(process.env, new Date(), {
+    platformAdminAccountExists: Boolean(platformAdminAccount),
+  });
   const grouped = report.checks.reduce<Record<string, typeof report.checks>>((acc, check) => {
     acc[check.area] = acc[check.area] ?? [];
     acc[check.area].push(check);
