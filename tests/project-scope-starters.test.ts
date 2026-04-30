@@ -37,7 +37,8 @@ test("problem starters translate business problems into postable SOW prompts", (
   assert.ok(PROJECT_PROBLEM_STARTERS.length >= 3);
   assert.ok(
     PROJECT_PROBLEM_STARTERS.some((starter) =>
-      starter.problem.toLowerCase().includes("quickbooks")
+      starter.problem.toLowerCase().includes("quickbooks") &&
+      starter.problem.toLowerCase().includes("xero")
     )
   );
 

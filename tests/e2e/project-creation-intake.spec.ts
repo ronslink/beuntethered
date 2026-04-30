@@ -19,7 +19,7 @@ test("client sees enterprise project intake workflow", async ({ page }) => {
     await expect(page.getByPlaceholder(/build a customer portal/i)).toBeVisible();
     await expect(page.getByText(/milestone-based sow/i)).toBeVisible();
     await expect(page.getByText(/meaningful/i)).toBeVisible();
-    await expect(page.getByText(/verifiable/i)).toBeVisible();
+    await expect(page.getByText("Verifiable", { exact: true })).toBeVisible();
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

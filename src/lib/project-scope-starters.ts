@@ -63,14 +63,14 @@ export const PROJECT_SCOPE_STARTERS: readonly ProjectScopeStarter[] = [
 
 export const PROJECT_PROBLEM_STARTERS: readonly ProjectProblemStarter[] = [
   {
-    label: "QuickBooks Payment Sync",
+    label: "Payment + Accounting Sync",
     icon: "sync_alt",
     budget: 41500,
     days: 112,
     problem:
-      "I want to integrate my QuickBooks setup with my website so customer payments can be captured directly into QuickBooks.",
+      "I want customer payments from my website, store, or booking flow to sync cleanly into my accounting system, such as QuickBooks or Xero.",
     prompt:
-      "Solve this business problem: the client wants their website payment flow integrated with QuickBooks so customer payments are captured directly in QuickBooks with accurate customer, invoice, transaction, tax, and reconciliation data. Build a secure payment-to-accounting integration for customers, finance admins, and site admins, including QuickBooks OAuth connection, payment event capture from the website checkout, invoice or sales receipt creation rules, payment status reconciliation, error handling queue, admin sync dashboard, audit logs, staging test transactions, screenshots, QA evidence, rollback notes, and launch handoff documentation.",
+      "Solve this business problem: the client wants customer payments from a website, store, or booking flow synced cleanly into an accounting system such as QuickBooks or Xero with accurate customer, invoice, transaction, tax, and reconciliation data. Build a secure payment-to-accounting integration for customers, finance admins, and site admins, including accounting platform connection, payment event capture from the website checkout, invoice or sales receipt creation rules, payment status reconciliation, error handling queue, admin sync dashboard, audit logs, staging test transactions, screenshots, QA evidence, rollback notes, and launch handoff documentation.",
   },
   {
     label: "Manual Reporting Automation",
