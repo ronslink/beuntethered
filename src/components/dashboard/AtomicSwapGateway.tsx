@@ -6,10 +6,22 @@ import { useRouter } from "next/navigation";
 import { calculateMilestoneFees, formatCents } from "@/lib/platform-fees";
 import { getReviewReleaseState } from "@/lib/review-release-rules";
 
-export function FacilitatorSubmitGateway({ milestoneId }: { milestoneId: string }) {
+type SubmissionProofPlan = {
+  requiredArtifacts: Array<{ key: string; label: string; detail: string; available: boolean }>;
+  reviewChecks: string[];
+};
+
+export function FacilitatorSubmitGateway({
+  milestoneId,
+  proofPlan,
+}: {
+  milestoneId: string;
+  proofPlan?: SubmissionProofPlan;
+}) {
   const [loading, setLoading] = useState(false);
   const [payloadName, setPayloadName] = useState("Payload");
   const [evidenceNames, setEvidenceNames] = useState<string[]>([]);
+  const [proofAttested, setProofAttested] = useState(false);
 
   const handleAction = async (formData: FormData) => {
     setLoading(true);
@@ -26,6 +38,35 @@ export function FacilitatorSubmitGateway({ milestoneId }: { milestoneId: string 
   return (
     <form action={handleAction} className="flex w-full max-w-2xl flex-col gap-3 rounded-2xl border border-primary/20 bg-surface-container-low p-4">
       <input type="hidden" name="milestoneId" value={milestoneId} />
+      {proofPlan && (
+        <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px] text-primary">rule</span>
+            <p className="text-[9px] font-black uppercase tracking-widest text-primary">Submission Proof Gates</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {proofPlan.requiredArtifacts.map((artifact) => (
+              <div key={artifact.key} className="rounded-lg border border-outline-variant/20 bg-surface px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface">{artifact.label}</p>
+                <p className="mt-1 text-[10px] font-medium leading-4 text-on-surface-variant">{artifact.detail}</p>
+              </div>
+            ))}
+          </div>
+          {proofPlan.reviewChecks.length > 0 && (
+            <div className="mt-3 border-t border-primary/10 pt-3">
+              <p className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Acceptance checks to evidence</p>
+              <div className="space-y-1">
+                {proofPlan.reviewChecks.slice(0, 4).map((check) => (
+                  <p key={check} className="flex items-start gap-1.5 text-[10px] font-medium leading-4 text-on-surface-variant">
+                    <span className="material-symbols-outlined mt-0.5 text-[12px] text-tertiary">check_circle</span>
+                    {check}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <input
         type="url"
         name="previewUrl"
@@ -44,6 +85,17 @@ export function FacilitatorSubmitGateway({ milestoneId }: { milestoneId: string 
       <p className="text-[10px] font-medium leading-relaxed text-on-surface-variant">
         Include the review path, any setup notes, and which acceptance checks the buyer should verify before release.
       </p>
+      <label className="flex items-start gap-2 rounded-xl border border-outline-variant/20 bg-surface px-3 py-2.5 text-xs font-medium text-on-surface-variant">
+        <input
+          type="checkbox"
+          name="proofAttestation"
+          checked={proofAttested}
+          onChange={(event) => setProofAttested(event.target.checked)}
+          required
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-primary)]"
+        />
+        <span>I mapped this submission to the proof gates and acceptance checks shown above.</span>
+      </label>
 
       <div className="flex flex-wrap gap-2 w-full">
         <label className="relative cursor-pointer bg-surface-variant/30 hover:bg-surface-variant text-on-surface-variant px-5 py-2.5 rounded-xl text-sm font-bold tracking-widest uppercase transition-colors shrink-0 flex items-center gap-2">
@@ -75,8 +127,8 @@ export function FacilitatorSubmitGateway({ milestoneId }: { milestoneId: string 
 
         <button
             type="submit"
-            disabled={loading}
-            className={`ml-auto bg-primary text-on-primary px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-sm shadow-lg shadow-primary/20 transition-all shrink-0 ${loading ? 'opacity-50' : 'hover:-translate-y-0.5'}`}
+            disabled={loading || !proofAttested}
+            className={`ml-auto px-6 py-2.5 rounded-xl font-bold uppercase tracking-widest text-sm shadow-lg shadow-primary/20 transition-all shrink-0 ${loading || !proofAttested ? 'bg-surface-container-high text-on-surface-variant opacity-70' : 'bg-primary text-on-primary hover:-translate-y-0.5'}`}
         >
             {loading ? "Submitting..." : "Submit Code"}
         </button>

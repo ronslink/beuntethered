@@ -77,11 +77,13 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
     await expect(page.getByRole("heading", { name: /delivery lifecycle project/i })).toBeVisible();
     await expect(page.getByText(/funded in escrow/i)).toBeVisible();
     await expect(page.getByText(/proof contract/i)).toBeVisible();
-    await expect(page.getByText(/working preview url/i)).toBeVisible();
+    await expect(page.getByText("Working preview URL", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/proof readiness/i)).toBeVisible();
     await expect(page.getByText(/submit preview, source archive, and evidence/i)).toBeVisible();
+    await expect(page.getByText(/submission proof gates/i)).toBeVisible();
     await page.getByPlaceholder("https://preview.vercel.app").fill("https://preview.example.com/delivery-lifecycle");
     await page.getByPlaceholder(/summarize what changed/i).fill("The preview URL loads the operations dashboard, the attached source archive contains the implementation, and the evidence note documents the dashboard workflow acceptance check.");
+    await page.getByLabel(/mapped this submission to the proof gates/i).check();
     await page.locator('input[name="payloadZip"]').setInputFiles({
       name: "delivery-source.zip",
       mimeType: "application/zip",

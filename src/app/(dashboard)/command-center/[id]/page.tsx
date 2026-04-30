@@ -723,7 +723,7 @@ export default async function ProjectCommandCenter({
                                 <ClientFundGateway milestoneId={milestone.id} amount={Number(milestone.amount)} isByoc={project.is_byoc} />
                               )}
                               {isFacilitator && !isHubLocked && milestone.status === "FUNDED_IN_ESCROW" && (
-                                <FacilitatorSubmitGateway milestoneId={milestone.id} />
+                                <FacilitatorSubmitGateway milestoneId={milestone.id} proofPlan={proofPlan} />
                               )}
                               {isClientOwner && milestone.status === "SUBMITTED_FOR_REVIEW" && milestone.live_preview_url && (() => {
                                 let auditStatus: "PENDING" | "SUCCESS" | "FAILED" | "NONE" = "PENDING";

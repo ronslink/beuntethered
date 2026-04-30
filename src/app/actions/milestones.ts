@@ -42,9 +42,13 @@ export async function submitMilestonePayload(formData: FormData) {
     });
     const fileEntry = formData.get("payloadZip");
     const evidenceFiles = getUploadFilesFromFormData(formData, "evidenceFiles");
+    const proofAttested = formData.get("proofAttestation") === "on" || formData.get("proofAttestation") === "true";
 
     if (!parsed.success || !isUploadFileEntry(fileEntry)) {
       return { success: false, error: "Enter a valid preview URL, evidence summary, and delivery archive." };
+    }
+    if (!proofAttested) {
+      return { success: false, error: "Confirm the submission maps to the proof gates and acceptance checks before submitting." };
     }
 
     const { milestoneId, previewUrl, evidenceSummary } = parsed.data;
@@ -148,6 +152,7 @@ export async function submitMilestonePayload(formData: FormData) {
         preview_url: previewUrl,
         evidence_count: uploadedEvidence.length,
         evidence_summary: evidenceSummary,
+        proof_attested: true,
       },
     });
 
