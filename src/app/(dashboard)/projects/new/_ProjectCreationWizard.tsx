@@ -814,6 +814,64 @@ export default function ProjectCreationWizard() {
                   </div>
                </div>
 
+               <div className={`max-w-4xl mx-auto rounded-lg border p-4 ${feasibilityPanelClass}`}>
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                     <div className="min-w-0">
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${feasibilityTextClass}`}>
+                           Scope controls: {feasibilityAssessment.label}
+                        </p>
+                        <h3 className="mt-1 text-sm font-black text-on-surface">{feasibilityHeadline}</h3>
+                        <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+                           These are the buyer-entered constraints the SOW should preserve through edits, revisions, matching, and posting.
+                        </p>
+                     </div>
+                     {feasibilityAssessment.estimatedMarketBudget && feasibilityAssessment.estimatedMarketDays && (
+                        <div className="grid grid-cols-2 gap-2 text-right">
+                           <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Budget</p>
+                              <p className="text-sm font-black text-on-surface">{formatCurrency(feasibilityAssessment.estimatedMarketBudget)}</p>
+                           </div>
+                           <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Time</p>
+                              <p className="text-sm font-black text-on-surface">{feasibilityAssessment.estimatedMarketDays} days</p>
+                           </div>
+                        </div>
+                     )}
+                  </div>
+                  {capturedScopeConstraints.length > 0 && (
+                     <div className="mt-4 flex flex-wrap gap-2">
+                        {capturedScopeConstraints.map((constraint) => (
+                           <span key={constraint} className="rounded-md border border-outline-variant/15 bg-surface px-3 py-2 text-xs font-bold text-on-surface">
+                              {constraint}
+                           </span>
+                        ))}
+                     </div>
+                  )}
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                     {feasibilityAssessment.hints.map((hint) => (
+                        <div key={hint} className="flex items-start gap-2 rounded-md border border-outline-variant/15 bg-surface/60 p-3 text-xs leading-5 text-on-surface-variant">
+                           <span className={`material-symbols-outlined mt-0.5 text-[15px] ${feasibilityTextClass}`}>tips_and_updates</span>
+                           <span>{hint}</span>
+                        </div>
+                     ))}
+                  </div>
+                  {feasibilityAssessment.status === "unrealistic" && mode !== "DISCOVERY" && (
+                     <div className="mt-4 flex flex-col gap-3 rounded-md border border-error/25 bg-surface p-3 md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs leading-5 text-on-surface-variant">
+                           This execution scope can still be drafted for review, but posting requires revised constraints or a discovery sprint.
+                        </p>
+                        <button
+                           type="button"
+                           onClick={convertToDiscoveryScope}
+                           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-error px-3 py-2 text-xs font-black uppercase tracking-widest text-on-error transition-colors hover:bg-error/90"
+                        >
+                           <span className="material-symbols-outlined text-[15px]">travel_explore</span>
+                           Convert to discovery
+                        </button>
+                     </div>
+                  )}
+               </div>
+
                {activePhaseIndex === milestones.length ? (
                  <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
                    {/* ===== MASTER TIMELINE REVIEW (GANTT CHART) ===== */}
@@ -1056,6 +1114,8 @@ export default function ProjectCreationWizard() {
          {step === 3 && (editableSoW || sowData) && (() => {
             const milestones = (editableSoW || sowData).milestones || [];
             const totalEscrow = milestones.reduce((sum: number, m: any) => sum + Number(m.amount || 0), 0);
+            const budgetDelta = capturedBudgetAmount ? totalEscrow - capturedBudgetAmount : 0;
+            const pricingMatchesBudget = !capturedBudgetAmount || Math.abs(budgetDelta) <= 1;
 
             return (
             <div className="animate-in fade-in slide-in-from-right-8 duration-500 pb-28">
@@ -1068,6 +1128,36 @@ export default function ProjectCreationWizard() {
 
                   <div className="bg-surface border border-outline-variant/30 rounded-lg p-6 md:p-8 relative overflow-hidden">
                      <div className="space-y-6 relative z-10">
+                        {capturedBudgetAmount && (
+                           <div className={`rounded-lg border p-4 ${pricingMatchesBudget ? 'border-secondary/20 bg-secondary/5' : 'border-tertiary/25 bg-tertiary/5'}`}>
+                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                 <div className="flex items-start gap-3">
+                                    <span className={`material-symbols-outlined text-[20px] ${pricingMatchesBudget ? 'text-secondary' : 'text-tertiary'}`}>
+                                       {pricingMatchesBudget ? 'price_check' : 'price_change'}
+                                    </span>
+                                    <div>
+                                       <p className="text-xs font-black uppercase tracking-widest text-on-surface">Budget Fit</p>
+                                       <p className="mt-1 text-sm text-on-surface-variant">
+                                          {pricingMatchesBudget
+                                             ? `Milestone pricing matches the buyer-entered budget of ${formatCurrency(capturedBudgetAmount)}.`
+                                             : `Milestone pricing is ${formatCurrency(Math.abs(budgetDelta))} ${budgetDelta > 0 ? 'above' : 'below'} the buyer-entered budget of ${formatCurrency(capturedBudgetAmount)}.`}
+                                       </p>
+                                    </div>
+                                 </div>
+                                 {!pricingMatchesBudget && (
+                                    <button
+                                       type="button"
+                                       onClick={() => setEditableSoW(alignMilestoneAmountsToBudget(editableSoW || sowData, capturedBudgetAmount))}
+                                       className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-black uppercase tracking-widest text-on-primary hover:bg-primary/90 active:scale-95"
+                                    >
+                                       <span className="material-symbols-outlined text-[16px]">balance</span>
+                                       Rebalance to budget
+                                    </button>
+                                 )}
+                              </div>
+                           </div>
+                        )}
+
                         {milestones.map((m: any, idx: number) => (
                            <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-surface-container-low p-5 rounded-lg border border-outline-variant/10 hover:border-primary/30 transition-colors">
                               <div className="flex-1 space-y-2">
