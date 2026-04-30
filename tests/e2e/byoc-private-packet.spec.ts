@@ -24,7 +24,7 @@ test("facilitator sees recent BYOC packet and client invite renders trust scope"
       creator_id: facilitator.id,
       title: "Private Revenue Ops Portal",
       ai_generated_sow:
-        "Build a verified revenue operations portal with role-based access, billing evidence, and milestone acceptance checks.\n\nMilestone evidence must include a live preview URL, repository branch, screenshots, and buyer acceptance checklist.",
+        "Private BYOC Scope: Private Revenue Ops Portal\n\nExecutive Summary\nBuild a verified revenue operations portal with role-based access, billing evidence, and milestone acceptance checks.\n\nBYOC Transition Baseline\nTransition mode: running project\nCurrent project state: The buyer has a partial dashboard and draft billing model.\nPrior work or existing assets: Existing repository, staging URL, and design notes.\nRemaining work to govern in Untether: Release hardening, billing evidence, and reporting handoff.\nKnown risks or open questions: Stripe webhook access is pending.\nPlatform responsibility starts from the accepted packet and funded milestones onward.\n\nMilestone evidence must include a live preview URL, repository branch, screenshots, and buyer acceptance checklist.",
       is_byoc: true,
       invite_token: inviteToken,
       invited_client_email: `${prefix}-client@example.com`,
@@ -114,13 +114,17 @@ test("facilitator sees recent BYOC packet and client invite renders trust scope"
 
     await page.goto(`/invite/${inviteToken}`);
     await expect(page.getByRole("heading", { name: /review your verified delivery scope/i })).toBeVisible();
-    await expect(page.getByText("Private Revenue Ops Portal")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Private Revenue Ops Portal" })).toBeVisible();
     await expect(page.getByText("Revenue portal foundation")).toBeVisible();
     await expect(page.getByText("Evidence-backed reporting workflow")).toBeVisible();
     await expect(page.getByText("Estimated escrow total")).toBeVisible();
     await expect(page.getByText("$4,410").first()).toBeVisible();
     await expect(page.getByText("Milestone escrow")).toBeVisible();
     await expect(page.getByText("Evidence trail")).toBeVisible();
+    await expect(page.getByText("Transition baseline", { exact: true })).toBeVisible();
+    await expect(page.getByText("What Untether governs from here")).toBeVisible();
+    await expect(page.getByText("The buyer has a partial dashboard and draft billing model.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Release hardening, billing evidence, and reporting handoff.", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /switch to client account/i })).toHaveAttribute(
       "href",
       "/dashboard?invite_error=client_account_required"

@@ -10,6 +10,34 @@ function maskEmail(email: string) {
   return `${local.slice(0, 1)}***@${domain}`;
 }
 
+function readSowLine(sow: string | null, label: string) {
+  if (!sow) return null;
+  const line = sow
+    .split("\n")
+    .find((entry) => entry.toLowerCase().startsWith(`${label.toLowerCase()}:`));
+  return line ? line.slice(label.length + 1).trim() : null;
+}
+
+function getTransitionBaseline(sow: string | null) {
+  const transitionMode = readSowLine(sow, "Transition mode");
+  const currentState = readSowLine(sow, "Current project state");
+  const priorWork = readSowLine(sow, "Prior work or existing assets");
+  const remainingWork = readSowLine(sow, "Remaining work to govern in Untether");
+  const knownRisks = readSowLine(sow, "Known risks or open questions");
+
+  if (!transitionMode && !currentState && !priorWork && !remainingWork && !knownRisks) {
+    return null;
+  }
+
+  return {
+    transitionMode: transitionMode || "new external project",
+    currentState,
+    priorWork,
+    remainingWork,
+    knownRisks,
+  };
+}
+
 export default async function BYOCMagicLinkClaim(props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
   const user = await getCurrentUser();
@@ -37,6 +65,7 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
   const totalValuation = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
   const totals = calculateBYOCInviteTotals(project.milestones.map((milestone) => ({ amount: Number(milestone.amount) })));
   const facilitatorName = project.creator.name || "Your facilitator";
+  const transitionBaseline = getTransitionBaseline(project.ai_generated_sow);
 
   // If they are already heavily onboarded and mapping correctly natively as a Client,
   // we bypass external friction logic
@@ -140,6 +169,39 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
               </section>
 
               <section>
+                {transitionBaseline && (
+                  <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-primary">Transition baseline</p>
+                        <h3 className="mt-1 text-base font-black">What Untether governs from here</h3>
+                      </div>
+                      <span className="rounded-md bg-primary/10 p-2 text-primary">
+                        <span className="material-symbols-outlined text-[18px]">assignment_turned_in</span>
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {[
+                        ["Mode", transitionBaseline.transitionMode],
+                        ["Current state", transitionBaseline.currentState],
+                        ["Prior work/assets", transitionBaseline.priorWork],
+                        ["Remaining governed work", transitionBaseline.remainingWork],
+                        ["Known risks", transitionBaseline.knownRisks],
+                      ].map(([label, value]) => (
+                        value ? (
+                          <div key={label} className="rounded-lg border border-primary/15 bg-surface p-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+                            <p className="mt-1 text-xs leading-5 text-on-surface-variant">{value}</p>
+                          </div>
+                        ) : null
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-on-surface-variant">
+                      Prior work is recorded as context unless it appears inside a funded milestone. Payment, evidence, and disputes attach to this accepted packet going forward.
+                    </p>
+                  </div>
+                )}
+
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-widest text-primary">Verifiable Milestones</p>
