@@ -3,7 +3,7 @@ import { generateText } from "ai";
 import { getCurrentUser } from "@/lib/session";
 import { getDynamicAIProvider } from "@/lib/ai-router";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
-import { normalizeGeneratedSow } from "@/lib/milestone-quality";
+import { alignMilestoneDurationsToTimeline, extractRequestedTimelineDays, normalizeGeneratedSow } from "@/lib/milestone-quality";
 import { getMilestoneVerificationPatternGuide } from "@/lib/milestone-proof";
 import { sowGenerationInputSchema } from "@/lib/validators";
 
@@ -422,7 +422,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const parsed = normalizeSowDeliverables(parsedJson);
+    const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+    const parsed = alignMilestoneDurationsToTimeline(
+      normalizeSowDeliverables(parsedJson),
+      requestedTimelineDays
+    );
     return NextResponse.json(parsed);
 
   } catch (error: any) {

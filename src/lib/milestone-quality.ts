@@ -217,6 +217,72 @@ function normalizeDuration(value: unknown) {
   return 14;
 }
 
+export function extractRequestedTimelineDays(...values: unknown[]) {
+  const text = values.map(cleanMilestoneText).filter(Boolean).join(" ");
+  if (!text) return null;
+
+  const rangeMatch = text.match(/\b(?:within|in|by|timeline|target|deadline|done|complete|finish|delivery)?\s*(\d{1,3})\s*(?:-|to|–|—)\s*(\d{1,3})\s*(days?|weeks?|months?)\b/i);
+  if (rangeMatch) {
+    const upper = Number(rangeMatch[2]);
+    const unit = rangeMatch[3].toLowerCase();
+    if (Number.isFinite(upper)) {
+      if (unit.startsWith("week")) return Math.min(365, upper * 7);
+      if (unit.startsWith("month")) return Math.min(365, upper * 30);
+      return Math.min(365, upper);
+    }
+  }
+
+  const match = text.match(/\b(?:within|in|by|timeline|target|deadline|done|complete|finish|delivery)?\s*(\d{1,3})\s*(days?|weeks?|months?)\b/i);
+  if (!match) return null;
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  if (!Number.isFinite(amount) || amount < 1) return null;
+  if (unit.startsWith("week")) return Math.min(365, amount * 7);
+  if (unit.startsWith("month")) return Math.min(365, amount * 30);
+  return Math.min(365, amount);
+}
+
+export function alignMilestoneDurationsToTimeline<T extends GeneratedSowLike>(
+  sowData: T,
+  requestedDays: number | null
+): T {
+  if (!requestedDays || !Array.isArray(sowData.milestones) || sowData.milestones.length === 0) {
+    return sowData;
+  }
+
+  const normalizedMilestones = sowData.milestones.map((milestone) => {
+    const draft = milestone as MilestoneDraft;
+    return {
+      ...draft,
+      estimated_duration_days: normalizeDuration(draft.estimated_duration_days),
+    };
+  });
+  const currentTotal = normalizedMilestones.reduce(
+    (sum, milestone) => sum + normalizeDuration(milestone.estimated_duration_days),
+    0
+  );
+  const ratio = currentTotal > 0 ? requestedDays / currentTotal : 1;
+  let assignedDays = 0;
+
+  const milestones = normalizedMilestones.map((milestone, index) => {
+    const isLast = index === normalizedMilestones.length - 1;
+    const nextDuration = isLast
+      ? Math.max(1, requestedDays - assignedDays)
+      : Math.max(1, Math.round(normalizeDuration(milestone.estimated_duration_days) * ratio));
+    assignedDays += nextDuration;
+    return {
+      ...milestone,
+      estimated_duration_days: Math.min(365, nextDuration),
+    };
+  });
+
+  return {
+    ...sowData,
+    milestones,
+  };
+}
+
 function normalizeAmount(value: unknown) {
   const amount = Number(value);
   if (Number.isFinite(amount) && amount > 0) return amount;

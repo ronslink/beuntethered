@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  alignMilestoneDurationsToTimeline,
   assessMilestoneQuality,
+  extractRequestedTimelineDays,
   normalizeGeneratedMilestone,
   normalizeMilestoneForStorage,
 } from "../src/lib/milestone-quality.ts";
@@ -112,4 +114,29 @@ test("normalizes milestones into storage-ready arrays", () => {
   assert.equal(Array.isArray(normalized.acceptance_criteria), true);
   assert.ok(normalized.acceptance_criteria.length >= 2);
   assert.deepEqual(normalized.deliverables.slice(0, 2), ["Customer billing dashboard", "Stripe checkout and billing flow"]);
+});
+
+test("extracts requested timeline from natural language prompts", () => {
+  assert.equal(extractRequestedTimelineDays("Need this completed in 30 days"), 30);
+  assert.equal(extractRequestedTimelineDays("Target timeline is 4-6 weeks"), 42);
+  assert.equal(extractRequestedTimelineDays("Finish within 2 months"), 60);
+});
+
+test("aligns generated milestone durations to the requested client timeline", () => {
+  const aligned = alignMilestoneDurationsToTimeline(
+    {
+      title: "Portal",
+      milestones: [
+        { title: "Auth", estimated_duration_days: 7 },
+        { title: "Billing", estimated_duration_days: 7 },
+        { title: "Launch", estimated_duration_days: 7 },
+      ],
+    },
+    30
+  );
+
+  assert.equal(
+    aligned.milestones.reduce((sum, milestone) => sum + Number(milestone.estimated_duration_days), 0),
+    30
+  );
 });

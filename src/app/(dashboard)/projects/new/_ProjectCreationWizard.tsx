@@ -4,7 +4,13 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { postProjectToMarketplace } from "@/app/actions/marketplace";
 import { fetchRecommendedSquad } from "@/app/actions/concierge";
-import { assessMilestoneQuality, normalizeGeneratedSow, type MilestoneQualityAssessment } from "@/lib/milestone-quality";
+import {
+  alignMilestoneDurationsToTimeline,
+  assessMilestoneQuality,
+  extractRequestedTimelineDays,
+  normalizeGeneratedSow,
+  type MilestoneQualityAssessment,
+} from "@/lib/milestone-quality";
 
 export default function ProjectCreationWizard() {
   const router = useRouter();
@@ -81,6 +87,53 @@ export default function ProjectCreationWizard() {
     }
   };
 
+  const applyMilestoneQualityFixes = (index: number) => {
+    if (!editableSoW) return;
+    const assessment = assessMilestoneQuality(editableSoW.milestones[index]);
+    const newMilestones = [...editableSoW.milestones];
+    newMilestones[index] = {
+      ...newMilestones[index],
+      ...assessment.normalized,
+      amount: Number(newMilestones[index].amount) > 0 ? newMilestones[index].amount : assessment.normalized.amount,
+    };
+    const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+    const nextSow = {
+      ...editableSoW,
+      milestones: newMilestones,
+    };
+    setEditableSoW(alignMilestoneDurationsToTimeline(nextSow, requestedTimelineDays));
+    setToastMessage("Applied safe scope fixes. Review anything still highlighted.");
+    setTimeout(() => setToastMessage(""), 2400);
+  };
+
+  const guidanceForIssue = (issue: string) => {
+    if (issue.includes("specific outcome title")) {
+      return "Name the buyer-visible result, for example: Payment Checkout Flow, Admin Reporting Dashboard, or Mobile App Prototype.";
+    }
+    if (issue.includes("description")) {
+      return "Answer: what will exist after this milestone, who uses it, and why it matters to the project outcome?";
+    }
+    if (issue.includes("tangible deliverables")) {
+      return "Add outputs the buyer can open, use, inspect, or download, such as a screen, workflow, API endpoint, report, source archive, or handoff file.";
+    }
+    if (issue.includes("process-only")) {
+      return "Testing and bug fixes are important, but they should verify a tangible release. Move them into acceptance criteria as QA evidence or a resolved defect log.";
+    }
+    if (issue.includes("acceptance criteria")) {
+      return "Write pass/fail checks: Buyer can..., User can..., API returns..., Webhook records..., Report includes...";
+    }
+    if (issue.includes("proof artifact")) {
+      return "Name the evidence required for approval: preview link, staging URL, screenshot, source archive, QA report, logs, or handoff notes.";
+    }
+    if (issue.includes("amount")) {
+      return "Set a real fundable milestone amount. If pricing is uncertain, use your best placeholder and refine it on the pricing step.";
+    }
+    if (issue.includes("duration")) {
+      return "Use a realistic checkpoint duration. Most fundable milestones should be small enough to review within 3-15 days.";
+    }
+    return "Tighten this milestone until a non-technical buyer can understand what they will receive and how they will approve it.";
+  };
+
   const updateDeliverable = (milestoneIdx: number, deliverableIdx: number, value: string) => {
     if (!editableSoW) return;
     const newMilestones = [...editableSoW.milestones];
@@ -138,6 +191,10 @@ export default function ProjectCreationWizard() {
       setTriageResult(triage);
       setLoadingStatus(`Looks like ${triage.summary?.toLowerCase() || 'a project'}. Generating your scope now...`);
 
+      const effectiveDesiredTimeline = desiredTimeline.trim() || (
+        extractRequestedTimelineDays(prompt) ? `${extractRequestedTimelineDays(prompt)} days` : ""
+      );
+
       // Step 2: Generate SOW routed by category + complexity
       const response = await fetch("/api/ai/generate-sow", {
         method: "POST",
@@ -145,7 +202,7 @@ export default function ProjectCreationWizard() {
         body: JSON.stringify({
           prompt,
           mode,
-          desiredTimeline,
+          desiredTimeline: effectiveDesiredTimeline,
           category: triage.category,
           complexity: triage.complexity,
         }),
@@ -242,7 +299,7 @@ export default function ProjectCreationWizard() {
               </div>
               <div>
                  <p className="text-on-surface font-bold font-headline">{toastMessage}</p>
-                 <p className="text-xs text-on-surface-variant">Redirecting...</p>
+                 <p className="text-xs text-on-surface-variant">{toastMessage.includes("Applied") ? "Review the highlighted scope details." : "Redirecting..."}</p>
               </div>
            </div>
         </div>
@@ -565,14 +622,37 @@ export default function ProjectCreationWizard() {
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
                                  {(quality.blockingIssues.length > 0 ? quality.blockingIssues : ["Ready for buyer review and facilitator execution."]).map((issue) => (
-                                    <div key={issue} className="flex items-start gap-2 text-xs text-on-surface-variant">
-                                       <span className={`material-symbols-outlined text-[15px] mt-0.5 ${quality.passes ? 'text-secondary' : 'text-error'}`}>
+                                    <div key={issue} className="flex items-start gap-2 rounded-lg border border-outline-variant/15 bg-surface/60 p-3 text-xs text-on-surface-variant">
+                                       <span className={`material-symbols-outlined text-[15px] mt-0.5 shrink-0 ${quality.passes ? 'text-secondary' : 'text-error'}`}>
                                           {quality.passes ? 'check_circle' : 'error'}
                                        </span>
-                                       <span>{issue}</span>
+                                       <span>
+                                          <span className="block font-bold text-on-surface">{issue}</span>
+                                          {!quality.passes && (
+                                             <span className="mt-1 block leading-5">{guidanceForIssue(issue)}</span>
+                                          )}
+                                       </span>
                                     </div>
                                  ))}
                               </div>
+                              {!quality.passes && (
+                                 <div className="mt-4 flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4 md:flex-row md:items-center md:justify-between">
+                                    <div>
+                                       <p className="text-[10px] font-black uppercase tracking-widest text-primary">Scope guidance</p>
+                                       <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                          Safe fixes can convert process-only entries into reviewable outputs and add missing proof checks. Anything commercial or project-specific still needs your judgment.
+                                       </p>
+                                    </div>
+                                    <button
+                                       type="button"
+                                       onClick={() => applyMilestoneQualityFixes(idx)}
+                                       className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-black uppercase tracking-widest text-on-primary hover:bg-primary/90 active:scale-95"
+                                    >
+                                       <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                                       Apply Safe Fixes
+                                    </button>
+                                 </div>
+                              )}
                            </div>
 
                            <div className="p-8 space-y-6 bg-surface-container-lowest">
@@ -824,11 +904,16 @@ export default function ProjectCreationWizard() {
                <div className="flex items-center gap-4">
                   {step === 2 && activePhaseIndex < (editableSoW?.milestones?.length || 0) && (
                      <button
-                        onClick={() => setActivePhaseIndex(activePhaseIndex + 1)}
-                        disabled={activeMilestoneQuality ? !activeMilestoneQuality.passes : false}
-                        className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-3 transition-all ${activeMilestoneQuality && !activeMilestoneQuality.passes ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80' : 'bg-primary text-on-primary hover:bg-primary/90 active:scale-95'}`}
+                        onClick={() => {
+                           if (activeMilestoneQuality && !activeMilestoneQuality.passes) {
+                              applyMilestoneQualityFixes(activePhaseIndex);
+                           } else {
+                              setActivePhaseIndex(activePhaseIndex + 1);
+                           }
+                        }}
+                        className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-3 transition-all ${activeMilestoneQuality && !activeMilestoneQuality.passes ? 'bg-primary/10 text-primary border border-primary/25 hover:bg-primary/15 active:scale-95' : 'bg-primary text-on-primary hover:bg-primary/90 active:scale-95'}`}
                      >
-                        {activeMilestoneQuality && !activeMilestoneQuality.passes ? 'Resolve Quality Items' : activePhaseIndex === (editableSoW?.milestones?.length || 0) - 1 ? 'Review Master Timeline' : 'Next Phase'} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        {activeMilestoneQuality && !activeMilestoneQuality.passes ? 'Apply Safe Fixes' : activePhaseIndex === (editableSoW?.milestones?.length || 0) - 1 ? 'Review Master Timeline' : 'Next Phase'} <span className="material-symbols-outlined text-[18px]">{activeMilestoneQuality && !activeMilestoneQuality.passes ? 'auto_fix_high' : 'arrow_forward'}</span>
                      </button>
                   )}
                   {step === 2 && activePhaseIndex === (editableSoW?.milestones?.length || 0) && (
