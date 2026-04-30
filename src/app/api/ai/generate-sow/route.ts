@@ -12,6 +12,11 @@ import {
   summarizeScopeConstraints,
   type ScopeConstraints,
 } from "@/lib/scope-constraints";
+import {
+  createSowGenerationCacheKey,
+  getCachedSowGeneration,
+  setCachedSowGeneration,
+} from "@/lib/sow-generation-cache";
 import { sowGenerationInputSchema } from "@/lib/validators";
 
 // Single-pass generation — 60s is plenty
@@ -404,6 +409,18 @@ export async function POST(req: Request) {
 
     const { prompt, mode, desiredTimeline, category, complexity } = parsedInput.data;
     const dynamicModel = await getDynamicAIProvider(user.id);
+    const cacheKey = createSowGenerationCacheKey({
+      userId: user.id,
+      prompt,
+      mode,
+      desiredTimeline,
+      category,
+      complexity,
+    });
+    const cached = getCachedSowGeneration(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
     const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
     const scopeConstraints = {
       regions: extractRegionConstraints(prompt),
@@ -419,6 +436,8 @@ export async function POST(req: Request) {
       model: dynamicModel,
       system: sowPrompt.system,
       prompt: sowPrompt.prompt,
+      temperature: 0,
+      topP: 0.1,
     });
 
     // Strip <think> reasoning traces from M2.7 output
@@ -460,6 +479,7 @@ export async function POST(req: Request) {
       ...normalized,
       executiveSummary: executiveSummaryWithScopeConstraints(normalized.executiveSummary, scopeConstraints),
     };
+    setCachedSowGeneration(cacheKey, parsed);
     return NextResponse.json(parsed);
 
   } catch (error: any) {
