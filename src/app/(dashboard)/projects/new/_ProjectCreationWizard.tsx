@@ -345,6 +345,25 @@ export default function ProjectCreationWizard() {
     setTimeout(() => setToastMessage(""), 2400);
   };
 
+  const applyMarketReadyConstraints = () => {
+    if (feasibilityAssessment.recommendedBudget) {
+      setBudgetInput(String(feasibilityAssessment.recommendedBudget));
+    }
+    if (feasibilityAssessment.recommendedTimelineDays) {
+      setTimelineInput(String(feasibilityAssessment.recommendedTimelineDays));
+      setDesiredTimeline(`${feasibilityAssessment.recommendedTimelineDays} days`);
+    }
+    setToastMessage("Applied market-ready budget and timeline guidance.");
+    setTimeout(() => setToastMessage(""), 2400);
+  };
+
+  const applyPhasedScopePrompt = () => {
+    if (!feasibilityAssessment.phasedScopePrompt) return;
+    setPrompt(feasibilityAssessment.phasedScopePrompt);
+    setToastMessage("Reframed this as a phased first release.");
+    setTimeout(() => setToastMessage(""), 2400);
+  };
+
   const handleSkipAndPostToMarketplace = () => {
     if (blockUnrealisticExecutionPost()) return;
 
@@ -720,16 +739,54 @@ export default function ProjectCreationWizard() {
                                       {hint}
                                     </span>
                                  ))}
-                                 {feasibilityAssessment.status === "unrealistic" && mode !== "DISCOVERY" && (
-                                    <button
-                                      type="button"
-                                      onClick={convertToDiscoveryScope}
-                                      className="rounded-md bg-error px-3 py-2 text-xs font-black uppercase tracking-widest text-on-error transition-colors hover:bg-error/90"
-                                    >
-                                      Convert to discovery
-                                    </button>
-                                 )}
                               </div>
+                              {feasibilityAssessment.status !== "market_ready" && (
+                                 <div className="mt-4 rounded-lg border border-outline-variant/20 bg-surface p-4">
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                       <div>
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Guided recovery</p>
+                                          <h4 className="mt-1 text-sm font-black text-on-surface">Choose the path that matches what you know</h4>
+                                          <div className="mt-2 space-y-1">
+                                             {feasibilityAssessment.nextSteps.map((stepText) => (
+                                                <p key={stepText} className="text-xs leading-5 text-on-surface-variant">{stepText}</p>
+                                             ))}
+                                          </div>
+                                       </div>
+                                       <div className="grid min-w-56 gap-2">
+                                          {feasibilityAssessment.recommendedBudget && feasibilityAssessment.recommendedTimelineDays && (
+                                             <button
+                                                type="button"
+                                                onClick={applyMarketReadyConstraints}
+                                                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary transition-colors hover:bg-primary/90"
+                                             >
+                                                <span className="material-symbols-outlined text-[14px]">tune</span>
+                                                Use Market Range
+                                             </button>
+                                          )}
+                                          {feasibilityAssessment.phasedScopePrompt && (
+                                             <button
+                                                type="button"
+                                                onClick={applyPhasedScopePrompt}
+                                                className="inline-flex items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/10"
+                                             >
+                                                <span className="material-symbols-outlined text-[14px]">account_tree</span>
+                                                Phase First Release
+                                             </button>
+                                          )}
+                                          {feasibilityAssessment.status === "unrealistic" && mode !== "DISCOVERY" && (
+                                             <button
+                                                type="button"
+                                                onClick={convertToDiscoveryScope}
+                                                className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-error transition-colors hover:bg-error/90"
+                                             >
+                                                <span className="material-symbols-outlined text-[14px]">travel_explore</span>
+                                                Discovery Sprint
+                                             </button>
+                                          )}
+                                       </div>
+                                    </div>
+                                 </div>
+                              )}
                            </div>
                         )}
                         <div className="flex justify-end pt-4">
@@ -859,17 +916,40 @@ export default function ProjectCreationWizard() {
                   </div>
                   {feasibilityAssessment.status === "unrealistic" && mode !== "DISCOVERY" && (
                      <div className="mt-4 flex flex-col gap-3 rounded-md border border-error/25 bg-surface p-3 md:flex-row md:items-center md:justify-between">
-                        <p className="text-xs leading-5 text-on-surface-variant">
-                           This execution scope can still be drafted for review, but posting requires revised constraints or a discovery sprint.
-                        </p>
-                        <button
-                           type="button"
-                           onClick={convertToDiscoveryScope}
-                           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-error px-3 py-2 text-xs font-black uppercase tracking-widest text-on-error transition-colors hover:bg-error/90"
-                        >
-                           <span className="material-symbols-outlined text-[15px]">travel_explore</span>
-                           Convert to discovery
-                        </button>
+                        <div>
+                           <p className="text-xs font-black uppercase tracking-widest text-error">Posting is blocked until the buyer chooses a recovery path</p>
+                           <div className="mt-2 space-y-1">
+                              {feasibilityAssessment.nextSteps.map((stepText) => (
+                                 <p key={stepText} className="text-xs leading-5 text-on-surface-variant">{stepText}</p>
+                              ))}
+                           </div>
+                        </div>
+                        <div className="grid shrink-0 gap-2">
+                           <button
+                              type="button"
+                              onClick={applyMarketReadyConstraints}
+                              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-black uppercase tracking-widest text-on-primary transition-colors hover:bg-primary/90"
+                           >
+                              <span className="material-symbols-outlined text-[15px]">tune</span>
+                              Use Market Range
+                           </button>
+                           <button
+                              type="button"
+                              onClick={applyPhasedScopePrompt}
+                              className="inline-flex items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/10"
+                           >
+                              <span className="material-symbols-outlined text-[15px]">account_tree</span>
+                              Phase Scope
+                           </button>
+                           <button
+                              type="button"
+                              onClick={convertToDiscoveryScope}
+                              className="inline-flex items-center justify-center gap-2 rounded-md bg-error px-3 py-2 text-xs font-black uppercase tracking-widest text-on-error transition-colors hover:bg-error/90"
+                           >
+                              <span className="material-symbols-outlined text-[15px]">travel_explore</span>
+                              Discovery Sprint
+                           </button>
+                        </div>
                      </div>
                   )}
                </div>

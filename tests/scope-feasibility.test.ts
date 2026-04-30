@@ -30,6 +30,10 @@ test("flags complex scopes that are unrealistic against market budget or timelin
   assert.equal(assessment.canPostExecution, false);
   assert.ok(assessment.estimatedMarketBudget && assessment.estimatedMarketBudget > 3000);
   assert.ok(assessment.estimatedMarketDays && assessment.estimatedMarketDays > 7);
+  assert.ok(assessment.recommendedBudget && assessment.recommendedBudget >= assessment.estimatedMarketBudget);
+  assert.ok(assessment.recommendedTimelineDays && assessment.recommendedTimelineDays >= assessment.estimatedMarketDays);
+  assert.ok(assessment.phasedScopePrompt?.includes("phased first release"));
+  assert.ok(assessment.nextSteps.some((step) => /Raise the budget|Extend the timeline/.test(step)));
 });
 
 test("allows aggressive scopes with warnings", () => {
@@ -55,6 +59,7 @@ test("accepts realistic budget and timeline ranges", () => {
   assert.equal(assessment.label, "Market-ready");
   assert.equal(assessment.canPostExecution, true);
   assert.ok(assessment.reasons.some((reason) => /reasonable planning range/.test(reason)));
+  assert.ok(assessment.nextSteps.some((step) => /Generate the SOW/.test(step)));
 });
 
 test("adds target complexity to market timeline when major deliverables are requested", () => {
