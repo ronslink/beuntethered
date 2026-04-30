@@ -118,9 +118,15 @@ export default function ProjectCreationWizard() {
     setEditableSoW({ ...editableSoW, [field]: value });
   };
 
+  const getMilestoneDeliverables = (milestone: any) => (
+    Array.isArray(milestone?.deliverables)
+      ? milestone.deliverables.map((item: unknown) => String(item ?? ""))
+      : []
+  );
+
   const updateMilestoneField = (index: number, field: string, value: string | number) => {
     if (!editableSoW) return;
-    const newMilestones = [...editableSoW.milestones];
+    const newMilestones = Array.isArray(editableSoW.milestones) ? [...editableSoW.milestones] : [];
     newMilestones[index] = { ...newMilestones[index], [field]: value };
 
     // Recalc total if amount changed
@@ -186,26 +192,29 @@ export default function ProjectCreationWizard() {
 
   const updateDeliverable = (milestoneIdx: number, deliverableIdx: number, value: string) => {
     if (!editableSoW) return;
-    const newMilestones = [...editableSoW.milestones];
-    const newDeliverables = [...newMilestones[milestoneIdx].deliverables];
+    const newMilestones = Array.isArray(editableSoW.milestones) ? [...editableSoW.milestones] : [];
+    const newDeliverables = getMilestoneDeliverables(newMilestones[milestoneIdx]);
     newDeliverables[deliverableIdx] = value;
-    newMilestones[milestoneIdx] = { ...newMilestones[milestoneIdx], deliverables: newDeliverables };
+    newMilestones[milestoneIdx] = { ...(newMilestones[milestoneIdx] || {}), deliverables: newDeliverables };
     setEditableSoW({ ...editableSoW, milestones: newMilestones });
   };
 
   const addDeliverable = (milestoneIdx: number) => {
     if (!editableSoW) return;
-    const newMilestones = [...editableSoW.milestones];
-    const newDeliverables = [...newMilestones[milestoneIdx].deliverables, ""];
-    newMilestones[milestoneIdx] = { ...newMilestones[milestoneIdx], deliverables: newDeliverables };
+    const newMilestones = Array.isArray(editableSoW.milestones) ? [...editableSoW.milestones] : [];
+    const newDeliverables = [
+      ...getMilestoneDeliverables(newMilestones[milestoneIdx]),
+      "Client-reviewable output with proof artifact",
+    ];
+    newMilestones[milestoneIdx] = { ...(newMilestones[milestoneIdx] || {}), deliverables: newDeliverables };
     setEditableSoW({ ...editableSoW, milestones: newMilestones });
   };
 
   const removeDeliverable = (milestoneIdx: number, deliverableIdx: number) => {
     if (!editableSoW) return;
-    const newMilestones = [...editableSoW.milestones];
-    const newDeliverables = newMilestones[milestoneIdx].deliverables.filter((_: any, i: number) => i !== deliverableIdx);
-    newMilestones[milestoneIdx] = { ...newMilestones[milestoneIdx], deliverables: newDeliverables };
+    const newMilestones = Array.isArray(editableSoW.milestones) ? [...editableSoW.milestones] : [];
+    const newDeliverables = getMilestoneDeliverables(newMilestones[milestoneIdx]).filter((_: string, i: number) => i !== deliverableIdx);
+    newMilestones[milestoneIdx] = { ...(newMilestones[milestoneIdx] || {}), deliverables: newDeliverables };
     setEditableSoW({ ...editableSoW, milestones: newMilestones });
   };
 
@@ -1320,6 +1329,7 @@ export default function ProjectCreationWizard() {
                    {(() => {
                       const idx = activePhaseIndex;
                       const m = milestones[idx] || {};
+                      const deliverables = getMilestoneDeliverables(m);
                       const color = phaseColors[idx % phaseColors.length];
                       const quality = assessMilestoneQuality(m);
                       return (
@@ -1413,11 +1423,16 @@ export default function ProjectCreationWizard() {
                            <div className="p-8 space-y-6 bg-surface-container-lowest">
                               <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2 border-b border-outline-variant/10 pb-4">
                                  <span className="material-symbols-outlined text-[18px]">rule_folder</span>
-                                 Reviewable Outputs ({m.deliverables?.length || 0})
+                                 Reviewable Outputs ({deliverables.length})
                               </p>
 
                               <div className="space-y-4">
-                                 {m.deliverables?.map((d: string, dIdx: number) => (
+                                 {deliverables.length === 0 && (
+                                    <div className="rounded-lg border border-tertiary/20 bg-tertiary/5 p-4 text-xs leading-5 text-on-surface-variant">
+                                       Add at least two outputs the buyer can inspect, open, run, or download. Good examples include a working screen, source archive, report export, integration log, staging link, or handoff file.
+                                    </div>
+                                 )}
+                                 {deliverables.map((d: string, dIdx: number) => (
                                      <div key={dIdx} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 group/item animate-in fade-in slide-in-from-bottom-2 duration-300 p-2 rounded-lg hover:bg-surface-container-low transition-colors">
                                         <span className="w-8 h-8 rounded-lg bg-surface border border-outline-variant/20 flex items-center justify-center shrink-0">
                                           <span className="material-symbols-outlined text-[16px]" style={{ color, fontVariationSettings: "'FILL' 1" }}>done_all</span>
