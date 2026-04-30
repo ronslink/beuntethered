@@ -16,45 +16,48 @@ test("project starters are unique and buyer editable", () => {
   assert.ok(PROJECT_SCOPE_STARTERS.every((starter) => starter.prompt.length > 120));
 });
 
-test("project starters pass intake and feasibility checks", () => {
+test("project starters frame familiar scopes without implying price or timeline", () => {
   for (const starter of PROJECT_SCOPE_STARTERS) {
     const prompt = buildStarterPrompt(starter);
     const intake = assessScopeIntake(prompt);
     const feasibility = assessScopeFeasibility({
       prompt,
-      budgetAmount: starter.budget,
-      timelineDays: starter.days,
+      budgetAmount: null,
+      timelineDays: null,
     });
 
-    assert.equal(intake.status, "ready", `${starter.label} should be intake-ready`);
-    assert.equal(intake.issues.length, 0, `${starter.label} should not need extra buyer detail`);
-    assert.notEqual(feasibility.status, "unrealistic", `${starter.label} should not start blocked`);
-    assert.equal(feasibility.canPostExecution, true, `${starter.label} should be postable after review`);
+    assert.equal(prompt, starter.prompt, `${starter.label} should not append price or timeline copy`);
+    assert.equal(intake.status, "ready", `${starter.label} should be a usable scope frame`);
+    assert.ok(!intake.issues.some((issue) => issue.severity === "blocker"), `${starter.label} should not start blocked`);
+    assert.ok(intake.issues.some((issue) => issue.code === "missing_constraints"), `${starter.label} should ask for buyer constraints`);
+    assert.equal(feasibility.status, "missing", `${starter.label} should wait for buyer constraints`);
+    assert.equal(feasibility.canPostExecution, false, `${starter.label} should not be postable without constraints`);
   }
 });
 
-test("problem starters translate business problems into postable SOW prompts", () => {
+test("problem starters frame business problems without implying price or timeline", () => {
   assert.ok(PROJECT_PROBLEM_STARTERS.length >= 3);
-  assert.ok(
-    PROJECT_PROBLEM_STARTERS.some((starter) =>
-      starter.problem.toLowerCase().includes("quickbooks") &&
-      starter.problem.toLowerCase().includes("xero")
-    )
-  );
+
+  const labels = PROJECT_PROBLEM_STARTERS.map((starter) => starter.label);
+  assert.deepEqual(labels, ["Manual Workflow", "System Connection", "Self-Service Workflow"]);
+  assert.ok(PROJECT_PROBLEM_STARTERS.every((starter) => !/quickbooks|xero|hubspot|salesforce/i.test(starter.problem)));
 
   for (const starter of PROJECT_PROBLEM_STARTERS) {
-    const prompt = buildStarterPrompt(starter);
+    const prompt = starter.prompt;
     const intake = assessScopeIntake(prompt);
     const feasibility = assessScopeFeasibility({
       prompt,
-      budgetAmount: starter.budget,
-      timelineDays: starter.days,
+      budgetAmount: null,
+      timelineDays: null,
     });
 
     assert.ok(starter.problem.length > 80, `${starter.label} should describe the buyer problem`);
-    assert.equal(intake.status, "ready", `${starter.label} should become intake-ready`);
-    assert.equal(intake.issues.length, 0, `${starter.label} should not need extra buyer detail`);
-    assert.notEqual(feasibility.status, "unrealistic", `${starter.label} should not start blocked`);
-    assert.equal(feasibility.canPostExecution, true, `${starter.label} should be postable after review`);
+    assert.equal(intake.status, "ready", `${starter.label} should become a usable problem frame`);
+    assert.ok(!intake.issues.some((issue) => issue.severity === "blocker"), `${starter.label} should not start blocked`);
+    assert.ok(intake.issues.some((issue) => issue.code === "missing_constraints"), `${starter.label} should ask for buyer constraints`);
+    assert.notEqual(intake.problemPattern?.id, "payment_accounting_sync", `${starter.label} should not imply accounting too early`);
+    assert.notEqual(intake.problemPattern?.id, "reporting_automation", `${starter.label} should not imply reporting too early`);
+    assert.equal(feasibility.status, "missing", `${starter.label} should wait for buyer constraints`);
+    assert.equal(feasibility.canPostExecution, false, `${starter.label} should not be postable without constraints`);
   }
 });

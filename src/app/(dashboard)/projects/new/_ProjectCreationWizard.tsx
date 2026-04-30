@@ -425,20 +425,20 @@ export default function ProjectCreationWizard() {
   const applyProjectStarter = (starter: ProjectScopeStarter) => {
     setMode("EXECUTION");
     setPrompt(buildStarterPrompt(starter));
-    setBudgetInput(String(starter.budget));
-    setTimelineInput(String(starter.days));
-    setDesiredTimeline(`${starter.days} days`);
-    setToastMessage(`${starter.label} starter loaded. Edit anything that does not fit.`);
+    setBudgetInput("");
+    setTimelineInput("");
+    setDesiredTimeline("");
+    setToastMessage(`${starter.label} loaded. Add your budget and timeline next.`);
     setTimeout(() => setToastMessage(""), 2400);
   };
 
   const applyProblemStarter = (starter: ProjectProblemStarter) => {
     setMode("EXECUTION");
-    setPrompt(buildStarterPrompt(starter));
-    setBudgetInput(String(starter.budget));
-    setTimelineInput(String(starter.days));
-    setDesiredTimeline(`${starter.days} days`);
-    setToastMessage(`${starter.label} problem statement translated into an editable SOW prompt.`);
+    setPrompt(starter.prompt);
+    setBudgetInput("");
+    setTimelineInput("");
+    setDesiredTimeline("");
+    setToastMessage(`${starter.label} loaded. Add your details, budget, and timeline next.`);
     setTimeout(() => setToastMessage(""), 2400);
   };
 
@@ -714,10 +714,10 @@ export default function ProjectCreationWizard() {
                            <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 p-4">
                               <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                                  <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Problem statement starters</p>
-                                    <h3 className="mt-1 text-sm font-black text-on-surface">Start with the business problem</h3>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Problem framing</p>
+                                    <h3 className="mt-1 text-sm font-black text-on-surface">Choose a broad frame, then make it yours</h3>
                                     <p className="mt-1 text-xs leading-5 text-on-surface-variant">
-                                       Choose one when you know the outcome you want, but not the technical SOW language yet. Each starter stays editable before validation.
+                                       These are intentionally generic. Add your actual users, systems, regions, evidence, budget, and timeline before validation.
                                     </p>
                                  </div>
                               </div>
@@ -733,9 +733,6 @@ export default function ProjectCreationWizard() {
                                           <span className="material-symbols-outlined mt-0.5 text-[18px] text-secondary">{starter.icon}</span>
                                           <span className="min-w-0">
                                              <span className="block text-xs font-black text-on-surface">{starter.label}</span>
-                                             <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                                                {formatCurrency(starter.budget)} / {starter.days} days
-                                             </span>
                                           </span>
                                        </span>
                                        <span className="text-xs leading-5 text-on-surface-variant">{starter.problem}</span>
@@ -752,7 +749,7 @@ export default function ProjectCreationWizard() {
                                     <p className="text-[10px] font-black uppercase tracking-widest text-primary">Common starting points</p>
                                     <h3 className="mt-1 text-sm font-black text-on-surface">Start from a familiar software scope</h3>
                                     <p className="mt-1 text-xs leading-5 text-on-surface-variant">
-                                       Choose a starter to prefill an editable prompt, budget, and timeline. The AI still validates the scope before generating milestones.
+                                       Choose a starter to prefill editable scope language. Add your actual budget and target timeline before validation.
                                     </p>
                                  </div>
                               </div>
@@ -767,9 +764,6 @@ export default function ProjectCreationWizard() {
                                        <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">{starter.icon}</span>
                                        <span className="min-w-0">
                                           <span className="block text-xs font-black text-on-surface">{starter.label}</span>
-                                          <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                                             {formatCurrency(starter.budget)} / {starter.days} days
-                                          </span>
                                        </span>
                                     </button>
                                  ))}
@@ -781,7 +775,7 @@ export default function ProjectCreationWizard() {
                            <textarea
                              value={prompt}
                              onChange={(e) => setPrompt(e.target.value)}
-                             placeholder="Example: I want customer payments from my website to sync cleanly into my accounting system, with records the finance team can review."
+                             placeholder="Example: I want to stop doing a manual business process by giving the right users a clear workflow, proof, and reporting they can review."
                              className="w-full h-[320px] bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-lg p-6 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-sm focus:outline-none relative z-10 custom-scrollbar leading-relaxed"
                            />
                         </div>
