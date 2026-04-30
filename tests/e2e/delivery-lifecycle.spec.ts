@@ -185,7 +185,16 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
           facilitator_payout_cents: 420000,
           stripe_transfer_id: "tr_playwright_release",
           idempotency_key: `${prefix}-release`,
-          metadata: { source: "playwright_route" },
+          metadata: {
+            source: "playwright_route",
+            approval_attestation: {
+              testedPreview: releaseRequest.approvalAttestation.testedPreview,
+              reviewedEvidence: releaseRequest.approvalAttestation.reviewedEvidence,
+              acceptsPaymentRelease: releaseRequest.approvalAttestation.acceptsPaymentRelease,
+              auditStatus: "SUCCESS",
+              acceptedAt: new Date().toISOString(),
+            },
+          },
         },
       });
       await prisma.activityLog.create({
@@ -228,6 +237,8 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
       await clientPage.getByLabel(/approval releases escrow/i).check();
       await clientPage.getByRole("button", { name: /approve & pay/i }).click();
       await expect(clientPage.getByText(/project complete/i)).toBeVisible();
+      await expect(clientPage.getByText(/buyer release attestation/i)).toBeVisible();
+      await expect(clientPage.getByText(/preview tested/i)).toBeVisible();
 
       await expect
         .poll(async () => {

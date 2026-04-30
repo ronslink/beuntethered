@@ -16,6 +16,31 @@ import { getMilestoneProofPlan } from "@/lib/milestone-proof";
 import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
 
+type ReleaseAttestationView = {
+  testedPreview: boolean;
+  reviewedEvidence: boolean;
+  acceptsPaymentRelease: boolean;
+  auditStatus?: string;
+  acceptedAt?: string;
+  failedAuditOverrideReason?: string;
+};
+
+function getReleaseAttestation(metadata: unknown): ReleaseAttestationView | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const attestation = (metadata as Record<string, unknown>).approval_attestation;
+  if (!attestation || typeof attestation !== "object" || Array.isArray(attestation)) return null;
+  const value = attestation as Record<string, unknown>;
+
+  return {
+    testedPreview: value.testedPreview === true,
+    reviewedEvidence: value.reviewedEvidence === true,
+    acceptsPaymentRelease: value.acceptsPaymentRelease === true,
+    auditStatus: typeof value.auditStatus === "string" ? value.auditStatus : undefined,
+    acceptedAt: typeof value.acceptedAt === "string" ? value.acceptedAt : undefined,
+    failedAuditOverrideReason: typeof value.failedAuditOverrideReason === "string" ? value.failedAuditOverrideReason : undefined,
+  };
+}
+
 export default async function ProjectCommandCenter({
   params,
   searchParams,
@@ -422,6 +447,8 @@ export default async function ProjectCommandCenter({
                     const isDone = milestone.status === "APPROVED_AND_PAID";
                     const latestAudit = milestone.audits[0];
                     const latestFunding = milestone.payment_records.find((record) => record.kind === "MILESTONE_FUNDING");
+                    const latestRelease = milestone.payment_records.find((record) => record.kind === "ESCROW_RELEASE" && record.status === "SUCCEEDED");
+                    const releaseAttestation = getReleaseAttestation(latestRelease?.metadata);
                     const submissionAttachments = milestone.attachments.filter(
                       (attachment) => attachment.purpose === "MILESTONE_SUBMISSION"
                     );
@@ -713,6 +740,54 @@ export default async function ProjectCommandCenter({
                                   </a>
                                 ))}
                               </div>
+                            </div>
+                          )}
+
+                          {latestRelease && (
+                            <div className="mt-4 rounded-xl border border-tertiary/20 bg-tertiary/5 p-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                                    <span className="material-symbols-outlined text-[13px]">verified</span>
+                                    Buyer Release Attestation
+                                  </p>
+                                  <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+                                    Escrow was released after buyer approval. This record is retained for payment, audit, and dispute history.
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-black text-on-surface">{formatCurrency(latestRelease.facilitator_payout_cents / 100)}</p>
+                                  <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">Facilitator payout</p>
+                                </div>
+                              </div>
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                {[
+                                  { label: "Preview tested", value: releaseAttestation?.testedPreview },
+                                  { label: "Evidence reviewed", value: releaseAttestation?.reviewedEvidence },
+                                  { label: "Release accepted", value: releaseAttestation?.acceptsPaymentRelease },
+                                  { label: "Audit status", value: releaseAttestation?.auditStatus || "Recorded" },
+                                ].map(({ label, value }) => (
+                                  <div key={label} className="rounded-lg border border-tertiary/15 bg-surface px-3 py-2">
+                                    <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                                      <span className="material-symbols-outlined text-[12px]">
+                                        {value === false ? "error" : "check_circle"}
+                                      </span>
+                                      {label}
+                                    </p>
+                                    <p className="mt-1 text-[10px] font-medium text-on-surface-variant">
+                                      {typeof value === "string" ? value.toLowerCase() : value ? "Confirmed" : "Not recorded"}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                              {releaseAttestation?.failedAuditOverrideReason && (
+                                <p className="mt-3 rounded-lg border border-secondary/20 bg-secondary/5 px-3 py-2 text-xs font-medium text-on-surface-variant">
+                                  Audit override reason: {releaseAttestation.failedAuditOverrideReason}
+                                </p>
+                              )}
+                              <p className="mt-3 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                Released {formatAuditTimestamp(latestRelease.created_at)}
+                              </p>
                             </div>
                           )}
 
