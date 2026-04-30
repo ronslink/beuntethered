@@ -144,7 +144,7 @@ test("BYOC invite claim atomically assigns the buyer workspace once", async ({ p
       },
     ]);
     await page.goto(`/invite/${inviteToken}/claim`);
-    await expect(page).toHaveURL(new RegExp(`/(projects|command-center)/${project.id}`));
+    await expect(page).toHaveURL(new RegExp(`/command-center/${project.id}`));
     await expect(page.getByText(/BYOC Transition Baseline/)).toBeVisible();
     await expect(page.getByText("Governed scope from claim forward")).toBeVisible();
     await expect(page.getByText("Client has a partially working operations console in staging.")).toBeVisible();

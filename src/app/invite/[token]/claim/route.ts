@@ -141,7 +141,7 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
       }),
     ]);
 
-    return NextResponse.redirect(new URL(`/projects/${project.id}`, req.url));
+    return NextResponse.redirect(new URL(`/command-center/${project.id}`, req.url));
   } catch(e) {
     console.error("BYOC invite claim failed:", e);
     return NextResponse.redirect(new URL("/dashboard", req.url));
