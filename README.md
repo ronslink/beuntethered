@@ -116,6 +116,16 @@ Notes:
 - SMS is not part of this release. Africa's Talking is intentionally not wired.
 - Firebase web push is not configured. The current notification channel is in-app notifications plus Resend email.
 
+## Platform Admin Bootstrap
+
+Admin access is granted by matching the configured `ADMIN_EMAIL`; there is no separate `ADMIN` user role. After setting `ADMIN_EMAIL`, ensure the account exists so arbitration, verification, and readiness notifications have a real inbox:
+
+```bash
+ADMIN_BOOTSTRAP_PASSWORD="use-a-long-temporary-password" npm run admin:ensure
+```
+
+The script creates the admin user if missing, marks onboarding complete, and refreshes the password only when `ADMIN_BOOTSTRAP_PASSWORD` is provided.
+
 ## Stripe Webhooks
 
 For repeatable local CI coverage, Playwright injects a test webhook secret and sends Stripe-compatible signed payloads to `/api/webhooks/stripe`.

@@ -16,6 +16,7 @@
     "secrets:scan:tracked": "node scripts/scan-secrets.mjs --tracked",
     "deploy:check": "node scripts/production-readiness.mjs",
     "deploy:check:strict": "node scripts/production-readiness.mjs --strict-env",
+    "admin:ensure": "node scripts/ensure-admin-account.mjs",
     "verify": "npm run lint && npx tsc --noEmit && npm test && npm run test:e2e && npm run build",
     "db:up": "docker compose up -d db",
     "db:init": "node scripts/local-db-init.mjs",
