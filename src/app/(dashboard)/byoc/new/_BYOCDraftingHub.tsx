@@ -45,6 +45,11 @@ type RecentBYOCPacket = {
   createdAt: string;
   clientTotalCents: number;
   facilitatorPayoutCents: number;
+  firstMilestone?: {
+    title: string;
+    status: string;
+    amountCents: number;
+  } | null;
   delivery?: {
     emailSent: boolean;
     emailSkipped: string | null;
@@ -83,6 +88,37 @@ function formatStatus(value: string) {
 
 function getPacketState(packet: RecentBYOCPacket) {
   if (packet.clientId || !packet.inviteToken) {
+    const firstMilestoneStatus = packet.firstMilestone?.status;
+    if (packet.status === "ACTIVE" && firstMilestoneStatus === "PENDING") {
+      return {
+        label: "Awaiting funding",
+        detail: "Buyer claimed packet",
+        icon: "account_balance_wallet",
+        tone: "border-secondary/25 bg-secondary/10 text-secondary",
+        href: `/command-center/${packet.id}`,
+        action: "Open Funding",
+      };
+    }
+    if (packet.status === "ACTIVE" && firstMilestoneStatus === "FUNDED_IN_ESCROW") {
+      return {
+        label: "Delivery open",
+        detail: "First milestone funded",
+        icon: "rocket_launch",
+        tone: "border-tertiary/25 bg-tertiary/10 text-tertiary",
+        href: `/command-center/${packet.id}`,
+        action: "Open Work",
+      };
+    }
+    if (packet.status === "ACTIVE" && firstMilestoneStatus === "SUBMITTED_FOR_REVIEW") {
+      return {
+        label: "In review",
+        detail: "Buyer review needed",
+        icon: "rate_review",
+        tone: "border-primary/25 bg-primary/10 text-primary",
+        href: `/command-center/${packet.id}`,
+        action: "Open Review",
+      };
+    }
     return {
       label: packet.status === "ACTIVE" ? "Claimed" : formatStatus(packet.status),
       detail: packet.status === "ACTIVE" ? "Buyer workspace active" : "Moved into governed work",
@@ -299,6 +335,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
             {
               ...res.packet,
               clientId: null,
+              firstMilestone: res.packet.firstMilestone ?? null,
               delivery: {
                 emailSent: res.emailDelivery?.sent === true,
                 emailSkipped: res.emailDelivery?.sent ? null : res.emailDelivery?.skipped ?? null,
@@ -561,6 +598,15 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                             <p className="mt-1 text-sm font-black text-on-surface">{formatCurrency(packet.facilitatorPayoutCents / 100)}</p>
                           </div>
                         </div>
+                        {packet.firstMilestone && (
+                          <div className="mt-2 rounded-md border border-outline-variant/25 bg-surface p-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">First milestone</p>
+                            <p className="mt-1 truncate text-xs font-bold text-on-surface">{packet.firstMilestone.title}</p>
+                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                              {formatStatus(packet.firstMilestone.status)} · {formatCurrency(packet.firstMilestone.amountCents / 100)}
+                            </p>
+                          </div>
+                        )}
                         <div className="mt-3 flex flex-wrap gap-2">
                           <a
                             href={packetState.href}

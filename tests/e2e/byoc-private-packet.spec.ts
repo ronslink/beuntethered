@@ -121,8 +121,10 @@ test("facilitator sees recent BYOC packet and client invite renders trust scope"
     await expect(page.getByRole("heading", { name: /create a verified private delivery packet/i })).toBeVisible();
     await expect(page.getByText("Private Revenue Ops Portal").first()).toBeVisible();
     await expect(page.getByText("Claimed Support Dashboard").first()).toBeVisible();
-    await expect(page.getByText("Claimed").first()).toBeVisible();
-    await expect(page.getByText("Buyer workspace active").first()).toBeVisible();
+    await expect(page.getByText("Awaiting funding").first()).toBeVisible();
+    await expect(page.getByText("Buyer claimed packet").first()).toBeVisible();
+    await expect(page.getByText("Support dashboard release").first()).toBeVisible();
+    await expect(page.getByText("pending · $1,600").first()).toBeVisible();
     await expect(page.getByText("Email locked").first()).toBeVisible();
     await expect(page.getByText("Waiting for invited buyer").first()).toBeVisible();
     await expect(page.getByText("Email: email unavailable")).toBeVisible();

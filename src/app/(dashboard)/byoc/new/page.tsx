@@ -29,7 +29,8 @@ export default async function BYOCPage() {
       client_id: true,
       created_at: true,
       milestones: {
-        select: { amount: true },
+        orderBy: { id: "asc" },
+        select: { title: true, amount: true, status: true },
       },
       activity_logs: {
         orderBy: { created_at: "desc" },
@@ -60,6 +61,13 @@ export default async function BYOCPage() {
       createdAt: project.created_at.toISOString(),
       clientTotalCents: totals.clientTotalCents,
       facilitatorPayoutCents: totals.facilitatorPayoutCents,
+      firstMilestone: project.milestones[0]
+        ? {
+            title: project.milestones[0].title,
+            status: project.milestones[0].status,
+            amountCents: Math.round(Number(project.milestones[0].amount) * 100),
+          }
+        : null,
       delivery: deliveryMetadata
         ? {
             emailSent: deliveryMetadata.email_delivery_sent === true,

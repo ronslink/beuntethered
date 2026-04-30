@@ -181,6 +181,13 @@ export async function generateBYOCInvite(sowData: any) {
         createdAt: project.created_at.toISOString(),
         clientTotalCents: totals.clientTotalCents,
         facilitatorPayoutCents: totals.facilitatorPayoutCents,
+        firstMilestone: normalizedMilestones[0]
+          ? {
+              title: normalizedMilestones[0].title,
+              status: "PENDING",
+              amountCents: Math.round(normalizedMilestones[0].amount * 100),
+            }
+          : null,
         delivery: {
           emailSent: emailDelivery.sent,
           emailSkipped: emailDelivery.sent ? null : emailDelivery.skipped ?? null,
