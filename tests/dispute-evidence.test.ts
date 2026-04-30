@@ -56,6 +56,25 @@ test("builds dispute context from milestone proof, audit, payment, and release e
         stripe_payment_intent_id: "pi_test",
         created_at: new Date("2026-04-28T09:00:00.000Z"),
       },
+      {
+        id: "payment_release_1",
+        kind: "ESCROW_RELEASE",
+        status: "SUCCEEDED",
+        gross_amount_cents: 420000,
+        platform_fee_cents: 33600,
+        facilitator_payout_cents: 386400,
+        stripe_transfer_id: "tr_test",
+        metadata: {
+          approval_attestation: {
+            testedPreview: true,
+            reviewedEvidence: true,
+            acceptsPaymentRelease: true,
+            auditStatus: "SUCCESS",
+            acceptedAt: "2026-04-28T10:14:00.000Z",
+          },
+        },
+        created_at: new Date("2026-04-28T10:16:00.000Z"),
+      },
     ],
     activity_logs: [
       {
@@ -79,5 +98,7 @@ test("builds dispute context from milestone proof, audit, payment, and release e
   assert.equal(context.submittedEvidence.length, 2);
   assert.equal(context.latestAudit?.score, 94);
   assert.equal(context.paymentStatus[0].status, "SUCCEEDED");
+  assert.equal(context.paymentStatus[1].releaseAttestation?.acceptsPaymentRelease, true);
+  assert.equal(context.releaseAttestations[0].source, "payment");
   assert.equal(context.releaseAttestations[0].action, "PAYMENT_RELEASED");
 });

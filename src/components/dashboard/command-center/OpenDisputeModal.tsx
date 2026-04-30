@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, ChangeEvent } from "react";
 import { openDisputeWithEvidence } from "@/app/actions/dispute";
 import type { DisputeEvidenceContext } from "@/lib/dispute-evidence";
+import { formatReleaseAttestationValue, getReleaseAttestation } from "@/lib/release-attestation";
 
 interface OpenDisputeModalProps {
   isOpen: boolean;
@@ -106,6 +107,9 @@ export default function OpenDisputeModal({
   }, [projectId, milestoneId, reason, codeDoesNotRun, appmapFile, evidenceFiles]);
 
   if (!isOpen) return null;
+  const releaseAttestation = reviewContext?.releaseAttestations
+    .map((attestation) => getReleaseAttestation(attestation.metadata))
+    .find(Boolean);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -233,6 +237,46 @@ export default function OpenDisputeModal({
                     </p>
                   </div>
                 </div>
+                {reviewContext.releaseAttestations.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-tertiary/20 bg-tertiary/5 p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                          <span className="material-symbols-outlined text-[13px]">verified</span>
+                          Release Attestation
+                        </p>
+                        <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
+                          Buyer acceptance and escrow release evidence will be included in arbitration review.
+                        </p>
+                      </div>
+                      <span className="rounded-md border border-tertiary/20 bg-surface px-2 py-1 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                        {reviewContext.releaseAttestations.length} record{reviewContext.releaseAttestations.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {releaseAttestation && (
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[
+                          { label: "Preview tested", value: releaseAttestation.testedPreview },
+                          { label: "Evidence reviewed", value: releaseAttestation.reviewedEvidence },
+                          { label: "Release accepted", value: releaseAttestation.acceptsPaymentRelease },
+                          { label: "Audit status", value: releaseAttestation.auditStatus || "Recorded" },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="rounded-lg border border-tertiary/15 bg-surface px-3 py-2">
+                            <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                              <span className="material-symbols-outlined text-[12px]">
+                                {value === false ? "error" : "check_circle"}
+                              </span>
+                              {label}
+                            </p>
+                            <p className="mt-1 text-[10px] font-medium text-on-surface-variant">
+                              {formatReleaseAttestationValue(value)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

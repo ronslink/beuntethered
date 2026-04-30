@@ -15,31 +15,7 @@ import { getMilestoneReadiness } from "@/lib/milestone-readiness";
 import { getMilestoneProofPlan } from "@/lib/milestone-proof";
 import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
-
-type ReleaseAttestationView = {
-  testedPreview: boolean;
-  reviewedEvidence: boolean;
-  acceptsPaymentRelease: boolean;
-  auditStatus?: string;
-  acceptedAt?: string;
-  failedAuditOverrideReason?: string;
-};
-
-function getReleaseAttestation(metadata: unknown): ReleaseAttestationView | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
-  const attestation = (metadata as Record<string, unknown>).approval_attestation;
-  if (!attestation || typeof attestation !== "object" || Array.isArray(attestation)) return null;
-  const value = attestation as Record<string, unknown>;
-
-  return {
-    testedPreview: value.testedPreview === true,
-    reviewedEvidence: value.reviewedEvidence === true,
-    acceptsPaymentRelease: value.acceptsPaymentRelease === true,
-    auditStatus: typeof value.auditStatus === "string" ? value.auditStatus : undefined,
-    acceptedAt: typeof value.acceptedAt === "string" ? value.acceptedAt : undefined,
-    failedAuditOverrideReason: typeof value.failedAuditOverrideReason === "string" ? value.failedAuditOverrideReason : undefined,
-  };
-}
+import { formatReleaseAttestationValue, getReleaseAttestation } from "@/lib/release-attestation";
 
 export default async function ProjectCommandCenter({
   params,
@@ -775,7 +751,7 @@ export default async function ProjectCommandCenter({
                                       {label}
                                     </p>
                                     <p className="mt-1 text-[10px] font-medium text-on-surface-variant">
-                                      {typeof value === "string" ? value.toLowerCase() : value ? "Confirmed" : "Not recorded"}
+                                      {formatReleaseAttestationValue(value)}
                                     </p>
                                   </div>
                                 ))}

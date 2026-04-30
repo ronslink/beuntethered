@@ -1,4 +1,5 @@
 import { getMilestoneProofPlan, type MilestoneProofInput, type MilestoneProofPlan } from "./milestone-proof.ts";
+import { getReleaseAttestation, type ReleaseAttestationView } from "./release-attestation.ts";
 
 type EvidenceAttachmentInput = {
   id?: unknown;
@@ -32,6 +33,7 @@ type EvidencePaymentInput = {
   stripe_payment_intent_id?: unknown;
   stripe_transfer_id?: unknown;
   stripe_refund_id?: unknown;
+  metadata?: unknown;
   created_at?: unknown;
 };
 
@@ -89,9 +91,11 @@ export type DisputeEvidenceContext = {
     stripePaymentIntentId: string | null;
     stripeTransferId: string | null;
     stripeRefundId: string | null;
+    releaseAttestation: ReleaseAttestationView | null;
     createdAt: string | null;
   }>;
   releaseAttestations: Array<{
+    source: "activity" | "payment";
     action: string;
     entityType: string;
     entityId: string;
@@ -169,6 +173,39 @@ export function buildDisputeEvidenceContext(
         createdAt: toIso(audits[0].created_at),
       }
     : null;
+  const paymentStatus = paymentRecords.slice(0, 6).map((record) => ({
+    id: clean(record.id),
+    kind: clean(record.kind) || "UNKNOWN",
+    status: clean(record.status) || "UNKNOWN",
+    grossAmountCents: numberOrNull(record.gross_amount_cents),
+    platformFeeCents: numberOrNull(record.platform_fee_cents),
+    facilitatorPayoutCents: numberOrNull(record.facilitator_payout_cents),
+    stripePaymentIntentId: clean(record.stripe_payment_intent_id) || null,
+    stripeTransferId: clean(record.stripe_transfer_id) || null,
+    stripeRefundId: clean(record.stripe_refund_id) || null,
+    releaseAttestation: getReleaseAttestation(record.metadata),
+    createdAt: toIso(record.created_at),
+  }));
+  const activityReleaseAttestations = activityLogs
+    .filter((activity) => RELEASE_ACTIONS.has(clean(activity.action)))
+    .map((activity) => ({
+      source: "activity" as const,
+      action: clean(activity.action) || "UNKNOWN",
+      entityType: clean(activity.entity_type) || "UNKNOWN",
+      entityId: clean(activity.entity_id),
+      metadata: jsonSafe(activity.metadata),
+      createdAt: toIso(activity.created_at),
+    }));
+  const paymentReleaseAttestations = paymentStatus
+    .filter((record) => record.kind === "ESCROW_RELEASE" && record.releaseAttestation)
+    .map((record) => ({
+      source: "payment" as const,
+      action: "PAYMENT_RELEASED",
+      entityType: "PaymentRecord",
+      entityId: record.id,
+      metadata: jsonSafe({ approval_attestation: record.releaseAttestation }),
+      createdAt: record.createdAt,
+    }));
 
   return {
     milestoneId: clean(milestone.id),
@@ -181,27 +218,7 @@ export function buildDisputeEvidenceContext(
     ),
     submittedEvidence,
     latestAudit,
-    paymentStatus: paymentRecords.slice(0, 6).map((record) => ({
-      id: clean(record.id),
-      kind: clean(record.kind) || "UNKNOWN",
-      status: clean(record.status) || "UNKNOWN",
-      grossAmountCents: numberOrNull(record.gross_amount_cents),
-      platformFeeCents: numberOrNull(record.platform_fee_cents),
-      facilitatorPayoutCents: numberOrNull(record.facilitator_payout_cents),
-      stripePaymentIntentId: clean(record.stripe_payment_intent_id) || null,
-      stripeTransferId: clean(record.stripe_transfer_id) || null,
-      stripeRefundId: clean(record.stripe_refund_id) || null,
-      createdAt: toIso(record.created_at),
-    })),
-    releaseAttestations: activityLogs
-      .filter((activity) => RELEASE_ACTIONS.has(clean(activity.action)))
-      .slice(0, 4)
-      .map((activity) => ({
-        action: clean(activity.action) || "UNKNOWN",
-        entityType: clean(activity.entity_type) || "UNKNOWN",
-        entityId: clean(activity.entity_id),
-        metadata: jsonSafe(activity.metadata),
-        createdAt: toIso(activity.created_at),
-      })),
+    paymentStatus,
+    releaseAttestations: [...paymentReleaseAttestations, ...activityReleaseAttestations].slice(0, 4),
   };
 }
