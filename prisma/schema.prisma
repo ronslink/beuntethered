@@ -116,6 +116,7 @@ model Project {
   github_repo_url     String?
   github_access_token String?
   invite_token        String?          @unique
+  invited_client_email String?
   status              ProjectStatus    @default(DRAFT)
   views               Int              @default(0)
   created_at          DateTime         @default(now())
@@ -138,6 +139,8 @@ model Project {
   activity_logs       ActivityLog[]
   payment_records     PaymentRecord[]
   account_risk_signals AccountRiskSignal[]
+
+  @@index([invited_client_email])
 }
 
 model Review {

@@ -60,6 +60,10 @@ export const byocInviteInputSchema = z.object({
   title: trimmed.min(3).max(160),
   executiveSummary: trimmed.min(20).max(5000),
   totalAmount: z.coerce.number().positive().max(5_000_000).optional(),
+  clientEmail: z
+    .union([trimmed.email().max(254), z.literal("")])
+    .optional()
+    .transform((value) => (value ? value.toLowerCase() : undefined)),
   milestones: z.array(byocMilestoneInputSchema).min(1).max(8),
 }).superRefine((value, ctx) => {
   for (const [index, milestone] of value.milestones.entries()) {

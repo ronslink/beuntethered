@@ -8,6 +8,7 @@ import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/ra
 import { normalizeMilestoneForStorage } from "@/lib/milestone-quality";
 import { byocInviteInputSchema } from "@/lib/validators";
 import { buildBYOCSowSnapshot, calculateBYOCInviteTotals } from "@/lib/byoc-sow";
+import { sendBYOCInvite } from "@/lib/resend";
 
 export async function generateBYOCInvite(sowData: any) {
   try {
@@ -37,6 +38,7 @@ export async function generateBYOCInvite(sowData: any) {
     });
     const totals = calculateBYOCInviteTotals(normalizedMilestones);
     const inviteToken = randomBytes(16).toString("hex");
+    const invitedClientEmail = parsed.data.clientEmail ?? null;
 
     const project = await prisma.$transaction(async (tx) => {
       const draft = await tx.project.create({
@@ -47,6 +49,7 @@ export async function generateBYOCInvite(sowData: any) {
           status: "DRAFT",
           creator_id: user.id, // Draft intrinsically tracks back natively bypassing Null Client errors
           invite_token: inviteToken,
+          invited_client_email: invitedClientEmail,
           milestones: {
             create: normalizedMilestones.map((milestone) => ({
               title: milestone.title,
@@ -78,6 +81,7 @@ export async function generateBYOCInvite(sowData: any) {
             platform_fee_cents: totals.platformFeeCents,
             client_total_cents: totals.clientTotalCents,
             facilitator_payout_cents: totals.facilitatorPayoutCents,
+            invited_client_email: invitedClientEmail,
           },
         },
       });
@@ -88,15 +92,21 @@ export async function generateBYOCInvite(sowData: any) {
     revalidatePath("/dashboard");
     revalidatePath("/byoc/new");
 
+    const emailDelivery = invitedClientEmail
+      ? await sendBYOCInvite(invitedClientEmail, project.title, inviteToken)
+      : { sent: false as const, skipped: "NO_CLIENT_EMAIL" as const };
+
     return {
       success: true,
       inviteToken,
       projectId: project.id,
+      emailDelivery,
       packet: {
         id: project.id,
         title: project.title,
         status: project.status,
         inviteToken,
+        clientEmail: invitedClientEmail,
         createdAt: project.created_at.toISOString(),
         clientTotalCents: totals.clientTotalCents,
         facilitatorPayoutCents: totals.facilitatorPayoutCents,

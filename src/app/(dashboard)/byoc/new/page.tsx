@@ -25,6 +25,7 @@ export default async function BYOCPage() {
       title: true,
       status: true,
       invite_token: true,
+      invited_client_email: true,
       created_at: true,
       milestones: {
         select: { amount: true },
@@ -39,6 +40,7 @@ export default async function BYOCPage() {
       title: project.title,
       status: project.status,
       inviteToken: project.invite_token,
+      clientEmail: project.invited_client_email,
       createdAt: project.created_at.toISOString(),
       clientTotalCents: totals.clientTotalCents,
       facilitatorPayoutCents: totals.facilitatorPayoutCents,

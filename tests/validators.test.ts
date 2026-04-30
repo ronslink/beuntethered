@@ -86,6 +86,7 @@ test("validates project invites and saved searches", () => {
 test("validates BYOC invites as verifiable milestone scopes", () => {
   const valid = byocInviteInputSchema.parse({
     title: "Stripe Portal Repair",
+    clientEmail: "Buyer@Example.COM",
     executiveSummary: "Repair the Stripe portal flow so the buyer can validate billing access and event evidence.",
     totalAmount: 2500,
     milestones: [
@@ -104,6 +105,7 @@ test("validates BYOC invites as verifiable milestone scopes", () => {
     "Buyer can open the staging portal and reach the Stripe billing screen.",
     "Handoff includes screenshots or logs showing the Stripe test event evidence.",
   ]);
+  assert.equal(valid.clientEmail, "buyer@example.com");
 
   assert.equal(byocInviteInputSchema.safeParse({
     title: "Testing",

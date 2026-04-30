@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 import { useState, useEffect } from "react";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 
@@ -12,7 +12,7 @@ interface TopNavProps {
 }
 
 export function TopNav({ userName, userImage, isAdmin = false }: TopNavProps) {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -36,11 +36,11 @@ export function TopNav({ userName, userImage, isAdmin = false }: TopNavProps) {
       <div className="flex items-center gap-4">
         <NotificationBell />
         <button 
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           className="p-2 text-on-surface-variant hover:bg-surface-container transition-all duration-300 rounded-full active:scale-90 flex items-center justify-center"
         >
           <span className="material-symbols-outlined">
-            {mounted && theme === "dark" ? "light_mode" : "dark_mode"}
+            {mounted && resolvedTheme === "dark" ? "light_mode" : "dark_mode"}
           </span>
         </button>
         <Link

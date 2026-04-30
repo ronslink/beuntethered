@@ -16,6 +16,7 @@ type SOWData = {
   title: string;
   executiveSummary: string;
   totalAmount: number;
+  clientEmail?: string;
   milestones: SOWMilestone[];
 };
 
@@ -32,6 +33,7 @@ type RecentBYOCPacket = {
   title: string;
   status: string;
   inviteToken: string | null;
+  clientEmail: string | null;
   createdAt: string;
   clientTotalCents: number;
   facilitatorPayoutCents: number;
@@ -97,6 +99,7 @@ const qualityGates = [
 
 export default function BYOCDraftingHub({ recentPackets }: { recentPackets: RecentBYOCPacket[] }) {
   const [prompt, setPrompt] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<SOWData | null>(null);
   const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
@@ -106,6 +109,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
   const [hostname, setHostname] = useState("");
   const [packets, setPackets] = useState(recentPackets);
   const [copiedPacketId, setCopiedPacketId] = useState<string | null>(null);
+  const [deliveryStatus, setDeliveryStatus] = useState("");
 
   useEffect(() => {
     setHostname(window.location.origin);
@@ -124,6 +128,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
     setIsGenerating(true);
     setSowData(null);
     setMagicLinkUrl("");
+    setDeliveryStatus("");
     setTriageResult(null);
     setRejectionMessage("");
 
@@ -173,9 +178,16 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
     if (!sowData) return;
 
     startTransition(async () => {
-      const res = await generateBYOCInvite(sowData);
+      const res = await generateBYOCInvite({ ...sowData, clientEmail: clientEmail.trim() });
       if (res.success) {
         setMagicLinkUrl(`${hostname}/invite/${res.inviteToken}`);
+        if (res.emailDelivery?.sent) {
+          setDeliveryStatus(`Invite email sent to ${clientEmail.trim()}.`);
+        } else if (clientEmail.trim()) {
+          setDeliveryStatus("Invite link created. Email delivery is not configured in this environment.");
+        } else {
+          setDeliveryStatus("Invite link created. Add a client email next time to send it automatically.");
+        }
         if (res.packet) {
           setPackets((current) => [res.packet, ...current.filter((packet) => packet.id !== res.packet.id)].slice(0, 5));
         }
@@ -258,6 +270,20 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                 className="mt-4 min-h-[180px] w-full resize-none rounded-lg border border-outline-variant/40 bg-surface-container-low/40 p-4 text-sm leading-6 text-on-surface outline-none transition focus:border-primary/60 focus:bg-surface placeholder:text-on-surface-variant/60"
               />
 
+              <label className="mt-3 block">
+                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                  Client email for private claim guard
+                </span>
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(event) => setClientEmail(event.target.value)}
+                  disabled={isGenerating || !!magicLinkUrl}
+                  placeholder="client@company.com"
+                  className="mt-2 w-full rounded-lg border border-outline-variant/40 bg-surface-container-low/40 px-4 py-3 text-sm text-on-surface outline-none transition focus:border-primary/60 focus:bg-surface placeholder:text-on-surface-variant/60"
+                />
+              </label>
+
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-5 text-on-surface-variant">
                   Best results include target users, required systems, budget, evidence, and launch definition.
@@ -330,6 +356,11 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
                               {formatStatus(packet.status)} · {formatDate(packet.createdAt)}
                             </p>
+                            {packet.clientEmail && (
+                              <p className="mt-1 truncate text-[11px] text-on-surface-variant">
+                                Invited: {packet.clientEmail}
+                              </p>
+                            )}
                           </div>
                           <span className="rounded-md border border-outline-variant/30 bg-surface px-2 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
                             {packet.inviteToken ? "Invite" : "Work"}
@@ -551,6 +582,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs font-black uppercase tracking-widest text-primary">Invite link ready</p>
+                        {deliveryStatus && <p className="mt-1 text-xs text-on-surface-variant">{deliveryStatus}</p>}
                         <input
                           type="text"
                           readOnly

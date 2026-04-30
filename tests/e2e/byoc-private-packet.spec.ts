@@ -22,6 +22,7 @@ test("facilitator sees recent BYOC packet and client invite renders trust scope"
         "Build a verified revenue operations portal with role-based access, billing evidence, and milestone acceptance checks.\n\nMilestone evidence must include a live preview URL, repository branch, screenshots, and buyer acceptance checklist.",
       is_byoc: true,
       invite_token: inviteToken,
+      invited_client_email: `${prefix}-client@example.com`,
       status: "DRAFT",
       milestones: {
         create: [
@@ -72,6 +73,7 @@ test("facilitator sees recent BYOC packet and client invite renders trust scope"
 
     await expect(page.getByRole("heading", { name: /create a verified private delivery packet/i })).toBeVisible();
     await expect(page.getByText("Private Revenue Ops Portal").first()).toBeVisible();
+    await expect(page.getByText(`${prefix}-client@example.com`)).toBeVisible();
     await expect(page.getByText("$4,200").first()).toBeVisible();
     await expect(page.locator(`a[href="/invite/${inviteToken}"]`).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /copy link/i })).toBeVisible();

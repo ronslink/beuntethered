@@ -24,6 +24,9 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
        // Prevent dual-claims mapping to null
        return NextResponse.redirect(new URL("/dashboard", req.url));
     }
+    if (project.invited_client_email && user.email.toLowerCase() !== project.invited_client_email.toLowerCase()) {
+      return NextResponse.redirect(new URL("/dashboard?invite_error=wrong_client_email", req.url));
+    }
 
     await prisma.project.update({
       where: { id: project.id },

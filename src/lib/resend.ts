@@ -109,7 +109,7 @@ export async function sendSavedSearchAlert({
 
 export async function sendBYOCInvite(clientEmail: string, projectTitle: string, token: string) {
   try {
-    await sendTransactionalEmail({
+    return await sendTransactionalEmail({
       from: "Untether Escrow <escrow@untether.network>",
       to: clientEmail,
       subject: `[ACTION REQUIRED] Secure Statement of Work: ${projectTitle}`,
@@ -128,6 +128,7 @@ export async function sendBYOCInvite(clientEmail: string, projectTitle: string, 
     });
   } catch (error) {
     console.error("Resend Alert Failed (BYOC Invite):", error);
+    return { sent: false, skipped: "RESEND_SEND_FAILED" as const };
   }
 }
 
