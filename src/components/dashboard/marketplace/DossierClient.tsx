@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import BidModal from "@/components/dashboard/marketplace/BidModal";
 import { markProjectInviteViewed, respondToProjectInvite } from "@/app/actions/project-invites";
+import type { ProposalAdvisorPacket } from "@/lib/proposal-advisor";
 
 type DossierProject = {
   id: string;
@@ -60,6 +61,7 @@ export default function DossierClient({
   awardReadiness,
   invite,
   existingProposal,
+  advisorPacket,
 }: {
   project: DossierProject;
   milestones: DossierMilestone[];
@@ -71,6 +73,7 @@ export default function DossierClient({
   awardReadiness: AwardReadiness;
   invite: ProjectInviteState;
   existingProposal: ExistingProposal;
+  advisorPacket?: ProposalAdvisorPacket | null;
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"overview" | "architecture" | "escrow">("overview");
@@ -488,6 +491,7 @@ export default function DossierClient({
             deliverables: milestone.deliverables,
             acceptance_criteria: milestone.acceptance_criteria,
           }))}
+          advisorPacket={advisorPacket}
           onClose={() => setIsBidOpen(false)}
         />
       )}

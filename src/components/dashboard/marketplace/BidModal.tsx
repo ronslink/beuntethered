@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { submitBid } from "@/app/actions/bids";
 import { useRouter } from "next/navigation";
 import { getMilestoneProofPlan, type MilestoneProofPlan } from "@/lib/milestone-proof";
+import type { ProposalAdvisorPacket } from "@/lib/proposal-advisor";
 
 type Mode = "SELECTION" | "QUICK" | "FULL_1" | "FULL_2" | "FULL_3";
 type Milestone = {
@@ -35,6 +36,30 @@ const COMMON_STACKS = [
   "AWS", "GCP", "Azure", "Docker", "Kubernetes", "Terraform",
   "PyTorch", "TensorFlow", "Langchain",
 ];
+
+function buildAdvisorApproach(packet?: ProposalAdvisorPacket | null) {
+  if (!packet) return "";
+
+  const sections = [
+    packet.positioning,
+    "",
+    "Delivery plan:",
+    ...packet.milestoneStrategy.slice(0, 4).map((milestone, index) => (
+      `${index + 1}. ${milestone.title}: ${milestone.outcome}`
+    )),
+    "",
+    "Evidence plan:",
+    ...packet.evidencePlan.slice(0, 5).map((item) => `- ${item}`),
+    "",
+    "Buyer questions:",
+    ...packet.buyerQuestions.slice(0, 3).map((item) => `- ${item}`),
+    "",
+    "Risk notes:",
+    ...packet.riskNotes.slice(0, 3).map((item) => `- ${item}`),
+  ];
+
+  return sections.join("\n").trim();
+}
 
 function ProofPlanPanel({ plans, compact = false }: { plans: MilestoneProofPlan[]; compact?: boolean }) {
   if (plans.length === 0) return null;
@@ -88,12 +113,14 @@ export default function BidModal({
   totalValue,
   awardReadiness,
   originalMilestones,
+  advisorPacket,
   onClose,
 }: {
   project: any;
   totalValue: number;
   awardReadiness: AwardReadiness;
   originalMilestones?: OriginalMilestone[];
+  advisorPacket?: ProposalAdvisorPacket | null;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -101,11 +128,12 @@ export default function BidModal({
   const [mode, setMode] = useState<Mode>("SELECTION");
   const [success, setSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const advisorApproach = buildAdvisorApproach(advisorPacket);
 
   // Quick bid fields
-  const [bidAmount, setBidAmount] = useState(totalValue);
-  const [days, setDays] = useState(14);
-  const [approach, setApproach] = useState("");
+  const [bidAmount, setBidAmount] = useState(advisorPacket?.proposedAmount || totalValue);
+  const [days, setDays] = useState(advisorPacket?.estimatedDays || 14);
+  const [approach, setApproach] = useState(advisorApproach);
   const [escrowPct, setEscrowPct] = useState(100);
 
   // Full proposal fields
@@ -113,7 +141,14 @@ export default function BidModal({
   const [techInput, setTechInput] = useState("");
   const [stackReason, setStackReason] = useState("");
   const [milestones, setMilestones] = useState<Milestone[]>(
-    originalMilestones && originalMilestones.length > 0
+    advisorPacket?.milestoneStrategy.length
+      ? advisorPacket.milestoneStrategy.map((milestone) => ({
+          title: milestone.title,
+          amount: milestone.amount,
+          days: milestone.days || 7,
+          description: milestone.outcome,
+        }))
+      : originalMilestones && originalMilestones.length > 0
       ? originalMilestones.map((m) => ({
           title: m.title,
           amount: Number(m.amount),
@@ -270,6 +305,23 @@ export default function BidModal({
                     Finish verification
                     <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
                   </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {advisorPacket && mode !== "SELECTION" && (
+          <div className="px-7 pb-3 shrink-0">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-primary text-[17px] mt-0.5">auto_awesome</span>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-primary">
+                    Advisor draft loaded
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">
+                    Pre-filled from the SOW milestones, proof plan, risks, and buyer questions. Edit it before submitting.
+                  </p>
                 </div>
               </div>
             </div>

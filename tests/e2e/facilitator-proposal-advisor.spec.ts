@@ -57,13 +57,13 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await page.goto("/advisor");
 
     await expect(page.getByRole("heading", { name: /proposal advisor/i })).toBeVisible();
-    await expect(page.getByText("Verified Stripe Portal")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Verified Stripe Portal" })).toBeVisible();
     await expect(page.getByText("Marketplace award readiness is incomplete")).toBeVisible();
     await expect(page.getByRole("link", { name: /finish verification/i })).toHaveAttribute("href", "/settings");
-    await expect(page.getByRole("heading", { name: "SOW-to-bid map" }).first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Proof strategy" }).first()).toBeVisible();
-    await expect(page.getByText("Live preview or demo URL").first()).toBeVisible();
-    await expect(page.getByText("Payment test proof").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Proposal packet" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Evidence plan" }).first()).toBeVisible();
+    await expect(page.getByText("Staging URL or recorded walkthrough for buyer review").first()).toBeVisible();
+    await expect(page.getByText("Which payment scenarios must pass in test mode before release?").first()).toBeVisible();
     await expect(page.locator(`a[href="/marketplace/project/${project.id}"]`)).toHaveAttribute(
       "href",
       `/marketplace/project/${project.id}`
@@ -74,6 +74,9 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await expect(page.getByRole("link", { name: /finish verification/i }).first()).toHaveAttribute("href", "/settings");
     await page.getByRole("button", { name: /submit proposal/i }).click();
     await expect(page.getByText("Submit when ready, but complete verification before a buyer can award this proposal.")).toBeVisible();
+    await page.getByRole("button", { name: /quick bid/i }).click();
+    await expect(page.getByText("Advisor draft loaded")).toBeVisible();
+    await expect(page.locator("textarea").first()).toHaveValue(/facilitator-led execution/);
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

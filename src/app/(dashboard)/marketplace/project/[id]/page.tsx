@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import DossierClient from "@/components/dashboard/marketplace/DossierClient";
 import { computeOpportunityFit, inferOpportunityTerms } from "@/lib/opportunity-fit";
 import { getFacilitatorAwardReadiness } from "@/lib/bid-award-rules";
+import { buildProposalAdvisorPacket } from "@/lib/proposal-advisor";
 
 export default async function ProjectDossierPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -123,6 +124,7 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
     amount: Number(m.amount),
     status: m.status,
   }));
+  const advisorPacket = buildProposalAdvisorPacket(project);
 
   return (
     <DossierClient
@@ -142,6 +144,7 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
         estimatedDays: project.bids[0].estimated_days,
         createdAt: project.bids[0].created_at.toISOString(),
       } : null}
+      advisorPacket={advisorPacket}
     />
   );
 }
