@@ -28,6 +28,29 @@ import {
   type ProjectScopeStarter,
 } from "@/lib/project-scope-starters";
 
+const SCOPE_PROCESS_STEPS = [
+  {
+    icon: "edit_note",
+    title: "Start",
+    copy: "Choose a familiar project type or write the rough outcome in your own words.",
+  },
+  {
+    icon: "fact_check",
+    title: "Clarify",
+    copy: "Answer missing details so the scope has users, systems, regions, evidence, budget, and timing.",
+  },
+  {
+    icon: "price_check",
+    title: "Validate",
+    copy: "Untether checks whether the budget and timeline are market-ready, aggressive, or need recovery.",
+  },
+  {
+    icon: "verified",
+    title: "Milestone",
+    copy: "Generate fundable milestones with deliverables, acceptance checks, and proof artifacts.",
+  },
+] as const;
+
 export default function ProjectCreationWizard() {
   const router = useRouter();
 
@@ -587,6 +610,34 @@ export default function ProjectCreationWizard() {
                            <button type="button" onClick={() => setMode("DISCOVERY")} className={`flex-1 py-2 rounded-md text-xs font-bold tracking-widest uppercase transition-all ${mode === "DISCOVERY" ? 'bg-primary/15 text-primary border border-primary/20' : 'text-on-surface-variant hover:text-on-surface border border-transparent'}`}>
                               $1k Discovery Sprint
                            </button>
+                        </div>
+
+                        <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 p-4">
+                           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                              <div>
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-primary">Scope process</p>
+                                 <h3 className="mt-1 text-sm font-black text-on-surface">From rough idea to verifiable milestones</h3>
+                              </div>
+                              <p className="max-w-md text-xs leading-5 text-on-surface-variant">
+                                 The AI keeps your budget, timeline, and edits in the loop while it pressure-tests whether the work can be posted as outcome-based delivery.
+                              </p>
+                           </div>
+                           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                              {SCOPE_PROCESS_STEPS.map((processStep, index) => (
+                                 <div key={processStep.title} className="rounded-lg border border-outline-variant/20 bg-surface p-3">
+                                    <div className="flex items-center gap-2">
+                                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                          <span className="material-symbols-outlined text-[16px]">{processStep.icon}</span>
+                                       </span>
+                                       <div>
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Step {index + 1}</p>
+                                          <p className="text-xs font-black text-on-surface">{processStep.title}</p>
+                                       </div>
+                                    </div>
+                                    <p className="mt-3 text-xs leading-5 text-on-surface-variant">{processStep.copy}</p>
+                                 </div>
+                              ))}
+                           </div>
                         </div>
 
                         {prompt.trim().length < 5 && (
