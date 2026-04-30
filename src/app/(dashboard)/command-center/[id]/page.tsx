@@ -16,6 +16,7 @@ import { getMilestoneProofPlan } from "@/lib/milestone-proof";
 import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
 import { formatReleaseAttestationValue, getReleaseAttestation } from "@/lib/release-attestation";
+import { BYOC_DISPUTE_EXCLUSION_MESSAGE, getProjectDisputeEligibility } from "@/lib/dispute-rules";
 
 export default async function ProjectCommandCenter({
   params,
@@ -100,6 +101,10 @@ export default async function ProjectCommandCenter({
   const isRetainer = project.billing_type === "HOURLY_RETAINER";
   const isHubLocked = isRetainer && !project.github_repo_url;
   const isCompleted = project.status === "COMPLETED";
+  const disputeEligibility = getProjectDisputeEligibility({
+    status: project.status,
+    isByoc: project.is_byoc,
+  });
   const totalValue = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
   const transitionBaseline = project.is_byoc ? getBYOCTransitionBaseline(project.ai_generated_sow) : null;
   const transitionBaselineFields = transitionBaseline
@@ -802,7 +807,7 @@ export default async function ProjectCommandCenter({
                                   Download Source
                                 </a>
                               )}
-                              {isClient && !isCompleted && project.status !== "DISPUTED" && (
+                              {isClient && !isCompleted && disputeEligibility.eligible && (
                                 <OpenDisputeButton
                                   projectId={project.id}
                                   milestoneId={milestone.id}
@@ -810,7 +815,7 @@ export default async function ProjectCommandCenter({
                                   label="Open Dispute"
                                 />
                               )}
-                              {isFacilitator && !isCompleted && project.status !== "DISPUTED" && (
+                              {isFacilitator && !isCompleted && disputeEligibility.eligible && (
                                 <OpenDisputeButton
                                   projectId={project.id}
                                   milestoneId={milestone.id}
@@ -933,6 +938,18 @@ export default async function ProjectCommandCenter({
                     </div>
                   ))}
                 </div>
+              </section>
+            )}
+            {project.is_byoc && (
+              <section className="rounded-2xl border border-secondary/20 bg-secondary/5 p-5">
+                <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-secondary">
+                  <span className="material-symbols-outlined text-[14px]">policy</span>
+                  BYOC Governance
+                </p>
+                <h2 className="mt-1 text-base font-black text-on-surface">Arbitration Excluded</h2>
+                <p className="mt-2 text-xs font-medium leading-5 text-on-surface-variant">
+                  {BYOC_DISPUTE_EXCLUSION_MESSAGE} Evidence, escrow, milestone status, and audit records still remain available for the parties to review directly.
+                </p>
               </section>
             )}
             <CommitSyncTimeline events={timelineEvents} />

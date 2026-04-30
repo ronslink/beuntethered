@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  BYOC_DISPUTE_EXCLUSION_MESSAGE,
   canOpenDisputeRequester,
   canOpenDisputeForMilestone,
   canOpenDisputeForProject,
+  getProjectDisputeEligibility,
 } from "../src/lib/dispute-rules.ts";
 
 test("disputes can only be opened on active buyer work", () => {
@@ -26,4 +28,17 @@ test("disputes can be opened by buyer managers or assigned facilitators", () => 
   assert.equal(canOpenDisputeRequester({ isBuyerManager: true, isAssignedFacilitator: false }), true);
   assert.equal(canOpenDisputeRequester({ isBuyerManager: false, isAssignedFacilitator: true }), true);
   assert.equal(canOpenDisputeRequester({ isBuyerManager: false, isAssignedFacilitator: false }), false);
+});
+
+test("BYOC projects are excluded from platform arbitration", () => {
+  assert.deepEqual(getProjectDisputeEligibility({ status: "ACTIVE", isByoc: true }), {
+    eligible: false,
+    reason: BYOC_DISPUTE_EXCLUSION_MESSAGE,
+    code: "BYOC_DISPUTE_EXCLUDED",
+  });
+  assert.deepEqual(getProjectDisputeEligibility({ status: "ACTIVE", isByoc: false }), {
+    eligible: true,
+    reason: null,
+    code: null,
+  });
 });

@@ -19,6 +19,7 @@ import { validateFacilitatorPayoutReadiness } from "@/lib/payment-route-rules";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { notifyTrustEvent } from "@/lib/trust-notifications";
+import { BYOC_DISPUTE_EXCLUSION_MESSAGE } from "@/lib/dispute-rules";
 
 /**
  * Validates platform administrator dispute permissions.
@@ -60,6 +61,7 @@ export async function resolveDisputeForClient(disputeId: string, resolutionNoteI
     });
 
     if (!dispute || dispute.status !== "OPEN") throw new Error("This dispute is no longer open.");
+    if (dispute.project.is_byoc) throw new Error(BYOC_DISPUTE_EXCLUSION_MESSAGE);
     const statusError = getArbitrationStatusError(dispute.milestone.status, "CLIENT");
     if (statusError) throw new Error(statusError);
 
@@ -295,6 +297,7 @@ export async function resolveDisputeForFacilitator(disputeId: string, resolution
     });
 
     if (!dispute || dispute.status !== "OPEN") throw new Error("This dispute is no longer open.");
+    if (dispute.project.is_byoc) throw new Error(BYOC_DISPUTE_EXCLUSION_MESSAGE);
     const statusError = getArbitrationStatusError(dispute.milestone.status, "FACILITATOR");
     if (statusError) throw new Error(statusError);
 

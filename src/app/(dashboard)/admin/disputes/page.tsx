@@ -41,6 +41,7 @@ export default async function AdminDisputesHub() {
 
   // Extract all actively disputed milestones and historical logs
   const disputes = await prisma.dispute.findMany({
+     where: { project: { is_byoc: false } },
      orderBy: { created_at: "desc" },
      include: {
         project: true,

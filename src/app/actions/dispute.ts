@@ -12,7 +12,7 @@ import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 import {
   canOpenDisputeRequester,
   canOpenDisputeForMilestone,
-  canOpenDisputeForProject,
+  getProjectDisputeEligibility,
   DISPUTABLE_MILESTONE_STATUSES,
   DISPUTABLE_PROJECT_STATUSES,
 } from "@/lib/dispute-rules";
@@ -88,8 +88,13 @@ async function createDispute(params: OpenDisputeParams): Promise<{ success: bool
       return { success: false, error: "Project not found" };
     }
 
-    if (!canOpenDisputeForProject(project.status)) {
-      return { success: false, error: "Project cannot be disputed" };
+    const projectDisputeEligibility = getProjectDisputeEligibility({
+      status: project.status,
+      isByoc: project.is_byoc,
+    });
+
+    if (!projectDisputeEligibility.eligible) {
+      return { success: false, error: projectDisputeEligibility.reason };
     }
 
     const targetMilestone =
