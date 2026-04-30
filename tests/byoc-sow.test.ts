@@ -27,6 +27,7 @@ test("builds a BYOC SOW snapshot with milestones and trust terms", () => {
   assert.match(snapshot, /BYOC Transition Baseline/);
   assert.match(snapshot, /running project/);
   assert.match(snapshot, /Platform responsibility starts from the accepted packet/);
+  assert.match(snapshot, /not eligible for Untether platform arbitration/);
   assert.match(snapshot, /Working staging URL/);
   assert.match(snapshot, /Stripe test event is recorded/);
   assert.match(snapshot, /0% marketplace fee/);

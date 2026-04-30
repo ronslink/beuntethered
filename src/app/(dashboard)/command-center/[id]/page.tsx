@@ -382,7 +382,7 @@ export default async function ProjectCommandCenter({
                     </p>
                     <h2 className="mt-1 text-lg font-black text-on-surface">Governed scope from claim forward</h2>
                     <p className="mt-2 text-xs font-medium leading-5 text-on-surface-variant">
-                      This running project entered Untether through a private delivery packet. Prior work is recorded as context unless it appears inside a funded milestone; payment, evidence, audits, and disputes attach from this accepted packet forward.
+                      This running project entered Untether through a private delivery packet. Prior work is recorded as context unless it appears inside a funded milestone; payment, evidence, audits, and activity records attach from this accepted packet forward. Platform arbitration remains excluded for BYOC origin agreements.
                     </p>
                   </div>
                   <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/20 bg-surface px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary">

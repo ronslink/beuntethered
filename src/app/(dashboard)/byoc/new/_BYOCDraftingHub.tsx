@@ -125,7 +125,7 @@ const qualityGates = [
   {
     icon: "verified_user",
     title: "Trust record",
-    body: "Accepted work becomes part of the audit, activity, and dispute trail.",
+    body: "Accepted work becomes part of the audit, payment, and activity ledger.",
   },
 ];
 
@@ -396,7 +396,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                   ["Current state", currentState, setCurrentState, "What is already live, agreed, blocked, or in progress?"],
                   ["Prior work/assets", priorWork, setPriorWork, "Existing SOW, repo, deployment, files, decisions, or paid work."],
                   ["Remaining governed work", remainingWork, setRemainingWork, "What should Untether govern from this packet forward?"],
-                  ["Known risks", knownRisks, setKnownRisks, "Open questions, dependencies, access gaps, or disputed assumptions."],
+                  ["Known risks", knownRisks, setKnownRisks, "Open questions, dependencies, access gaps, or unresolved assumptions."],
                 ].map(([label, value, setter, placeholder]) => (
                   <label key={label as string} className="block">
                     <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label as string}</span>

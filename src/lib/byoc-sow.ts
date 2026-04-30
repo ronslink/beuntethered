@@ -106,7 +106,8 @@ export function buildBYOCSowSnapshot({
     "- The client pays the BYOC platform fee at escrow checkout.",
     `- Estimated client total: $${(totals.clientTotalCents / 100).toLocaleString()}.`,
     `- Estimated facilitator payout: $${(totals.facilitatorPayoutCents / 100).toLocaleString()}.`,
-    "- Delivery evidence, audit results, payment records, and disputes remain attached to the project ledger."
+    "- Delivery evidence, audit results, payment records, and activity records remain attached to the project ledger.",
+    "- BYOC projects are not eligible for Untether platform arbitration because the original client agreement originated outside the platform and cannot be certified by Untether."
   );
 
   return lines.join("\n");
