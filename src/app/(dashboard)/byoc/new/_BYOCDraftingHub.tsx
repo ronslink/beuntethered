@@ -17,8 +17,15 @@ type SOWData = {
   executiveSummary: string;
   totalAmount: number;
   clientEmail?: string;
+  transitionMode?: BYOCTransitionMode;
+  currentState?: string;
+  priorWork?: string;
+  remainingWork?: string;
+  knownRisks?: string;
   milestones: SOWMilestone[];
 };
+
+type BYOCTransitionMode = "NEW_EXTERNAL" | "RUNNING_PROJECT" | "RESCUE_TRANSITION" | "ONGOING_TO_MILESTONES";
 
 type TriageResult = {
   in_scope?: boolean;
@@ -67,6 +74,11 @@ function formatStatus(value: string) {
   return value.replace(/_/g, " ").toLowerCase();
 }
 
+function formatTransitionMode(value?: string) {
+  if (!value) return "new external project";
+  return value.replace(/_/g, " ").toLowerCase();
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -97,9 +109,37 @@ const qualityGates = [
   },
 ];
 
+const transitionModes: { value: BYOCTransitionMode; label: string; body: string }[] = [
+  {
+    value: "NEW_EXTERNAL",
+    label: "New external project",
+    body: "Scope a new buyer engagement before work starts.",
+  },
+  {
+    value: "RUNNING_PROJECT",
+    label: "Running project",
+    body: "Bring active work into milestone governance from this point forward.",
+  },
+  {
+    value: "RESCUE_TRANSITION",
+    label: "Rescue transition",
+    body: "Stabilize unclear or stalled work with a new verified baseline.",
+  },
+  {
+    value: "ONGOING_TO_MILESTONES",
+    label: "Ongoing to milestones",
+    body: "Convert recurring work into outcome-based funded checkpoints.",
+  },
+];
+
 export default function BYOCDraftingHub({ recentPackets }: { recentPackets: RecentBYOCPacket[] }) {
   const [prompt, setPrompt] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [transitionMode, setTransitionMode] = useState<BYOCTransitionMode>("NEW_EXTERNAL");
+  const [currentState, setCurrentState] = useState("");
+  const [priorWork, setPriorWork] = useState("");
+  const [remainingWork, setRemainingWork] = useState("");
+  const [knownRisks, setKnownRisks] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<SOWData | null>(null);
   const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
@@ -133,10 +173,19 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
     setRejectionMessage("");
 
     try {
+      const transitionContext = [
+        `BYOC transition mode: ${transitionMode}`,
+        currentState.trim() ? `Current state: ${currentState.trim()}` : "",
+        priorWork.trim() ? `Prior completed work or existing assets: ${priorWork.trim()}` : "",
+        remainingWork.trim() ? `Remaining work to govern in Untether: ${remainingWork.trim()}` : "",
+        knownRisks.trim() ? `Known risks or open questions: ${knownRisks.trim()}` : "",
+      ].filter(Boolean).join("\n");
+      const contextualPrompt = `${prompt.trim()}\n\n${transitionContext}`.trim();
+
       const triageRes = await fetch("/api/ai/triage-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt: contextualPrompt }),
       });
 
       const triage = (await triageRes.json()) as TriageResult;
@@ -156,7 +205,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt,
+          prompt: contextualPrompt,
           category: triage.category,
           complexity: triage.complexity,
         }),
@@ -165,7 +214,14 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
       const data = (await response.json()) as SOWData & { error?: string };
       if (!response.ok) throw new Error(data.error || "Unable to generate scope.");
 
-      setSowData(data);
+      setSowData({
+        ...data,
+        transitionMode,
+        currentState: currentState.trim(),
+        priorWork: priorWork.trim(),
+        remainingWork: remainingWork.trim(),
+        knownRisks: knownRisks.trim(),
+      });
     } catch (error) {
       console.error(error);
       setRejectionMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
@@ -269,6 +325,55 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                 placeholder="Example: Build a React operations dashboard with authentication, admin reporting, Stripe billing, and launch documentation. Budget is $4,500."
                 className="mt-4 min-h-[180px] w-full resize-none rounded-lg border border-outline-variant/40 bg-surface-container-low/40 p-4 text-sm leading-6 text-on-surface outline-none transition focus:border-primary/60 focus:bg-surface placeholder:text-on-surface-variant/60"
               />
+
+              <div className="mt-3 rounded-lg border border-outline-variant/30 bg-surface-container-low/30 p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Project transition type</p>
+                <div className="mt-2 grid gap-2">
+                  {transitionModes.map((mode) => (
+                    <label
+                      key={mode.value}
+                      className={`flex cursor-pointer gap-3 rounded-lg border p-3 transition ${
+                        transitionMode === mode.value
+                          ? "border-primary/45 bg-primary/10"
+                          : "border-outline-variant/25 bg-surface hover:border-primary/30"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        value={mode.value}
+                        checked={transitionMode === mode.value}
+                        onChange={() => setTransitionMode(mode.value)}
+                        disabled={isGenerating || !!magicLinkUrl}
+                        className="mt-1"
+                      />
+                      <span>
+                        <span className="block text-xs font-black text-on-surface">{mode.label}</span>
+                        <span className="mt-1 block text-[11px] leading-5 text-on-surface-variant">{mode.body}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3">
+                {[
+                  ["Current state", currentState, setCurrentState, "What is already live, agreed, blocked, or in progress?"],
+                  ["Prior work/assets", priorWork, setPriorWork, "Existing SOW, repo, deployment, files, decisions, or paid work."],
+                  ["Remaining governed work", remainingWork, setRemainingWork, "What should Untether govern from this packet forward?"],
+                  ["Known risks", knownRisks, setKnownRisks, "Open questions, dependencies, access gaps, or disputed assumptions."],
+                ].map(([label, value, setter, placeholder]) => (
+                  <label key={label as string} className="block">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label as string}</span>
+                    <textarea
+                      value={value as string}
+                      onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value)}
+                      disabled={isGenerating || !!magicLinkUrl}
+                      placeholder={placeholder as string}
+                      className="mt-2 min-h-[72px] w-full resize-none rounded-lg border border-outline-variant/40 bg-surface-container-low/40 px-4 py-3 text-sm leading-6 text-on-surface outline-none transition focus:border-primary/60 focus:bg-surface placeholder:text-on-surface-variant/60"
+                    />
+                  </label>
+                ))}
+              </div>
 
               <label className="mt-3 block">
                 <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
@@ -485,6 +590,27 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
                 <div className="mt-5 rounded-lg border border-outline-variant/30 bg-surface-container-low/30 p-4">
                   <p className="text-xs font-black uppercase tracking-widest text-primary">Executive Summary</p>
                   <p className="mt-3 text-sm leading-7 text-on-surface-variant">{sowData.executiveSummary}</p>
+                </div>
+
+                <div className="mt-5 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-primary">Transition Baseline</p>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    {[
+                      ["Mode", formatTransitionMode(sowData.transitionMode)],
+                      ["Current state", sowData.currentState || "To be confirmed before claim"],
+                      ["Prior work/assets", sowData.priorWork || "No prior assets recorded"],
+                      ["Remaining governed work", sowData.remainingWork || "Defined by the milestones below"],
+                      ["Known risks", sowData.knownRisks || "No known risks recorded"],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-lg border border-primary/15 bg-surface p-3">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+                        <p className="mt-1 text-xs leading-5 text-on-surface-variant">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-on-surface-variant">
+                    Untether governs funded milestones from the accepted packet forward. Prior work is context unless it is explicitly included in a funded milestone.
+                  </p>
                 </div>
 
                 <div className="mt-5 space-y-3">

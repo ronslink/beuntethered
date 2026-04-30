@@ -36,6 +36,11 @@ export async function generateBYOCInvite(sowData: any) {
       title: parsed.data.title,
       executiveSummary: parsed.data.executiveSummary,
       milestones: normalizedMilestones,
+      transitionMode: parsed.data.transitionMode,
+      currentState: parsed.data.currentState,
+      priorWork: parsed.data.priorWork,
+      remainingWork: parsed.data.remainingWork,
+      knownRisks: parsed.data.knownRisks,
     });
     const totals = calculateBYOCInviteTotals(normalizedMilestones);
     const inviteToken = randomBytes(16).toString("hex");
@@ -101,6 +106,11 @@ export async function generateBYOCInvite(sowData: any) {
             client_total_cents: totals.clientTotalCents,
             facilitator_payout_cents: totals.facilitatorPayoutCents,
             invited_client_email: invitedClientEmail,
+            transition_mode: parsed.data.transitionMode,
+            has_current_state: Boolean(parsed.data.currentState),
+            has_prior_work: Boolean(parsed.data.priorWork),
+            has_remaining_work: Boolean(parsed.data.remainingWork),
+            has_known_risks: Boolean(parsed.data.knownRisks),
           },
         },
       });

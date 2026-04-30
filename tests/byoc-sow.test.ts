@@ -6,6 +6,11 @@ test("builds a BYOC SOW snapshot with milestones and trust terms", () => {
   const snapshot = buildBYOCSowSnapshot({
     title: "Billing Portal",
     executiveSummary: "Deliver a verified billing portal the buyer can open and test.",
+    transitionMode: "RUNNING_PROJECT",
+    currentState: "The buyer already has a staging billing app with partial Stripe setup.",
+    priorWork: "Existing repository, staging deployment, and draft Stripe products.",
+    remainingWork: "Untether should govern the portal repair, evidence report, and launch checklist.",
+    knownRisks: "Stripe webhook access is pending.",
     milestones: [
       {
         title: "Portal Release",
@@ -19,6 +24,9 @@ test("builds a BYOC SOW snapshot with milestones and trust terms", () => {
   });
 
   assert.match(snapshot, /Milestone Verification Schedule/);
+  assert.match(snapshot, /BYOC Transition Baseline/);
+  assert.match(snapshot, /running project/);
+  assert.match(snapshot, /Platform responsibility starts from the accepted packet/);
   assert.match(snapshot, /Working staging URL/);
   assert.match(snapshot, /Stripe test event is recorded/);
   assert.match(snapshot, /0% marketplace fee/);

@@ -19,6 +19,7 @@ export const projectCategoryOptions = [
 ] as const;
 
 export const projectComplexityOptions = ["simple", "medium", "complex"] as const;
+export const byocTransitionModeOptions = ["NEW_EXTERNAL", "RUNNING_PROJECT", "RESCUE_TRANSITION", "ONGOING_TO_MILESTONES"] as const;
 
 export const promptTriageInputSchema = z.object({
   prompt: trimmed
@@ -60,6 +61,11 @@ export const byocInviteInputSchema = z.object({
   title: trimmed.min(3).max(160),
   executiveSummary: trimmed.min(20).max(5000),
   totalAmount: z.coerce.number().positive().max(5_000_000).optional(),
+  transitionMode: z.enum(byocTransitionModeOptions).default("NEW_EXTERNAL"),
+  currentState: trimmed.max(2000, "Keep the current project state under 2,000 characters.").optional(),
+  priorWork: trimmed.max(2000, "Keep prior work notes under 2,000 characters.").optional(),
+  remainingWork: trimmed.max(2000, "Keep remaining work notes under 2,000 characters.").optional(),
+  knownRisks: trimmed.max(2000, "Keep risk notes under 2,000 characters.").optional(),
   clientEmail: z
     .union([trimmed.email().max(254), z.literal("")])
     .optional()

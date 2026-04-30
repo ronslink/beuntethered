@@ -87,6 +87,11 @@ test("validates BYOC invites as verifiable milestone scopes", () => {
   const valid = byocInviteInputSchema.parse({
     title: "Stripe Portal Repair",
     clientEmail: "Buyer@Example.COM",
+    transitionMode: "RUNNING_PROJECT",
+    currentState: "The buyer already has a staging billing portal with broken Stripe handoff.",
+    priorWork: "Existing repository, staging URL, and Stripe test products are available.",
+    remainingWork: "Untether will govern the repair, evidence report, and buyer acceptance checklist.",
+    knownRisks: "Stripe webhook permissions may need buyer admin access.",
     executiveSummary: "Repair the Stripe portal flow so the buyer can validate billing access and event evidence.",
     totalAmount: 2500,
     milestones: [
@@ -106,6 +111,7 @@ test("validates BYOC invites as verifiable milestone scopes", () => {
     "Handoff includes screenshots or logs showing the Stripe test event evidence.",
   ]);
   assert.equal(valid.clientEmail, "buyer@example.com");
+  assert.equal(valid.transitionMode, "RUNNING_PROJECT");
 
   assert.equal(byocInviteInputSchema.safeParse({
     title: "Testing",

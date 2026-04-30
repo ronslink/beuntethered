@@ -13,6 +13,11 @@ type BYOCSowSnapshotInput = {
   title: string;
   executiveSummary: string;
   milestones: BYOCMilestoneSnapshot[];
+  transitionMode?: string;
+  currentState?: string;
+  priorWork?: string;
+  remainingWork?: string;
+  knownRisks?: string;
 };
 
 export function calculateBYOCInviteTotals(milestones: { amount: number }[]) {
@@ -35,7 +40,27 @@ export function calculateBYOCInviteTotals(milestones: { amount: number }[]) {
   );
 }
 
-export function buildBYOCSowSnapshot({ title, executiveSummary, milestones }: BYOCSowSnapshotInput) {
+function formatTransitionMode(value?: string) {
+  if (!value) return "New external project";
+  return value.replace(/_/g, " ").toLowerCase();
+}
+
+function pushOptionalLine(lines: string[], label: string, value?: string) {
+  if (value?.trim()) {
+    lines.push(`${label}: ${value.trim()}`);
+  }
+}
+
+export function buildBYOCSowSnapshot({
+  title,
+  executiveSummary,
+  milestones,
+  transitionMode,
+  currentState,
+  priorWork,
+  remainingWork,
+  knownRisks,
+}: BYOCSowSnapshotInput) {
   const totals = calculateBYOCInviteTotals(milestones);
   const lines = [
     `Private BYOC Scope: ${title}`,
@@ -43,8 +68,20 @@ export function buildBYOCSowSnapshot({ title, executiveSummary, milestones }: BY
     "Executive Summary",
     executiveSummary.trim(),
     "",
-    "Milestone Verification Schedule",
+    "BYOC Transition Baseline",
+    `Transition mode: ${formatTransitionMode(transitionMode)}`,
   ];
+
+  pushOptionalLine(lines, "Current project state", currentState);
+  pushOptionalLine(lines, "Prior work or existing assets", priorWork);
+  pushOptionalLine(lines, "Remaining work to govern in Untether", remainingWork);
+  pushOptionalLine(lines, "Known risks or open questions", knownRisks);
+
+  lines.push(
+    "Platform responsibility starts from the accepted packet and funded milestones onward. Prior work is recorded as context unless explicitly included in a funded milestone.",
+    "",
+    "Milestone Verification Schedule",
+  );
 
   milestones.forEach((milestone, index) => {
     const fees = calculateMilestoneFees({ amount: milestone.amount, isByoc: true });
