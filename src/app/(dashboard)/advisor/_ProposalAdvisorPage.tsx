@@ -3,6 +3,7 @@ import type { Prisma, ProjectInviteStatus } from "@prisma/client";
 import { prisma } from "@/lib/auth";
 import { computeOpportunityFit } from "@/lib/opportunity-fit";
 import { getFacilitatorAwardReadiness } from "@/lib/bid-award-rules";
+import { buildProposalAdvisorPacket } from "@/lib/proposal-advisor";
 
 const ACTIVE_INVITE_STATUSES: ProjectInviteStatus[] = ["SENT", "VIEWED", "ACCEPTED"];
 
@@ -101,14 +102,11 @@ function ProjectAdvisorCard({
   fit: ReturnType<typeof computeOpportunityFit>;
 }) {
   const totalValue = project.milestones.reduce((total, milestone) => total + Number(milestone.amount), 0);
-  const totalDays = project.milestones.reduce(
-    (total, milestone) => total + (milestone.estimated_duration_days ?? 0),
-    0
-  );
   const ownBid = project.bids[0];
   const invite = project.invites[0];
   const proofPrompts = verificationPrompts(project);
   const risks = bidRisks(project);
+  const proposalPacket = buildProposalAdvisorPacket(project);
 
   return (
     <article className="border border-outline-variant/40 bg-surface rounded-lg shadow-sm overflow-hidden">
@@ -160,7 +158,7 @@ function ProjectAdvisorCard({
             <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-3">
               <dt className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Timeline</dt>
               <dd className="text-sm font-black text-on-surface mt-1">
-                {totalDays > 0 ? `${totalDays} days` : "Estimate needed"}
+                {proposalPacket.estimatedDays > 0 ? `${proposalPacket.estimatedDays} days` : "Estimate needed"}
               </dd>
             </div>
             <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-3">
@@ -190,12 +188,16 @@ function ProjectAdvisorCard({
 
         <section className="xl:col-span-5 p-5 border-b xl:border-b-0 xl:border-r border-outline-variant/30">
           <h3 className="text-[11px] uppercase tracking-widest font-black text-on-surface mb-4">
-            SOW-to-bid map
+            Proposal packet
           </h3>
+          <div className="mb-4 rounded-lg border border-primary/15 bg-primary/5 p-3">
+            <p className="text-[10px] uppercase tracking-widest font-black text-primary mb-1">Positioning</p>
+            <p className="text-xs leading-relaxed text-on-surface-variant">{proposalPacket.positioning}</p>
+          </div>
           {project.milestones.length > 0 ? (
             <ol className="space-y-3">
-              {project.milestones.slice(0, 4).map((milestone, index) => (
-                <li key={milestone.id} className="rounded-lg border border-outline-variant/30 p-3">
+              {proposalPacket.milestoneStrategy.slice(0, 4).map((milestone, index) => (
+                <li key={`${milestone.title}-${index}`} className="rounded-lg border border-outline-variant/30 p-3">
                   <div className="flex items-start gap-3">
                     <span className="w-6 h-6 rounded-md bg-primary/10 text-primary text-xs font-black flex items-center justify-center shrink-0">
                       {index + 1}
@@ -203,11 +205,11 @@ function ProjectAdvisorCard({
                     <div className="min-w-0">
                       <p className="text-sm font-black text-on-surface">{milestone.title}</p>
                       <p className="text-xs text-on-surface-variant leading-relaxed mt-1">
-                        {compactText(milestone.description, 120)}
+                        {milestone.outcome}
                       </p>
                       <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mt-2">
-                        {formatCurrency(Number(milestone.amount))}
-                        {milestone.estimated_duration_days ? ` · ${milestone.estimated_duration_days} days` : ""}
+                        {milestone.amount > 0 ? formatCurrency(milestone.amount) : "Price TBD"}
+                        {milestone.days ? ` · ${milestone.days} days` : ""}
                       </p>
                     </div>
                   </div>
@@ -223,11 +225,22 @@ function ProjectAdvisorCard({
 
         <section className="xl:col-span-3 p-5">
           <h3 className="text-[11px] uppercase tracking-widest font-black text-on-surface mb-4">
-            Proof strategy
+            Evidence plan
           </h3>
           <ul className="space-y-2 mb-5">
-            {proofPrompts.map((prompt) => (
+            {proposalPacket.evidencePlan.slice(0, 4).map((prompt) => (
               <li key={prompt} className="rounded-md bg-surface-container-low/60 border border-outline-variant/30 px-3 py-2 text-xs font-semibold text-on-surface">
+                {prompt}
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mb-2">
+            Proof prompts
+          </p>
+          <ul className="space-y-1.5 mb-5">
+            {proofPrompts.slice(0, 3).map((prompt) => (
+              <li key={prompt} className="text-xs leading-relaxed text-on-surface-variant">
                 {prompt}
               </li>
             ))}
@@ -237,7 +250,18 @@ function ProjectAdvisorCard({
             Clarify before pricing
           </p>
           <ul className="space-y-2 mb-5">
-            {risks.map((risk) => (
+            {proposalPacket.buyerQuestions.slice(0, 3).map((question) => (
+              <li key={question} className="text-xs leading-relaxed text-on-surface-variant">
+                {question}
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mb-2">
+            Risk notes
+          </p>
+          <ul className="space-y-2 mb-5">
+            {[...proposalPacket.riskNotes, ...risks].slice(0, 3).map((risk) => (
               <li key={risk} className="text-xs leading-relaxed text-on-surface-variant">
                 {risk}
               </li>
