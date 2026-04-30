@@ -10,6 +10,7 @@ export type ScopeIntakeAssessment = {
   status: "ready" | "needs_detail";
   score: number;
   issues: ScopeIntakeIssue[];
+  guidingQuestions: string[];
   suggestedPrompt: string;
 };
 
@@ -32,12 +33,40 @@ const PURE_PROCESS_PATTERNS = [
   /\b(testing|qa|bug fixes?|debugging|polish|support|maintenance|meetings?|consultation|advice)\b/i,
 ];
 
+const QUESTION_BY_ISSUE: Record<string, string> = {
+  too_short: "What should exist after the work is done, and what would make you say it was successful?",
+  no_software_outcome: "Is this a website, app, dashboard, integration, automation, database, report, or discovery handoff?",
+  no_actionable_outcome: "What should the facilitator build, automate, integrate, configure, generate, modernize, or launch?",
+  missing_users: "Who will use this first: customers, employees, admins, managers, operators, or another group?",
+  missing_verification: "What evidence would let you approve the work: staging link, screenshots, reports, logs, source archive, QA results, or documentation?",
+  missing_constraints: "What budget, timeline, markets, systems, or compliance boundaries do you already know?",
+  process_only: "What tangible feature, release, report, or handoff package should the testing or bug fixing prove is ready?",
+};
+
 function normalize(text: string) {
   return text.trim().replace(/\s+/g, " ");
 }
 
 function appendIssue(issues: ScopeIntakeIssue[], issue: ScopeIntakeIssue) {
   if (!issues.some((existing) => existing.code === issue.code)) issues.push(issue);
+}
+
+function buildGuidingQuestions(issues: ScopeIntakeIssue[]) {
+  const priority = new Map([
+    ["process_only", 0],
+    ["no_software_outcome", 1],
+    ["no_actionable_outcome", 2],
+    ["too_short", 3],
+    ["missing_users", 4],
+    ["missing_verification", 5],
+    ["missing_constraints", 6],
+  ]);
+  const questions = [...issues]
+    .sort((a, b) => (priority.get(a.code) ?? 99) - (priority.get(b.code) ?? 99))
+    .map((issue) => QUESTION_BY_ISSUE[issue.code])
+    .filter(Boolean);
+
+  return Array.from(new Set(questions)).slice(0, 4);
 }
 
 export function assessScopeIntake(prompt: string): ScopeIntakeAssessment {
@@ -125,6 +154,7 @@ export function assessScopeIntake(prompt: string): ScopeIntakeAssessment {
     status: blockerCount > 0 ? "needs_detail" : "ready",
     score,
     issues,
+    guidingQuestions: buildGuidingQuestions(issues),
     suggestedPrompt: buildSuggestedScopePrompt(text, issues),
   };
 }

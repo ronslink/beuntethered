@@ -364,6 +364,11 @@ export default function ProjectCreationWizard() {
     setTimeout(() => setToastMessage(""), 2400);
   };
 
+  const addGuidedQuestionStarter = (question: string) => {
+    const starter = `\n\n${question}\nAnswer: `;
+    setPrompt((current) => `${current.trim()}${starter}`);
+  };
+
   const handleSkipAndPostToMarketplace = () => {
     if (blockUnrealisticExecutionPost()) return;
 
@@ -645,6 +650,27 @@ export default function ProjectCreationWizard() {
                                     </div>
                                  ))}
                               </div>
+
+                              {intakeAssessment.guidingQuestions.length > 0 && (
+                                 <div className="mt-4 rounded-lg border border-outline-variant/20 bg-surface p-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Answer these to unlock a better scope</p>
+                                    <div className="mt-3 grid gap-2">
+                                       {intakeAssessment.guidingQuestions.map((question) => (
+                                          <div key={question} className="flex flex-col gap-2 rounded-md border border-outline-variant/15 bg-surface-container-low/40 p-3 md:flex-row md:items-center md:justify-between">
+                                             <p className="text-xs font-bold leading-5 text-on-surface">{question}</p>
+                                             <button
+                                                type="button"
+                                                onClick={() => addGuidedQuestionStarter(question)}
+                                                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/10"
+                                             >
+                                                <span className="material-symbols-outlined text-[14px]">add_comment</span>
+                                                Add Answer
+                                             </button>
+                                          </div>
+                                       ))}
+                                    </div>
+                                 </div>
+                              )}
 
                               <div className="mt-4 rounded-lg border border-primary/15 bg-primary/5 p-3">
                                  <p className="text-[10px] font-black uppercase tracking-widest text-primary">Try adding this kind of detail</p>

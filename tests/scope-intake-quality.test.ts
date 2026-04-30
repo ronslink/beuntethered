@@ -7,6 +7,7 @@ test("blocks vague requests that cannot become valid milestones", () => {
 
   assert.equal(assessment.status, "needs_detail");
   assert.ok(assessment.issues.some((issue) => issue.code === "no_software_outcome"));
+  assert.ok(assessment.guidingQuestions.some((question) => /website, app, dashboard/.test(question)));
 });
 
 test("explains why process-only work is not a standalone deliverable", () => {
@@ -14,6 +15,7 @@ test("explains why process-only work is not a standalone deliverable", () => {
 
   assert.equal(assessment.status, "needs_detail");
   assert.ok(assessment.issues.some((issue) => issue.code === "process_only"));
+  assert.ok(assessment.guidingQuestions.some((question) => /tangible feature/.test(question)));
   assert.match(
     assessment.issues.find((issue) => issue.code === "process_only")?.why ?? "",
     /standalone escrow milestones/
@@ -27,6 +29,7 @@ test("warns when a viable software scope is missing delivery constraints", () =>
 
   assert.equal(assessment.status, "ready");
   assert.ok(assessment.issues.some((issue) => issue.code === "missing_constraints"));
+  assert.ok(assessment.guidingQuestions.some((question) => /budget, timeline/.test(question)));
   assert.match(assessment.suggestedPrompt, /Constraints include/);
 });
 
@@ -37,4 +40,5 @@ test("accepts a clear, verifiable software delivery prompt", () => {
 
   assert.equal(assessment.status, "ready");
   assert.equal(assessment.issues.length, 0);
+  assert.equal(assessment.guidingQuestions.length, 0);
 });
