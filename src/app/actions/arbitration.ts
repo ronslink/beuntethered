@@ -7,10 +7,14 @@ import { calculateMilestoneFees } from "@/lib/platform-fees";
 import { recordActivity } from "@/lib/activity";
 import { createStripeClient, isPaymentConfigurationError } from "@/lib/stripe";
 import {
+  buildArbitrationEvidenceSummary,
   buildArbitrationResolutionMetadata,
   getArbitrationPaymentKeys,
+  getArbitrationResolutionNoteError,
   getArbitrationStatusError,
+  normalizeArbitrationResolutionNote,
 } from "@/lib/arbitration-resolution";
+import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 import { validateFacilitatorPayoutReadiness } from "@/lib/payment-route-rules";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
@@ -27,7 +31,7 @@ async function enforceArbiterPermissions() {
   return user;
 }
 
-export async function resolveDisputeForClient(disputeId: string) {
+export async function resolveDisputeForClient(disputeId: string, resolutionNoteInput?: string) {
   try {
     const arbiter = await enforceArbiterPermissions();
     await assertDurableRateLimit({
@@ -36,13 +40,19 @@ export async function resolveDisputeForClient(disputeId: string) {
       windowMs: 60 * 60 * 1000,
     });
 
+    const resolutionNote = normalizeArbitrationResolutionNote(resolutionNoteInput);
+    const noteError = getArbitrationResolutionNoteError(resolutionNote);
+    if (noteError) throw new Error(noteError);
+
     const dispute = await prisma.dispute.findUnique({
       where: { id: disputeId },
       include: {
         milestone: {
           include: {
             audits: { orderBy: { created_at: "desc" }, take: 1 },
+            attachments: { orderBy: { created_at: "desc" } },
             payment_records: { orderBy: { created_at: "desc" } },
+            activity_logs: { orderBy: { created_at: "desc" }, take: 10 },
           },
         },
         project: true,
@@ -72,6 +82,7 @@ export async function resolveDisputeForClient(disputeId: string) {
       isByoc: dispute.project.is_byoc,
     });
     const paymentKeys = getArbitrationPaymentKeys(dispute.milestone.id);
+    const evidenceSummary = buildArbitrationEvidenceSummary(buildDisputeEvidenceContext(dispute.milestone));
 
     const claimed = await prisma.dispute.updateMany({
       where: { id: dispute.id, status: "OPEN" },
@@ -110,6 +121,8 @@ export async function resolveDisputeForClient(disputeId: string) {
       counterpartyAmountCents: fees.clientTotalCents,
       latestAuditScore: dispute.milestone.audits[0]?.score ?? null,
       latestAuditPassing: dispute.milestone.audits[0]?.is_passing ?? null,
+      resolutionNote,
+      evidenceSummary,
     });
 
     await prisma.$transaction([
@@ -128,6 +141,8 @@ export async function resolveDisputeForClient(disputeId: string) {
             dispute_id: dispute.id,
             arbiter_id: arbiter.id,
             payment_intent_id: paymentIntentId,
+            resolution_note: resolutionNote,
+            evidence_summary: evidenceSummary,
           },
         },
         create: {
@@ -149,6 +164,8 @@ export async function resolveDisputeForClient(disputeId: string) {
             dispute_id: dispute.id,
             arbiter_id: arbiter.id,
             payment_intent_id: paymentIntentId,
+            resolution_note: resolutionNote,
+            evidence_summary: evidenceSummary,
           },
         },
       }),
@@ -203,6 +220,8 @@ export async function resolveDisputeForClient(disputeId: string) {
       metadata: {
         standing: "CLIENT",
         arbitration_refund: true,
+        resolution_note: resolutionNote,
+        evidence_summary: evidenceSummary,
       },
     });
 
@@ -246,7 +265,7 @@ export async function resolveDisputeForClient(disputeId: string) {
   }
 }
 
-export async function resolveDisputeForFacilitator(disputeId: string) {
+export async function resolveDisputeForFacilitator(disputeId: string, resolutionNoteInput?: string) {
   try {
     const arbiter = await enforceArbiterPermissions();
     await assertDurableRateLimit({
@@ -255,6 +274,10 @@ export async function resolveDisputeForFacilitator(disputeId: string) {
       windowMs: 60 * 60 * 1000,
     });
 
+    const resolutionNote = normalizeArbitrationResolutionNote(resolutionNoteInput);
+    const noteError = getArbitrationResolutionNoteError(resolutionNote);
+    if (noteError) throw new Error(noteError);
+
     const dispute = await prisma.dispute.findUnique({
       where: { id: disputeId },
       include: {
@@ -262,6 +285,9 @@ export async function resolveDisputeForFacilitator(disputeId: string) {
           include: {
             facilitator: { include: { verifications: true } },
             audits: { orderBy: { created_at: "desc" }, take: 1 },
+            attachments: { orderBy: { created_at: "desc" } },
+            payment_records: { orderBy: { created_at: "desc" } },
+            activity_logs: { orderBy: { created_at: "desc" }, take: 10 },
           },
         },
         project: true,
@@ -281,6 +307,7 @@ export async function resolveDisputeForFacilitator(disputeId: string) {
       isByoc: dispute.project.is_byoc,
     });
     const paymentKeys = getArbitrationPaymentKeys(dispute.milestone.id);
+    const evidenceSummary = buildArbitrationEvidenceSummary(buildDisputeEvidenceContext(dispute.milestone));
 
     const claimed = await prisma.dispute.updateMany({
       where: { id: dispute.id, status: "OPEN" },
@@ -323,6 +350,8 @@ export async function resolveDisputeForFacilitator(disputeId: string) {
       counterpartyAmountCents: fees.facilitatorPayoutCents,
       latestAuditScore: dispute.milestone.audits[0]?.score ?? null,
       latestAuditPassing: dispute.milestone.audits[0]?.is_passing ?? null,
+      resolutionNote,
+      evidenceSummary,
     });
 
     // Resolve the milestone in favor of the facilitator.
@@ -344,6 +373,8 @@ export async function resolveDisputeForFacilitator(disputeId: string) {
                 arbitration_release: true,
                 dispute_id: dispute.id,
                 arbiter_id: arbiter.id,
+                resolution_note: resolutionNote,
+                evidence_summary: evidenceSummary,
               },
             },
             create: {
@@ -363,6 +394,8 @@ export async function resolveDisputeForFacilitator(disputeId: string) {
                 arbitration_release: true,
                 dispute_id: dispute.id,
                 arbiter_id: arbiter.id,
+                resolution_note: resolutionNote,
+                evidence_summary: evidenceSummary,
               },
             },
         }),
@@ -404,6 +437,8 @@ export async function resolveDisputeForFacilitator(disputeId: string) {
       metadata: {
         standing: "FACILITATOR",
         arbitration_release: true,
+        resolution_note: resolutionNote,
+        evidence_summary: evidenceSummary,
       },
     });
 

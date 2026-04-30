@@ -64,26 +64,35 @@ function standingStyles(standing: string) {
 export default function ArbitrationPanel({ disputeId, appmapUrl, aiReport, evidence = [] }: ArbitrationPanelProps) {
   const [isExecuting, setIsExecuting] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
+  const [resolutionNote, setResolutionNote] = useState("");
   const appmapEvidence = evidence.find((attachment) => attachment.url === appmapUrl);
   const appmapHref = appmapEvidence ? `/api/attachments/${appmapEvidence.id}` : appmapUrl;
   const parsedAiReport = parseAiReport(aiReport);
 
   const executeRefund = async () => {
+    if (resolutionNote.trim().length < 12) {
+      setErrorStatus("Add a short arbitration note explaining the evidence behind this ruling.");
+      return;
+    }
     if (!confirm("Refunding this milestone returns the escrowed funds to the client and closes the dispute in the client's favor. Continue?")) return;
     setIsExecuting(true);
     setErrorStatus(null);
 
-    const res = await resolveDisputeForClient(disputeId);
+    const res = await resolveDisputeForClient(disputeId, resolutionNote);
     if (!res.success) setErrorStatus(res.error);
     setIsExecuting(false);
   };
 
   const executePayout = async () => {
+    if (resolutionNote.trim().length < 12) {
+      setErrorStatus("Add a short arbitration note explaining the evidence behind this ruling.");
+      return;
+    }
     if (!confirm("Releasing this milestone pays the facilitator and closes the dispute in the facilitator's favor. Continue?")) return;
     setIsExecuting(true);
     setErrorStatus(null);
 
-    const res = await resolveDisputeForFacilitator(disputeId);
+    const res = await resolveDisputeForFacilitator(disputeId, resolutionNote);
     if (!res.success) setErrorStatus(res.error);
     setIsExecuting(false);
   };
@@ -210,10 +219,32 @@ export default function ArbitrationPanel({ disputeId, appmapUrl, aiReport, evide
         </div>
       </div>
 
+      <div className="mb-8 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-4">
+        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+          Arbitration Note
+        </label>
+        <textarea
+          value={resolutionNote}
+          onChange={(event) => setResolutionNote(event.target.value)}
+          rows={3}
+          maxLength={1000}
+          placeholder="Summarize the evidence reviewed and why the ruling favors the client or facilitator."
+          className="w-full resize-none rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm font-medium text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary/50"
+        />
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-on-surface-variant">
+            This note is stored with the payment record, activity log, and party notifications.
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+            {resolutionNote.trim().length}/1000
+          </p>
+        </div>
+      </div>
+
       <div className="flex items-center gap-4 border-t border-outline-variant/20 pt-6">
         <button 
            onClick={executeRefund}
-           disabled={isExecuting}
+           disabled={isExecuting || resolutionNote.trim().length < 12}
            className="flex-1 bg-surface-container-high text-on-surface hover:bg-error hover:text-white transition-all px-6 py-4 rounded-xl font-bold uppercase tracking-widest text-xs border border-outline-variant/30 disabled:opacity-50"
         >
            {isExecuting ? "Refunding..." : "Refund Client"}
@@ -221,7 +252,7 @@ export default function ArbitrationPanel({ disputeId, appmapUrl, aiReport, evide
 
         <button 
            onClick={executePayout}
-           disabled={isExecuting}
+           disabled={isExecuting || resolutionNote.trim().length < 12}
            className="flex-1 bg-primary text-on-primary hover:bg-primary/90 transition-all px-6 py-4 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-primary/20 disabled:opacity-50"
         >
            {isExecuting ? "Releasing..." : "Release to Facilitator"}
