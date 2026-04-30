@@ -53,6 +53,9 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Scan incoming diff for secrets
         shell: bash
         run: |
@@ -123,6 +126,9 @@ jobs:
 
       - name: Apply migrations
         run: npx prisma migrate deploy
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
