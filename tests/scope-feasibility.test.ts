@@ -3,7 +3,7 @@ import test from "node:test";
 import { assessScopeFeasibility } from "../src/lib/scope-feasibility.ts";
 
 const payrollPrompt =
-  "Multi-country payroll application covering US, Canada, UAE, and Philippines with automated tax calculations, payslip generation, AI chatbot for employee inquiries, and admin reporting dashboard.";
+  "Multi-region payroll application covering North America, Middle East, and Asia with automated tax calculations, payslip generation, AI chatbot for employee inquiries, and admin reporting dashboard.";
 
 test("requires explicit budget and timeline fields", () => {
   const assessment = assessScopeFeasibility({
@@ -13,19 +13,35 @@ test("requires explicit budget and timeline fields", () => {
   });
 
   assert.equal(assessment.status, "missing");
+  assert.equal(assessment.label, "Budget Needed");
+  assert.equal(assessment.canPostExecution, false);
   assert.match(assessment.reasons[0], /required/);
 });
 
-test("flags complex scopes that are under market budget or timeline", () => {
+test("flags complex scopes that are unrealistic against market budget or timeline", () => {
   const assessment = assessScopeFeasibility({
     prompt: payrollPrompt,
     budgetAmount: 3000,
     timelineDays: 7,
   });
 
-  assert.equal(assessment.status, "underfunded");
+  assert.equal(assessment.status, "unrealistic");
+  assert.equal(assessment.label, "Unrealistic constraints");
+  assert.equal(assessment.canPostExecution, false);
   assert.ok(assessment.estimatedMarketBudget && assessment.estimatedMarketBudget > 3000);
   assert.ok(assessment.estimatedMarketDays && assessment.estimatedMarketDays > 7);
+});
+
+test("allows aggressive scopes with warnings", () => {
+  const assessment = assessScopeFeasibility({
+    prompt: payrollPrompt,
+    budgetAmount: 16000,
+    timelineDays: 45,
+  });
+
+  assert.equal(assessment.status, "aggressive");
+  assert.equal(assessment.label, "Aggressive constraints");
+  assert.equal(assessment.canPostExecution, true);
 });
 
 test("accepts realistic budget and timeline ranges", () => {
@@ -35,6 +51,8 @@ test("accepts realistic budget and timeline ranges", () => {
     timelineDays: 60,
   });
 
-  assert.equal(assessment.status, "realistic");
+  assert.equal(assessment.status, "market_ready");
+  assert.equal(assessment.label, "Market-ready");
+  assert.equal(assessment.canPostExecution, true);
   assert.ok(assessment.reasons.some((reason) => /reasonable planning range/.test(reason)));
 });

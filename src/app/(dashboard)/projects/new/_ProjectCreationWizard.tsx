@@ -327,11 +327,31 @@ export default function ProjectCreationWizard() {
     setIsSquadLoading(false);
   };
 
+  const blockUnrealisticExecutionPost = () => {
+    if (mode === "DISCOVERY" || feasibilityAssessment.canPostExecution) return false;
+    setStep(1);
+    setToastMessage("Revise unrealistic constraints or convert this to discovery before posting.");
+    setTimeout(() => setToastMessage(""), 2800);
+    return true;
+  };
+
+  const convertToDiscoveryScope = () => {
+    setMode("DISCOVERY");
+    setBudgetInput("1000");
+    setTimelineInput("7");
+    setDesiredTimeline("7 days");
+    setToastMessage("Converted to a 7-day $1,000 discovery sprint.");
+    setTimeout(() => setToastMessage(""), 2400);
+  };
+
   const handleSkipAndPostToMarketplace = () => {
+    if (blockUnrealisticExecutionPost()) return;
+
     startTransition(async () => {
       const finalPayload = {
          ...(editableSoW || sowData),
          mode,
+         marketFit: feasibilityAssessment.status,
          selected_facilitators: [],
          biddingClosesAt,
       };
@@ -349,11 +369,14 @@ export default function ProjectCreationWizard() {
   }
 
   const handlePostToMarketplace = () => {
+    if (blockUnrealisticExecutionPost()) return;
+
     startTransition(async () => {
       // Package the data mapping dynamically
       const finalPayload = {
          ...(editableSoW || sowData),
          mode,
+         marketFit: feasibilityAssessment.status,
          selected_facilitators: selectedFacilitators,
          biddingClosesAt,
       };
@@ -400,6 +423,27 @@ export default function ProjectCreationWizard() {
     budgetAmount: capturedBudgetAmount,
     timelineDays: requestedTimelineDays,
   });
+  const feasibilityPanelClass = feasibilityAssessment.status === "unrealistic"
+    ? "border-error/25 bg-error/5"
+    : feasibilityAssessment.status === "aggressive"
+      ? "border-tertiary/25 bg-tertiary/5"
+      : feasibilityAssessment.status === "missing"
+        ? "border-outline-variant/30 bg-surface-container-low/60"
+        : "border-secondary/20 bg-secondary/5";
+  const feasibilityTextClass = feasibilityAssessment.status === "unrealistic"
+    ? "text-error"
+    : feasibilityAssessment.status === "aggressive"
+      ? "text-tertiary"
+      : feasibilityAssessment.status === "missing"
+        ? "text-on-surface-variant"
+        : "text-secondary";
+  const feasibilityHeadline = feasibilityAssessment.status === "missing"
+    ? "Budget and timeline are required."
+    : feasibilityAssessment.status === "unrealistic"
+      ? "Unrealistic constraints need revision before posting."
+      : feasibilityAssessment.status === "aggressive"
+        ? "Aggressive constraints can be posted with clear warnings."
+        : "Market-ready for a first scope.";
   const hasIntakeBlockers = prompt.trim().length >= 5 && (intakeBlockers.length > 0 || missingBudgetOrTimeline);
 
   return (
@@ -640,20 +684,14 @@ export default function ProjectCreationWizard() {
                         </div>
 
                         {prompt.trim().length >= 5 && (
-                           <div className={`rounded-lg border p-4 ${feasibilityAssessment.status === "underfunded" ? "border-error/25 bg-error/5" : feasibilityAssessment.status === "tight" ? "border-tertiary/25 bg-tertiary/5" : "border-secondary/20 bg-secondary/5"}`}>
+                           <div className={`rounded-lg border p-4 ${feasibilityPanelClass}`}>
                               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                  <div>
-                                    <p className={`text-[10px] font-black uppercase tracking-widest ${feasibilityAssessment.status === "underfunded" ? "text-error" : feasibilityAssessment.status === "tight" ? "text-tertiary" : "text-secondary"}`}>
-                                      Market fit check
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${feasibilityTextClass}`}>
+                                      Market fit check: {feasibilityAssessment.label}
                                     </p>
                                     <h3 className="mt-1 text-sm font-black text-on-surface">
-                                      {feasibilityAssessment.status === "missing"
-                                        ? "Budget and timeline are required."
-                                        : feasibilityAssessment.status === "underfunded"
-                                          ? "This scope is likely underfunded or too compressed."
-                                          : feasibilityAssessment.status === "tight"
-                                            ? "This scope may work, but it is tight."
-                                            : "Budget and timeline look workable for a first scope."}
+                                      {feasibilityHeadline}
                                     </h3>
                                     <div className="mt-2 space-y-1">
                                       {feasibilityAssessment.reasons.map((reason) => (
@@ -680,6 +718,15 @@ export default function ProjectCreationWizard() {
                                       {hint}
                                     </span>
                                  ))}
+                                 {feasibilityAssessment.status === "unrealistic" && mode !== "DISCOVERY" && (
+                                    <button
+                                      type="button"
+                                      onClick={convertToDiscoveryScope}
+                                      className="rounded-md bg-error px-3 py-2 text-xs font-black uppercase tracking-widest text-on-error transition-colors hover:bg-error/90"
+                                    >
+                                      Convert to discovery
+                                    </button>
+                                 )}
                               </div>
                            </div>
                         )}

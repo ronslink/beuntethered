@@ -1,7 +1,9 @@
 import { extractCentralComponentConstraints, extractRegionConstraints } from "./scope-constraints.ts";
 
 export type ScopeFeasibilityAssessment = {
-  status: "missing" | "realistic" | "tight" | "underfunded";
+  status: "missing" | "market_ready" | "aggressive" | "unrealistic";
+  label: "Budget Needed" | "Market-ready" | "Aggressive constraints" | "Unrealistic constraints";
+  canPostExecution: boolean;
   estimatedMarketBudget: number | null;
   estimatedMarketDays: number | null;
   budgetRatio: number | null;
@@ -45,6 +47,8 @@ export function assessScopeFeasibility({
   if (!budgetAmount || !timelineDays) {
     return {
       status: "missing",
+      label: "Budget Needed",
+      canPostExecution: false,
       estimatedMarketBudget: null,
       estimatedMarketDays: null,
       budgetRatio: null,
@@ -103,13 +107,19 @@ export function assessScopeFeasibility({
   }
 
   const status = budgetRatio < 0.65 || timelineRatio < 0.65
-    ? "underfunded"
+    ? "unrealistic"
     : budgetRatio < 0.9 || timelineRatio < 0.9
-      ? "tight"
-      : "realistic";
+      ? "aggressive"
+      : "market_ready";
 
   return {
     status,
+    label: status === "market_ready"
+      ? "Market-ready"
+      : status === "aggressive"
+        ? "Aggressive constraints"
+        : "Unrealistic constraints",
+    canPostExecution: status !== "unrealistic",
     estimatedMarketBudget,
     estimatedMarketDays,
     budgetRatio,
