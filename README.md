@@ -23,8 +23,13 @@ Start Postgres with pgvector:
 ```bash
 npm run db:up
 npm run db:init
-npm run db:push
+npm run db:migrate
 ```
+
+For local development, `npm run db:migrate` intentionally runs a guarded `prisma db push`.
+The historical Prisma migration folder is retained for production/Supabase baseline and
+deploy workflows; a fresh local Docker database should not replay the Supabase baseline
+migrations directly.
 
 Run the dev server:
 
