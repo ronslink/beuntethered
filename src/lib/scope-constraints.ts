@@ -13,8 +13,66 @@ const MARKET_PATTERNS: { label: string; pattern: RegExp }[] = [
   { label: "Philippines", pattern: /\bphilippines\b/i },
 ];
 
+const PROJECT_TARGET_PATTERNS: { label: string; pattern: RegExp; budget: number; days: number }[] = [
+  {
+    label: "Website redesign",
+    pattern: /\b(?:website|site)\s+redesign\b|\bredesign\s+(?:our\s+|the\s+|a\s+)?(?:website|site)\b/i,
+    budget: 3500,
+    days: 14,
+  },
+  {
+    label: "Website creation",
+    pattern: /\b(?:create|build|launch|make)\s+(?:a\s+|new\s+)?(?:marketing\s+|business\s+|company\s+)?(?:website|site)\b|\bnew\s+(?:website|site)\b/i,
+    budget: 4500,
+    days: 18,
+  },
+  {
+    label: "iOS app",
+    pattern: /\bios\s+app\b|\biphone\s+app\b|\bapple\s+app\b/i,
+    budget: 12000,
+    days: 45,
+  },
+  {
+    label: "Android app",
+    pattern: /\bandroid\s+app\b|\bgoogle\s+play\s+app\b/i,
+    budget: 11000,
+    days: 42,
+  },
+  {
+    label: "iOS and Android app",
+    pattern: /\b(?:ios|iphone)\b[\s\S]{0,40}\bandroid\b|\bandroid\b[\s\S]{0,40}\b(?:ios|iphone)\b|\bboth\s+(?:android\s+and\s+ios|ios\s+and\s+android)\b/i,
+    budget: 18000,
+    days: 60,
+  },
+  {
+    label: "PWA",
+    pattern: /\bpwa\b|\bprogressive\s+web\s+app(?:lication)?\b/i,
+    budget: 9000,
+    days: 35,
+  },
+  {
+    label: "Admin dashboard",
+    pattern: /\badmin\s+(?:dashboard|portal|console|panel)\b|\bback[-\s]?office\s+(?:dashboard|portal|tool)\b/i,
+    budget: 6500,
+    days: 24,
+  },
+  {
+    label: "API integration",
+    pattern: /\bapi\s+integration\b|\bintegrat(?:e|ion)\s+(?:with|to)\s+(?:stripe|quickbooks|xero|salesforce|hubspot|shopify|slack|github|google|microsoft|third[-\s]?party)\b/i,
+    budget: 3500,
+    days: 12,
+  },
+  {
+    label: "Data dashboard",
+    pattern: /\bdata\s+dashboard\b|\breporting\s+dashboard\b|\banalytics\s+dashboard\b/i,
+    budget: 5500,
+    days: 21,
+  },
+];
+
 export type ScopeConstraints = {
   regions: string[];
+  targets?: string[];
   components: string[];
   budget: string | null;
   budgetAmount: number | null;
@@ -50,6 +108,38 @@ export function extractRegionConstraints(text: string) {
   );
 }
 
+export function extractProjectTargets(text: string) {
+  const matches = PROJECT_TARGET_PATTERNS.map((entry) => ({
+    label: entry.label,
+    index: text.search(entry.pattern),
+  }))
+    .filter((entry) => entry.index >= 0)
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.label);
+
+  const targets = unique(matches);
+  if (targets.includes("iOS and Android app")) {
+    return targets.filter((target) => target !== "iOS app" && target !== "Android app");
+  }
+
+  return targets;
+}
+
+export function estimateProjectTargets(targets: string[]) {
+  return targets.reduce(
+    (estimate, target) => {
+      const match = PROJECT_TARGET_PATTERNS.find((entry) => entry.label === target);
+      if (!match) return estimate;
+
+      return {
+        budget: estimate.budget + match.budget,
+        days: estimate.days + match.days,
+      };
+    },
+    { budget: 0, days: 0 }
+  );
+}
+
 export function extractBudgetConstraint(text: string) {
   const amount = extractBudgetAmountConstraint(text);
   return amount ? formatCurrencyAmount(String(amount)) : null;
@@ -82,11 +172,13 @@ export function extractCentralComponentConstraints(text: string) {
 
 export function summarizeScopeConstraints({
   regions,
+  targets = [],
   components,
   budget,
   timelineDays,
 }: ScopeConstraints) {
   const parts: string[] = [];
+  if (targets.length > 0) parts.push(`Targets: ${targets.join(", ")}`);
   if (regions.length > 0) parts.push(`Markets: ${regions.join(", ")}`);
   if (components.length > 0) parts.push(`Components: ${components.join(", ")}`);
   if (budget) parts.push(`Budget: ${budget}`);

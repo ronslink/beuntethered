@@ -35,8 +35,8 @@ test("flags complex scopes that are unrealistic against market budget or timelin
 test("allows aggressive scopes with warnings", () => {
   const assessment = assessScopeFeasibility({
     prompt: payrollPrompt,
-    budgetAmount: 16000,
-    timelineDays: 45,
+    budgetAmount: 30000,
+    timelineDays: 60,
   });
 
   assert.equal(assessment.status, "aggressive");
@@ -47,12 +47,30 @@ test("allows aggressive scopes with warnings", () => {
 test("accepts realistic budget and timeline ranges", () => {
   const assessment = assessScopeFeasibility({
     prompt: payrollPrompt,
-    budgetAmount: 30000,
-    timelineDays: 60,
+    budgetAmount: 35000,
+    timelineDays: 75,
   });
 
   assert.equal(assessment.status, "market_ready");
   assert.equal(assessment.label, "Market-ready");
   assert.equal(assessment.canPostExecution, true);
   assert.ok(assessment.reasons.some((reason) => /reasonable planning range/.test(reason)));
+});
+
+test("adds target complexity to market timeline when major deliverables are requested", () => {
+  const basic = assessScopeFeasibility({
+    prompt: "Build a payroll application with employee records.",
+    budgetAmount: 20000,
+    timelineDays: 45,
+  });
+  const withDashboard = assessScopeFeasibility({
+    prompt: "Build a payroll application with employee records and an admin dashboard outside of the application.",
+    budgetAmount: 20000,
+    timelineDays: 45,
+  });
+
+  assert.ok(withDashboard.estimatedMarketDays && basic.estimatedMarketDays);
+  assert.ok(withDashboard.estimatedMarketDays > basic.estimatedMarketDays);
+  assert.ok(withDashboard.estimatedMarketBudget && basic.estimatedMarketBudget);
+  assert.ok(withDashboard.estimatedMarketBudget > basic.estimatedMarketBudget);
 });

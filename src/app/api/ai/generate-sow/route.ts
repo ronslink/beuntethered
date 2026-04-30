@@ -14,6 +14,7 @@ import {
   extractBudgetAmountConstraint,
   extractBudgetConstraint,
   extractCentralComponentConstraints,
+  extractProjectTargets,
   extractRegionConstraints,
   ensureSowPreservesScopeConstraints,
   summarizeScopeConstraints,
@@ -459,6 +460,7 @@ export async function POST(req: Request) {
     const requestedTimelineDays = timelineDays ?? extractRequestedTimelineDays(desiredTimeline, prompt);
     const scopeConstraints = {
       regions: extractRegionConstraints(prompt),
+      targets: extractProjectTargets(prompt),
       components: extractCentralComponentConstraints(prompt),
       budget: budgetAmount
         ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(budgetAmount)

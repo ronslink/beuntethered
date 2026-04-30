@@ -1,4 +1,9 @@
-import { extractCentralComponentConstraints, extractRegionConstraints } from "./scope-constraints.ts";
+import {
+  estimateProjectTargets,
+  extractCentralComponentConstraints,
+  extractProjectTargets,
+  extractRegionConstraints,
+} from "./scope-constraints.ts";
 
 export type ScopeFeasibilityAssessment = {
   status: "missing" | "market_ready" | "aggressive" | "unrealistic";
@@ -60,10 +65,13 @@ export function assessScopeFeasibility({
 
   const components = extractCentralComponentConstraints(prompt);
   const markets = extractRegionConstraints(prompt);
+  const targets = extractProjectTargets(prompt);
+  const targetEstimate = estimateProjectTargets(targets);
   const complianceMultiplier = hasComplianceLanguage(prompt) ? 1 : 0;
   const aiMultiplier = hasAIComponent(prompt) ? 1 : 0;
   const estimatedMarketBudget = roundTo(
     BASE_PROJECT_COST +
+      targetEstimate.budget +
       components.length * COMPONENT_COST +
       markets.length * MARKET_COST +
       complianceMultiplier * COMPLIANCE_COST +
@@ -74,6 +82,7 @@ export function assessScopeFeasibility({
     7,
     Math.round(
       BASE_PROJECT_DAYS +
+        targetEstimate.days +
         components.length * COMPONENT_DAYS +
         markets.length * MARKET_DAYS +
         complianceMultiplier * COMPLIANCE_DAYS +
@@ -87,7 +96,7 @@ export function assessScopeFeasibility({
 
   if (budgetRatio < 0.65) {
     reasons.push(`Budget is materially below the rough market estimate of about $${estimatedMarketBudget.toLocaleString("en-US")}.`);
-    hints.push("Reduce the first release, move lower-priority components to later milestones, or raise the budget.");
+    hints.push(targets.length > 0 ? `Reduce or phase major targets such as ${targets.join(", ")}, or raise the budget.` : "Reduce the first release, move lower-priority components to later milestones, or raise the budget.");
   } else if (budgetRatio < 0.9) {
     reasons.push(`Budget is tight against the rough market estimate of about $${estimatedMarketBudget.toLocaleString("en-US")}.`);
     hints.push("Keep the first milestone set lean and reserve advanced features for follow-on work.");
@@ -95,7 +104,7 @@ export function assessScopeFeasibility({
 
   if (timelineRatio < 0.65) {
     reasons.push(`Timeline is materially shorter than the rough delivery estimate of about ${estimatedMarketDays} days.`);
-    hints.push("Extend the timeline, reduce market coverage, or phase complex components after launch.");
+    hints.push(targets.length > 0 ? `Extend the timeline or phase added targets such as ${targets.join(", ")} after launch.` : "Extend the timeline, reduce market coverage, or phase complex components after launch.");
   } else if (timelineRatio < 0.9) {
     reasons.push(`Timeline is tight against the rough delivery estimate of about ${estimatedMarketDays} days.`);
     hints.push("Use smaller milestones and define what can be deferred if delivery risk appears.");

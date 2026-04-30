@@ -5,7 +5,9 @@ import {
   extractBudgetConstraint,
   extractBudgetAmountConstraint,
   extractCentralComponentConstraints,
+  extractProjectTargets,
   extractRegionConstraints,
+  estimateProjectTargets,
   ensureSowPreservesScopeConstraints,
   summarizeScopeConstraints,
 } from "../src/lib/scope-constraints.ts";
@@ -56,16 +58,32 @@ test("extracts central component constraints from feature lists", () => {
   );
 });
 
+test("extracts common software delivery targets", () => {
+  assert.deepEqual(
+    extractProjectTargets("Build both iOS and Android app with an admin dashboard and Stripe API integration."),
+    ["iOS and Android app", "Admin dashboard", "API integration"]
+  );
+});
+
+test("estimates common targets as timeline and budget drivers", () => {
+  const estimate = estimateProjectTargets(["PWA", "Admin dashboard"]);
+
+  assert.ok(estimate.budget >= 15000);
+  assert.ok(estimate.days >= 50);
+});
+
 test("summarizes captured scope constraints for buyer review", () => {
   assert.deepEqual(
     summarizeScopeConstraints({
       regions: ["North America", "Asia", "Middle East"],
+      targets: ["PWA", "Admin dashboard"],
       components: ["tax calculations", "payslip generation"],
       budget: "$15,000",
       budgetAmount: 15000,
       timelineDays: 21,
     }),
     [
+      "Targets: PWA, Admin dashboard",
       "Markets: North America, Asia, Middle East",
       "Components: tax calculations, payslip generation",
       "Budget: $15,000",
@@ -123,6 +141,7 @@ test("adds missing required components to verifiable milestone evidence", () => 
     },
     {
       regions: ["North America", "Middle East", "Asia"],
+      targets: ["Admin dashboard"],
       components: ["automated tax calculations", "payslip generation"],
       budget: "$15,000",
       budgetAmount: 15000,

@@ -16,6 +16,7 @@ import {
   extractBudgetAmountConstraint,
   extractBudgetConstraint,
   extractCentralComponentConstraints,
+  extractProjectTargets,
   extractRegionConstraints,
   summarizeScopeConstraints,
 } from "@/lib/scope-constraints";
@@ -409,6 +410,7 @@ export default function ProjectCreationWizard() {
   const capturedBudgetAmount = Number(budgetInput) || extractBudgetAmountConstraint(prompt);
   const capturedScopeConstraints = summarizeScopeConstraints({
     regions: extractRegionConstraints(prompt),
+    targets: extractProjectTargets(prompt),
     components: extractCentralComponentConstraints(prompt),
     budget: capturedBudgetAmount ? formatCurrency(capturedBudgetAmount) : extractBudgetConstraint(prompt),
     budgetAmount: capturedBudgetAmount,
