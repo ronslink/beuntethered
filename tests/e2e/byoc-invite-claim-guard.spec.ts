@@ -160,6 +160,10 @@ test("BYOC invite claim atomically assigns the buyer workspace once", async ({ p
           where: { action: "SYSTEM_EVENT" },
           select: { metadata: true },
         },
+        messages: {
+          where: { is_system_message: true },
+          select: { content: true },
+        },
       },
     });
 
@@ -167,7 +171,13 @@ test("BYOC invite claim atomically assigns the buyer workspace once", async ({ p
     expect(claimed.organization_id).toBe(organization.id);
     expect(claimed.status).toBe("ACTIVE");
     expect(claimed.invite_token).toBeNull();
-    expect(claimed.activity_logs.some((log) => (log.metadata as any)?.operation === "BYOC_INVITE_CLAIMED")).toBe(true);
+    const claimActivity = claimed.activity_logs.find((log) => (log.metadata as any)?.operation === "BYOC_INVITE_CLAIMED");
+    expect(claimActivity).toBeTruthy();
+    expect((claimActivity?.metadata as any)?.next_action).toBe("FUND_FIRST_MILESTONE");
+    expect((claimActivity?.metadata as any)?.transition_mode).toBe("running project");
+    expect((claimActivity?.metadata as any)?.first_milestone_title).toBe("Operations repair handoff");
+    expect(claimed.messages.some((message) => message.content.includes("Private BYOC packet claimed"))).toBe(true);
+    expect(claimed.messages.some((message) => message.content.includes('fund "Operations repair handoff"'))).toBe(true);
 
     const buyerNotification = await prisma.notification.findUnique({
       where: { source_key: `byoc_invite_claimed_buyer_${project.id}_${client.id}` },

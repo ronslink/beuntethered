@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity";
 import { createSystemNotification } from "@/lib/notifications";
+import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
 
 export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
   try {
@@ -26,6 +27,12 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
         creator_id: true,
         client_id: true,
         invited_client_email: true,
+        ai_generated_sow: true,
+        milestones: {
+          orderBy: { id: "asc" },
+          take: 1,
+          select: { id: true, title: true, amount: true },
+        },
       },
     });
 
@@ -68,6 +75,9 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
       return NextResponse.redirect(new URL("/dashboard?invite_error=already_claimed", req.url));
     }
 
+    const transitionBaseline = getBYOCTransitionBaseline(project.ai_generated_sow);
+    const firstMilestone = project.milestones[0] ?? null;
+
     await Promise.all([
       recordActivity({
         projectId: project.id,
@@ -80,6 +90,27 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
           actor_project_role: "CLIENT",
           byoc: true,
           organization_id: clientOrganization?.id ?? null,
+          transition_mode: transitionBaseline?.transitionMode ?? null,
+          first_milestone_id: firstMilestone?.id ?? null,
+          first_milestone_title: firstMilestone?.title ?? null,
+          first_milestone_amount_cents: firstMilestone ? Math.round(Number(firstMilestone.amount) * 100) : null,
+          next_action: "FUND_FIRST_MILESTONE",
+        },
+      }),
+      prisma.message.create({
+        data: {
+          project_id: project.id,
+          sender_id: null,
+          is_system_message: true,
+          content: [
+            `Private BYOC packet claimed by ${user.name || user.email}.`,
+            transitionBaseline
+              ? `Transition baseline: ${transitionBaseline.transitionMode}. Untether governs funded milestones from this claim forward.`
+              : "Untether governs funded milestones from this claim forward.",
+            firstMilestone
+              ? `Next action: fund "${firstMilestone.title}" to open delivery and evidence submission.`
+              : "Next action: add or confirm the first milestone before work begins.",
+          ].join("\n"),
         },
       }),
       createSystemNotification({
