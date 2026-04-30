@@ -8,6 +8,7 @@ export type ScopeIntakeIssue = {
 
 export type ScopeIntakeAssessment = {
   status: "ready" | "needs_detail";
+  inputStyle: "delivery_scope" | "problem_statement";
   score: number;
   issues: ScopeIntakeIssue[];
   guidingQuestions: string[];
@@ -18,7 +19,7 @@ const SOFTWARE_TERMS =
   /\b(app|application|software|platform|dashboard|portal|workflow|api|integration|automation|chatbot|agent|website|web app|mobile|system|tool|database|reporting|analytics|payroll|crm|billing|payment|payslip|tax|compliance)\b/i;
 
 const OUTCOME_TERMS =
-  /\b(build|create|develop|modernize|integrate|automate|generate|calculate|track|report|launch|deliver|enable|support|covering|with)\b/i;
+  /\b(build|create|develop|modernize|integrate|connect|sync|capture|import|export|route|reconcile|automate|generate|calculate|track|report|launch|deliver|enable|support|covering|with)\b/i;
 
 const USER_TERMS =
   /\b(user|users|customer|customers|client|clients|employee|employees|admin|admins|manager|managers|team|teams|buyer|operator|staff|facilitator)\b/i;
@@ -28,6 +29,24 @@ const VERIFICATION_TERMS =
 
 const CONSTRAINT_TERMS =
   /\b(budget|timeline|deadline|days|weeks|months|by\s+\w+|usd|\$|compliance|country|countries|market|markets|region|regions|launch-readiness|launch ready)\b/i;
+
+const PROBLEM_STATEMENT_TERMS =
+  /\b(i|we|our|my)\s+(want|need|would like|have to|are trying|struggle|spend|lose|miss)|\b(problem|pain|manual|lost|broken|struggling|too much time|so that|directly into)\b/i;
+
+const PROBLEM_ACTION_TERMS =
+  /\b(integrate|connect|sync|capture|automate|import|export|route|notify|reconcile|reduce|avoid|eliminate|replace)\b/i;
+
+const SYSTEM_INTEGRATION_TERMS =
+  /\b(quickbooks|xero|stripe|shopify|woocommerce|crm|salesforce|hubspot|website|store|booking|invoice|accounting|api|database|spreadsheet|excel|google sheets|payment|payments)\b/i;
+
+const TRIGGER_TERMS =
+  /\b(when|whenever|after|on\s+(payment|checkout|signup|order|booking|submission|invoice)|trigger|event|webhook|submit|submission|checkout|scheduled|weekly|daily)\b/i;
+
+const SUCCESS_RESULT_TERMS =
+  /\b(so that|to\s+(capture|sync|reduce|avoid|ensure|track|report|reconcile|eliminate)|success|successful|automatically|directly|cleanly|accurate|accurately)\b/i;
+
+const EXCEPTION_TERMS =
+  /\b(error|failed|failure|duplicate|retry|exception|manual review|reconciliation|rollback|audit|log|logs|missing|rejected)\b/i;
 
 const PURE_PROCESS_PATTERNS = [
   /\b(testing|qa|bug fixes?|debugging|polish|support|maintenance|meetings?|consultation|advice)\b/i,
@@ -51,7 +70,48 @@ function appendIssue(issues: ScopeIntakeIssue[], issue: ScopeIntakeIssue) {
   if (!issues.some((existing) => existing.code === issue.code)) issues.push(issue);
 }
 
-function buildGuidingQuestions(issues: ScopeIntakeIssue[]) {
+function detectInputStyle(text: string): ScopeIntakeAssessment["inputStyle"] {
+  return PROBLEM_STATEMENT_TERMS.test(text) &&
+    (PROBLEM_ACTION_TERMS.test(text) || SYSTEM_INTEGRATION_TERMS.test(text))
+    ? "problem_statement"
+    : "delivery_scope";
+}
+
+function buildProblemStatementQuestions(text: string) {
+  const questions: string[] = [];
+
+  if (!SYSTEM_INTEGRATION_TERMS.test(text)) {
+    questions.push("What systems are involved today, and which system should become the source of truth?");
+  }
+
+  if (!TRIGGER_TERMS.test(text)) {
+    questions.push("What event should trigger the workflow: checkout, form submission, booking, invoice update, file upload, or schedule?");
+  }
+
+  if (!USER_TERMS.test(text)) {
+    questions.push("Who needs to use or review the result: customers, finance admins, sales reps, operators, or managers?");
+  }
+
+  if (!SUCCESS_RESULT_TERMS.test(text)) {
+    questions.push("What should be true when the problem is solved, and what manual work should disappear?");
+  }
+
+  if (!EXCEPTION_TERMS.test(text)) {
+    questions.push("What should happen when data is missing, duplicated, rejected, or fails to sync?");
+  }
+
+  if (!VERIFICATION_TERMS.test(text)) {
+    questions.push("What proof would let you approve it: staging test transaction, sync logs, screenshots, reports, or handoff notes?");
+  }
+
+  return questions;
+}
+
+function buildGuidingQuestions(
+  issues: ScopeIntakeIssue[],
+  text: string,
+  inputStyle: ScopeIntakeAssessment["inputStyle"]
+) {
   const priority = new Map([
     ["process_only", 0],
     ["no_software_outcome", 1],
@@ -66,12 +126,17 @@ function buildGuidingQuestions(issues: ScopeIntakeIssue[]) {
     .map((issue) => QUESTION_BY_ISSUE[issue.code])
     .filter(Boolean);
 
-  return Array.from(new Set(questions)).slice(0, 4);
+  const problemQuestions = inputStyle === "problem_statement"
+    ? buildProblemStatementQuestions(text)
+    : [];
+
+  return Array.from(new Set([...problemQuestions, ...questions])).slice(0, 5);
 }
 
 export function assessScopeIntake(prompt: string): ScopeIntakeAssessment {
   const text = normalize(prompt);
   const issues: ScopeIntakeIssue[] = [];
+  const inputStyle = detectInputStyle(text);
 
   if (text.length < 30) {
     appendIssue(issues, {
@@ -152,14 +217,31 @@ export function assessScopeIntake(prompt: string): ScopeIntakeAssessment {
 
   return {
     status: blockerCount > 0 ? "needs_detail" : "ready",
+    inputStyle,
     score,
     issues,
-    guidingQuestions: buildGuidingQuestions(issues),
-    suggestedPrompt: buildSuggestedScopePrompt(text, issues),
+    guidingQuestions: buildGuidingQuestions(issues, text, inputStyle),
+    suggestedPrompt: buildSuggestedScopePrompt(text, issues, inputStyle),
   };
 }
 
-export function buildSuggestedScopePrompt(prompt: string, issues: ScopeIntakeIssue[]) {
+export function buildSuggestedScopePrompt(
+  prompt: string,
+  issues: ScopeIntakeIssue[],
+  inputStyle: ScopeIntakeAssessment["inputStyle"] = "delivery_scope"
+) {
+  if (inputStyle === "problem_statement") {
+    return [
+      `Business problem: ${prompt}${prompt.endsWith(".") ? "" : "."}`,
+      "Desired outcome: [what should happen automatically when the work is complete].",
+      "Current systems: [website/store/booking flow/source system] and [accounting/CRM/reporting/target system].",
+      "Primary users: [customers/employees/admins/managers] need to [main actions].",
+      "Exceptions: [missing data, duplicate records, failed syncs, refunds, retries, manual review].",
+      "Approval evidence: [staging test transaction, screenshots, sync logs, reports, QA evidence, handoff notes].",
+      "Constraints: [budget], [timeline], [countries/regions], and [required systems/compliance needs].",
+    ].join(" ");
+  }
+
   const needsUsers = issues.some((issue) => issue.code === "missing_users");
   const needsVerification = issues.some((issue) => issue.code === "missing_verification");
   const needsConstraints = issues.some((issue) => issue.code === "missing_constraints");

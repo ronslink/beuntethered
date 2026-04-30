@@ -723,10 +723,48 @@ export default function ProjectCreationWizard() {
                            <textarea
                              value={prompt}
                              onChange={(e) => setPrompt(e.target.value)}
-                             placeholder="Example: Build a customer portal with Stripe billing, role-based access, audit logs, and a staged launch plan. Target timeline is 4-6 weeks."
+                             placeholder="Example: I want customer payments from my website to sync cleanly into my accounting system, with records the finance team can review."
                              className="w-full h-[320px] bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-lg p-6 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-sm focus:outline-none relative z-10 custom-scrollbar leading-relaxed"
                            />
                         </div>
+
+                        {prompt.trim().length >= 30 && intakeAssessment.inputStyle === "problem_statement" && (
+                           <div className="rounded-lg border border-secondary/20 bg-secondary/5 p-4">
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                 <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Problem statement detected</p>
+                                    <h3 className="mt-1 text-sm font-black text-on-surface">We can translate this into a SOW</h3>
+                                    <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
+                                       Before generating milestones, add the systems, trigger, users, exceptions, and proof that would make the result easy to approve.
+                                    </p>
+                                 </div>
+                                 <button
+                                   type="button"
+                                   onClick={() => setPrompt(intakeAssessment.suggestedPrompt)}
+                                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-secondary/30 bg-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-secondary transition-colors hover:bg-secondary/10"
+                                 >
+                                    <span className="material-symbols-outlined text-[14px]">conversion_path</span>
+                                    Structure It
+                                 </button>
+                              </div>
+
+                              {intakeAssessment.guidingQuestions.length > 0 && (
+                                 <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                    {intakeAssessment.guidingQuestions.slice(0, 4).map((question) => (
+                                       <button
+                                         key={question}
+                                         type="button"
+                                         onClick={() => addGuidedQuestionStarter(question)}
+                                         className="flex items-start gap-2 rounded-md border border-secondary/15 bg-surface p-3 text-left text-xs font-bold leading-5 text-on-surface transition-colors hover:border-secondary/35 hover:bg-secondary/5"
+                                       >
+                                          <span className="material-symbols-outlined mt-0.5 text-[15px] text-secondary">help</span>
+                                          {question}
+                                       </button>
+                                    ))}
+                                 </div>
+                              )}
+                           </div>
+                        )}
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                            {["Meaningful", "Realistic", "Actionable", "Verifiable"].map((quality) => (

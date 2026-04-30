@@ -28,9 +28,24 @@ test("warns when a viable software scope is missing delivery constraints", () =>
   );
 
   assert.equal(assessment.status, "ready");
+  assert.equal(assessment.inputStyle, "delivery_scope");
   assert.ok(assessment.issues.some((issue) => issue.code === "missing_constraints"));
   assert.ok(assessment.guidingQuestions.some((question) => /budget, timeline/.test(question)));
   assert.match(assessment.suggestedPrompt, /Constraints include/);
+});
+
+test("detects business problem statements and asks workflow-specific questions", () => {
+  const assessment = assessScopeIntake(
+    "I want customer payments from my website to sync cleanly into QuickBooks so finance admins can review invoices."
+  );
+
+  assert.equal(assessment.status, "ready");
+  assert.equal(assessment.inputStyle, "problem_statement");
+  assert.ok(assessment.guidingQuestions.some((question) => /trigger the workflow/.test(question)));
+  assert.ok(assessment.guidingQuestions.some((question) => /missing, duplicated, rejected/.test(question)));
+  assert.match(assessment.suggestedPrompt, /Business problem:/);
+  assert.match(assessment.suggestedPrompt, /Current systems:/);
+  assert.match(assessment.suggestedPrompt, /Approval evidence:/);
 });
 
 test("accepts a clear, verifiable software delivery prompt", () => {
@@ -39,6 +54,7 @@ test("accepts a clear, verifiable software delivery prompt", () => {
   );
 
   assert.equal(assessment.status, "ready");
+  assert.equal(assessment.inputStyle, "delivery_scope");
   assert.equal(assessment.issues.length, 0);
   assert.equal(assessment.guidingQuestions.length, 0);
 });
