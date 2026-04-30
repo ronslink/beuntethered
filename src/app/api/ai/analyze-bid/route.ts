@@ -1,81 +1,79 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/auth";
+import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
+import { getCurrentUser } from "@/lib/session";
+import { userCanManageBuyerProject } from "@/lib/project-access";
+import { buildBidScoreCard, parseBidMilestones, summarizeBidScoreCard } from "@/lib/bid-analysis";
+import { bidAnalysisInputSchema } from "@/lib/validators";
+
+function hasInternalAccess(req: Request) {
+  const configuredSecret = process.env.INTERNAL_API_SECRET?.trim();
+  const providedSecret = req.headers.get("x-internal-secret")?.trim();
+  return Boolean(configuredSecret && providedSecret && configuredSecret === providedSecret);
+}
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { bidId, projectId, proposedAmount, estimatedDays, technicalApproach, proposedTechStack, proposedMilestones } = body;
+    const body = await req.json().catch(() => null);
+    const parsedInput = bidAnalysisInputSchema.safeParse(body);
+    if (!parsedInput.success) {
+      return NextResponse.json(
+        { error: "Submit a bidId to analyze.", code: "INVALID_BID_ANALYSIS_REQUEST" },
+        { status: 400 }
+      );
+    }
+    const { bidId } = parsedInput.data;
 
-    // Fetch the project SoW for context
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      include: { milestones: true },
+    await assertDurableRateLimit({
+      key: rateLimitKey("ai.analyze-bid", bidId),
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
     });
-    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-    const originalTotal = project.milestones.reduce((acc: number, m: any) => acc + Number(m.amount), 0);
-    const originalDays = project.milestones.reduce((acc: number, m: any) => acc + (m.estimated_duration_days || 0), 0);
+    const bid = await prisma.bid.findUnique({
+      where: { id: bidId },
+      include: { project: { include: { milestones: true } } },
+    });
+    if (!bid) return NextResponse.json({ error: "Bid not found.", code: "BID_NOT_FOUND" }, { status: 404 });
 
-    // --- Scoring Logic (deterministic signals, no LLM required) ---
-
-    // 1. Price fairness: within 25% of original budget = green, 25-50% = amber, >50% = red
-    const priceDelta = originalTotal > 0 ? Math.abs(proposedAmount - originalTotal) / originalTotal : 0;
-    const priceSignal = priceDelta < 0.25 ? "FAIR" : priceDelta < 0.5 ? "REVIEW" : "OUTLIER";
-    const priceBand = originalTotal > 0
-      ? { low: Math.round(originalTotal * 0.75), high: Math.round(originalTotal * 1.25) }
-      : null;
-
-    // 2. Timeline realism: within 30% of original = realistic
-    const daysDelta = originalDays > 0 ? Math.abs(estimatedDays - originalDays) / originalDays : 0;
-    const timelineSignal = originalDays === 0 ? "UNKNOWN" : daysDelta < 0.3 ? "REALISTIC" : daysDelta < 0.6 ? "TIGHT" : "UNREALISTIC";
-
-    // 3. Stack compatibility: simple keyword scan of SoW vs proposed stack
-    const sowText = project.ai_generated_sow.toLowerCase();
-    let stackScore = 75; // default neutral
-    if (proposedTechStack) {
-      const stackKeywords = proposedTechStack.toLowerCase().split(/[,\s]+/).filter((k: string) => k.length > 2);
-      const matches = stackKeywords.filter((kw: string) => sowText.includes(kw)).length;
-      stackScore = stackKeywords.length > 0 ? Math.min(100, Math.round((matches / stackKeywords.length) * 100)) : 70;
+    if (!hasInternalAccess(req)) {
+      const user = await getCurrentUser();
+      const isBidOwner = user?.id === bid.developer_id;
+      const isBuyerManager = user ? await userCanManageBuyerProject(bid.project_id, user.id) : false;
+      if (!user || (!isBidOwner && !isBuyerManager)) {
+        return NextResponse.json(
+          { error: "Bid analysis access denied.", code: "BID_ANALYSIS_ACCESS_DENIED" },
+          { status: 403 }
+        );
+      }
     }
 
-    // 4. Milestone completeness flags
-    const flags: string[] = [];
-    const ms = proposedMilestones || project.milestones;
-    const msCount = ms?.length || 0;
-    if (msCount === 0) flags.push("No milestones defined — high delivery risk.");
-    if (msCount === 1 && proposedAmount > 5000) flags.push("Single milestone for a large project — consider splitting for client protection.");
-    const hasQA = JSON.stringify(ms).toLowerCase().match(/\b(test|qa|quality)\b/);
-    if (!hasQA) flags.push("No QA or testing milestone detected — bids with testing stages are accepted 38% more often.");
-    if (proposedAmount < originalTotal * 0.5 && originalTotal > 0) flags.push("Proposed price is significantly below the client's budget — ensure deliverables aren't scoped down.");
+    const scoreCard = buildBidScoreCard({
+      project: bid.project,
+      proposedAmount: Number(bid.proposed_amount),
+      estimatedDays: bid.estimated_days,
+      technicalApproach: bid.technical_approach,
+      proposedTechStack: bid.proposed_tech_stack,
+      proposedMilestones: parseBidMilestones(bid.proposed_milestones),
+    });
 
-    // 5. Overall recommendation
-    let recommendation: "TOP_PICK" | "STRONG" | "REVIEW" | "CAUTION" = "STRONG";
-    if (flags.length >= 3 || priceSignal === "OUTLIER" || timelineSignal === "UNREALISTIC") recommendation = "CAUTION";
-    else if (flags.length === 0 && priceSignal === "FAIR" && timelineSignal === "REALISTIC" && stackScore >= 80) recommendation = "TOP_PICK";
-    else if (flags.length >= 2 || priceSignal === "REVIEW") recommendation = "REVIEW";
-
-    const scoreCard = {
-      price: { signal: priceSignal, delta_pct: Math.round(priceDelta * 100), band: priceBand },
-      timeline: { signal: timelineSignal, delta_pct: Math.round(daysDelta * 100) },
-      stack_compatibility: stackScore,
-      milestone_count: msCount,
-      flags,
-      recommendation,
-      generated_at: new Date().toISOString(),
-    };
-
-    // Persist scorecard to Bid record
     await prisma.bid.update({
-      where: { id: bidId },
+      where: { id: bid.id },
       data: {
         ai_score_card: scoreCard,
-        ai_translation_summary: `Stack compatibility ${stackScore}% · Price ${priceSignal.toLowerCase()} · Timeline ${timelineSignal.toLowerCase()}`,
+        ai_translation_summary: summarizeBidScoreCard(scoreCard),
       },
     });
 
     return NextResponse.json({ success: true, scoreCard });
   } catch (error: any) {
+    if (isRateLimitError(error)) {
+      return NextResponse.json(
+        { error: error.message, code: error.code, retryAfterSeconds: error.retryAfterSeconds },
+        { status: 429 }
+      );
+    }
     console.error("AI analyze-bid fault:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Unable to analyze bid.", code: "BID_ANALYSIS_FAILED" }, { status: 500 });
   }
 }

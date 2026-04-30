@@ -3,6 +3,16 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { prisma } from './auth';
 import { decryptApiKey } from './encryption';
+import {
+  type AITaskId,
+  getBasicAIProviderPreference,
+  getGemmaServerConfig,
+  getGroqConfig,
+  isBasicAITask,
+  isGroqConfigured,
+  isServerGemmaConfigured,
+  resolveBasicAIProvider,
+} from "./ai-provider-config.ts";
 
 // Shared fetch wrapper that strips $schema keys (MiniMax rejects them)
 function createMinimaxFetch() {
@@ -19,19 +29,64 @@ function createMinimaxFetch() {
         };
         removeSchema(body);
         options.body = JSON.stringify(body);
-      } catch(e) {}
+      } catch {}
     }
     return fetch(url, options as RequestInit);
   };
 }
 
-function getFallbackProvider() {
+function getMinimaxApiKey() {
+  const apiKey = process.env.MINIMAX_API_KEY;
+  if (!apiKey) {
+    throw new Error("MINIMAX_API_KEY is not configured.");
+  }
+  return apiKey;
+}
+
+function createMinimaxProvider() {
+  const apiKey = getMinimaxApiKey();
   const minimax = createOpenAI({
-     apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
-     baseURL: 'https://api.minimaxi.chat/v1',
-     fetch: createMinimaxFetch(),
+    apiKey,
+    baseURL: process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    fetch: createMinimaxFetch(),
   });
+  return minimax;
+}
+
+function getFallbackProvider() {
+  const minimax = createMinimaxProvider();
   return minimax.chat('MiniMax-M2.7');
+}
+
+function getServerGemmaProvider() {
+  const config = getGemmaServerConfig();
+  if (!config.configured || !config.baseURL) {
+    throw new Error("GEMMA_BASE_URL is not configured.");
+  }
+
+  const gemma = createOpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseURL,
+  });
+
+  return gemma.chat(config.model);
+}
+
+function getGroqProvider() {
+  const config = getGroqConfig();
+  if (!config.configured || !config.apiKey) {
+    throw new Error("GROQ_API_KEY is not configured.");
+  }
+
+  const groq = createOpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseURL,
+  });
+
+  return groq.chat(config.model);
 }
 
 /**
@@ -40,12 +95,34 @@ function getFallbackProvider() {
  * Automatic cache support — no configuration needed.
  */
 export function getHighspeedProvider() {
-  const minimax = createOpenAI({
-     apiKey: process.env.MINIMAX_API_KEY || 'dummy_key',
-     baseURL: 'https://api.minimaxi.chat/v1',
-     fetch: createMinimaxFetch(),
-  });
+  const minimax = createMinimaxProvider();
   return minimax.chat('MiniMax-M2.7-highspeed');
+}
+
+/**
+ * Task-level routing keeps low-risk classification work cheap while preserving
+ * the stronger default/BYOK lane for trust-sensitive generation and audit flows.
+ */
+export function getTaskAIProvider(task: AITaskId) {
+  if (!isBasicAITask(task)) {
+    return getFallbackProvider();
+  }
+
+  const provider = resolveBasicAIProvider({
+    preference: getBasicAIProviderPreference(),
+    groqConfigured: isGroqConfigured(),
+    gemmaConfigured: isServerGemmaConfigured(),
+  });
+
+  if (provider === "minimax") {
+    return getHighspeedProvider();
+  }
+
+  if (provider === "gemma-4-server") {
+    return getServerGemmaProvider();
+  }
+
+  return getGroqProvider();
 }
 
 export async function getDynamicAIProvider(userId: string) {
@@ -54,8 +131,6 @@ export async function getDynamicAIProvider(userId: string) {
       where: { id: userId },
       select: {
         preferred_llm: true,
-        openai_key: true,
-        anthropic_key: true,
         openai_key_encrypted: true,
         anthropic_key_encrypted: true,
         google_key_encrypted: true,
@@ -67,9 +142,8 @@ export async function getDynamicAIProvider(userId: string) {
       return getFallbackProvider();
     }
 
-    // Decrypt API keys if encrypted versions exist (preferred), fall back to plaintext for migration
-    const openaiKey = user.openai_key_encrypted ? decryptApiKey(user.openai_key_encrypted) : user.openai_key ?? undefined;
-    const anthropicKey = user.anthropic_key_encrypted ? decryptApiKey(user.anthropic_key_encrypted) : user.anthropic_key ?? undefined;
+    const openaiKey = user.openai_key_encrypted ? decryptApiKey(user.openai_key_encrypted) : undefined;
+    const anthropicKey = user.anthropic_key_encrypted ? decryptApiKey(user.anthropic_key_encrypted) : undefined;
     const googleKey = user.google_key_encrypted ? decryptApiKey(user.google_key_encrypted) : undefined;
 
     // Route 1: Anthropic Custom Node Mapping
@@ -88,6 +162,12 @@ export async function getDynamicAIProvider(userId: string) {
     if (user.preferred_llm === 'gemini-1.5-pro' && googleKey) {
       const google = createGoogleGenerativeAI({ apiKey: googleKey });
       return google('gemini-1.5-pro-latest');
+    }
+
+    // Route 4: self-hosted Gemma server through an OpenAI-compatible endpoint.
+    // Works with vLLM, llama.cpp, Ollama /v1, NVIDIA NIM, or a private gateway.
+    if (user.preferred_llm === 'gemma-4-server') {
+      return getServerGemmaProvider();
     }
 
     // Default: Moonshot Kimi Native Test Implementation

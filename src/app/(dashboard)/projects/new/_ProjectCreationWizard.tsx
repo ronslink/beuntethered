@@ -4,11 +4,11 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { postProjectToMarketplace } from "@/app/actions/marketplace";
 import { fetchRecommendedSquad } from "@/app/actions/concierge";
-import Link from 'next/link';
+import { assessMilestoneQuality, normalizeGeneratedSow, type MilestoneQualityAssessment } from "@/lib/milestone-quality";
 
 export default function ProjectCreationWizard() {
   const router = useRouter();
-  
+
   // State Machine Arrays
   const [step, setStep] = useState<number>(1);
   const [prompt, setPrompt] = useState("");
@@ -17,11 +17,11 @@ export default function ProjectCreationWizard() {
   const [loadingStatus, setLoadingStatus] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<any>(null);
-  
+
   // Triage state
   const [triageResult, setTriageResult] = useState<any>(null);
   const [rejectionMessage, setRejectionMessage] = useState("");
-  
+
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
   const [squad, setSquad] = useState<any[]>([]);
@@ -40,24 +40,11 @@ export default function ProjectCreationWizard() {
 
   useEffect(() => {
     if (sowData && !isGenerating) {
-       // Normalize: ensure each milestone has a deliverables array
-       const normalized = {
-         ...sowData,
-         milestones: (sowData.milestones || []).map((m: any) => ({
-           ...m,
-           estimated_duration_days: m.estimated_duration_days || 14,
-           deliverables: m.deliverables && Array.isArray(m.deliverables) 
-             ? m.deliverables 
-             : m.description 
-               ? m.description.split(/[.;]\s*/).filter((s: string) => s.trim().length > 3).slice(0, 4)
-               : ['Core deliverable']
-         }))
-       };
-       setEditableSoW(normalized);
+       setEditableSoW(normalizeGeneratedSow(sowData));
     }
   }, [sowData, isGenerating]);
 
-  // Loading status messages — plain English, no jargon
+  // Loading status messages - plain English, no jargon.
   useEffect(() => {
     if (isGenerating && !sowData) {
       if (triageResult) {
@@ -84,7 +71,7 @@ export default function ProjectCreationWizard() {
     if (!editableSoW) return;
     const newMilestones = [...editableSoW.milestones];
     newMilestones[index] = { ...newMilestones[index], [field]: value };
-    
+
     // Recalc total if amount changed
     if (field === 'amount') {
       const newTotal = newMilestones.reduce((acc: number, m: any) => acc + (Number(m.amount) || 0), 0);
@@ -142,22 +129,22 @@ export default function ProjectCreationWizard() {
 
       // Check if request is out of scope
       if (!triage.in_scope) {
-        setRejectionMessage(triage.reason || "This doesn't look like a remote digital service. BeUntethered connects you with freelancers for digital work — writing, design, software, marketing, and more.");
+        setRejectionMessage(triage.reason || "This does not look like verifiable software delivery. Untether is focused on human-led, AI-assisted software projects with clear milestone evidence.");
         setIsGenerating(false);
         return;
       }
 
       // Show triage classification to user
       setTriageResult(triage);
-      setLoadingStatus(`Looks like ${triage.summary?.toLowerCase() || 'a project'} — generating your scope now...`);
+      setLoadingStatus(`Looks like ${triage.summary?.toLowerCase() || 'a project'}. Generating your scope now...`);
 
       // Step 2: Generate SOW routed by category + complexity
       const response = await fetch("/api/ai/generate-sow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          prompt, 
-          mode, 
+        body: JSON.stringify({
+          prompt,
+          mode,
           desiredTimeline,
           category: triage.category,
           complexity: triage.complexity,
@@ -179,13 +166,13 @@ export default function ProjectCreationWizard() {
   const loadConciergeSquad = async () => {
     setIsSquadLoading(true);
     setStep(4);
-    
+
     // Call server action explicitly matching vectors
     const res = await fetchRecommendedSquad(editableSoW?.executiveSummary || "General project summary.");
     if (res.success && res.matchData) {
       setSquad(res.matchData);
     }
-    
+
     setIsSquadLoading(false);
   };
 
@@ -197,7 +184,7 @@ export default function ProjectCreationWizard() {
          selected_facilitators: [],
          biddingClosesAt,
       };
-      
+
       const res = await postProjectToMarketplace(finalPayload);
       if (res.success) {
         setToastMessage("Creating project and redirecting to payment...");
@@ -219,7 +206,7 @@ export default function ProjectCreationWizard() {
          selected_facilitators: selectedFacilitators,
          biddingClosesAt,
       };
-      
+
       const res = await postProjectToMarketplace(finalPayload);
       if (res.success) {
         setToastMessage("Project Bound and Dispatched Successfully.");
@@ -236,39 +223,45 @@ export default function ProjectCreationWizard() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
   };
 
+  const milestoneQualityAssessments: MilestoneQualityAssessment[] = Array.isArray(editableSoW?.milestones)
+    ? editableSoW.milestones.map((milestone: any) => assessMilestoneQuality(milestone))
+    : [];
+  const activeMilestoneQuality = step === 2 && activePhaseIndex < milestoneQualityAssessments.length
+    ? milestoneQualityAssessments[activePhaseIndex]
+    : null;
+  const allMilestonesReady = milestoneQualityAssessments.length > 0 && milestoneQualityAssessments.every((assessment) => assessment.passes);
+  const milestoneIssueCount = milestoneQualityAssessments.reduce((sum: number, assessment) => sum + assessment.blockingIssues.length, 0);
+
   return (
     <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-5rem)] flex flex-col relative overflow-hidden">
-      {/* Background Ambient Light */}
-      <div className="absolute top-[0%] left-[20%] w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
-
       {toastMessage && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-500">
-           <div className="bg-surface/90 backdrop-blur-3xl border border-tertiary/40 shadow-[0_20px_60px_rgba(var(--color-tertiary),0.2)] p-4 rounded-2xl flex items-center gap-4 min-w-[350px]">
-              <div className="w-10 h-10 rounded-full bg-tertiary/20 flex items-center justify-center shrink-0">
+           <div className="bg-surface border border-tertiary/40 p-4 rounded-lg flex items-center gap-4 min-w-[350px]">
+              <div className="w-10 h-10 rounded-lg bg-tertiary/20 flex items-center justify-center shrink-0">
                  <span className="material-symbols-outlined text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               </div>
               <div>
                  <p className="text-on-surface font-bold font-headline">{toastMessage}</p>
-                 <p className="text-xs text-on-surface-variant">Redirecting gracefully...</p>
+                 <p className="text-xs text-on-surface-variant">Redirecting...</p>
               </div>
            </div>
         </div>
       )}
 
       {/* State Machine Step Tracker */}
-      <div className="w-full max-w-4xl mx-auto mb-10 px-4">
+      <div className="w-full max-w-4xl mx-auto mb-8 px-4">
          <div className="flex items-center justify-between relative">
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-1 bg-surface-container-low/50 z-0 rounded-full overflow-hidden">
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 w-full h-1 bg-surface-container-low/50 z-0 rounded-md overflow-hidden">
                <div className="h-full bg-primary transition-all duration-500" style={{ width: `${((step - 1) / 3) * 100}%` }}></div>
             </div>
-            
+
             {[1, 2, 3, 4].map(s => (
                <div key={s} className="relative z-10 flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg font-headline transition-all duration-500 border-4 border-surface ${step >= s ? 'bg-primary text-on-primary border-primary/30 shadow-[0_0_15px_rgba(var(--color-primary),0.5)]' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm font-headline transition-all duration-500 border border-outline-variant/30 ${step >= s ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
                      {s < step ? <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check</span> : s}
                   </div>
                   <p className={`text-[10px] uppercase font-bold tracking-widest mt-2 hidden md:block ${step >= s ? 'text-primary' : 'text-on-surface-variant opacity-50'}`}>
-                     {s === 1 ? 'Intake' : s === 2 ? 'Timeline' : s === 3 ? 'Ledger' : 'Squad'}
+                     {s === 1 ? 'Intake' : s === 2 ? 'Scope' : s === 3 ? 'Pricing' : 'Invites'}
                   </p>
                </div>
             ))}
@@ -276,34 +269,33 @@ export default function ProjectCreationWizard() {
       </div>
 
       <div className="flex-1 w-full mx-auto pb-32 relative z-10">
-         
+
          {/* ========================================================== */}
          {/* STEP 1: INTAKE & MODE TOGGLE                               */}
          {/* ========================================================== */}
          {step === 1 && (
             <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
-               <header className="mb-10 text-center">
-                 <h2 className="text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface">
-                   Autonomous <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Project Inception</span>
+               <header className="mb-8 text-center">
+                 <h2 className="text-2xl md:text-3xl font-black font-headline tracking-tight text-on-surface">
+                   Create Verified Project Scope
                  </h2>
-                 <p className="text-on-surface-variant font-medium mt-3 max-w-2xl mx-auto">Enter your project requirements below. Our AI will create a detailed project scope for you.</p>
+                 <p className="text-on-surface-variant font-medium mt-3 max-w-2xl mx-auto">Describe the outcome, constraints, and delivery expectations. Untether will draft a milestone-based SOW for review before anything is posted.</p>
                </header>
 
-               <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 shadow-xl relative overflow-hidden max-w-4xl mx-auto min-h-[500px]">
-                  
+               <div className="bg-surface border border-outline-variant/30 rounded-lg p-6 md:p-8 relative overflow-hidden max-w-4xl mx-auto min-h-[460px]">
+
                   {/* Rejection message */}
                   {rejectionMessage && !isGenerating && (
                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-md transition-all duration-500 p-8">
                         <div className="relative flex items-center justify-center mb-6">
-                          <div className="absolute w-32 h-32 bg-error/10 rounded-full blur-3xl"></div>
-                          <span className="material-symbols-outlined text-6xl text-error/80" style={{ fontVariationSettings: "'FILL' 1" }}>block</span>
+                          <span className="material-symbols-outlined text-4xl text-error/80" style={{ fontVariationSettings: "'FILL' 1" }}>block</span>
                         </div>
                         <h3 className="text-xl font-bold font-headline text-on-surface text-center mb-3">Can't scope this one</h3>
                         <p className="text-on-surface-variant text-center max-w-md leading-relaxed">{rejectionMessage}</p>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => { setRejectionMessage(""); setPrompt(""); }}
-                          className="mt-6 px-6 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface font-bold text-sm uppercase tracking-widest hover:border-primary/50 hover:text-primary transition-all"
+                          className="mt-6 px-6 py-3 rounded-md bg-surface border border-outline-variant/30 text-on-surface font-bold text-sm uppercase tracking-widest hover:border-primary/50 hover:text-primary transition-all"
                         >
                           Try Something Else
                         </button>
@@ -314,43 +306,50 @@ export default function ProjectCreationWizard() {
                   {isGenerating && (
                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-md transition-all duration-500">
                         <div className="relative flex items-center justify-center mb-8">
-                          <div className="absolute w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse delay-75"></div>
                           {triageResult ? (
-                            <span className="material-symbols-outlined text-6xl text-secondary animate-bounce shadow-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>edit_note</span>
+                            <span className="material-symbols-outlined text-4xl text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>edit_note</span>
                           ) : (
-                            <span className="material-symbols-outlined text-6xl text-primary animate-pulse shadow-primary" style={{ fontVariationSettings: "'FILL' 1" }}>search_insights</span>
+                            <span className="material-symbols-outlined text-4xl text-primary animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>search_insights</span>
                           )}
                         </div>
                         {triageResult && (
-                          <div className="flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20">
+                          <div className="flex items-center gap-2 mb-4 px-4 py-2 rounded-md bg-secondary/10 border border-secondary/20">
                             <span className="material-symbols-outlined text-secondary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                            <span className="text-xs font-bold uppercase tracking-widest text-secondary">{triageResult.category?.replace(/_/g, ' ')} · {triageResult.complexity}</span>
+                            <span className="text-xs font-bold uppercase tracking-widest text-secondary">{triageResult.category?.replace(/_/g, ' ')} / {triageResult.complexity}</span>
                           </div>
                         )}
-                        <h3 className="text-2xl font-bold font-headline mt-2 text-on-surface bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] animate-[gradient_2s_linear_infinite] bg-clip-text text-transparent px-8 text-center leading-relaxed">
+                        <h3 className="text-lg font-bold font-headline mt-2 text-on-surface px-8 text-center leading-relaxed">
                           {loadingStatus}
                         </h3>
                      </div>
                   )}
 
                   <form onSubmit={handleGenerate} className={`space-y-6 transition-all duration-500 ${isGenerating ? 'opacity-0 scale-95 blur-md select-none pointer-events-none' : 'opacity-100 scale-100 blur-0'}`}>
-                        <div className="flex bg-surface-container rounded-xl p-1 w-full max-w-md mx-auto mb-6">
-                           <button type="button" onClick={() => setMode("EXECUTION")} className={`flex-1 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${mode === "EXECUTION" ? 'bg-surface shadow text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}>
-                              Execution Build
+                        <div className="flex bg-surface-container rounded-lg p-1 w-full max-w-md mx-auto mb-6">
+                           <button type="button" onClick={() => setMode("EXECUTION")} className={`flex-1 py-2 rounded-md text-xs font-bold tracking-widest uppercase transition-all ${mode === "EXECUTION" ? 'bg-surface text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}>
+                              Full Delivery Scope
                            </button>
-                           <button type="button" onClick={() => setMode("DISCOVERY")} className={`flex-1 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all ${mode === "DISCOVERY" ? 'bg-primary/20 text-primary shadow-[inset_0_0_10px_rgba(var(--color-primary),0.2)]' : 'text-on-surface-variant hover:text-on-surface'}`}>
-                              $1k Discovery Mock
+                           <button type="button" onClick={() => setMode("DISCOVERY")} className={`flex-1 py-2 rounded-md text-xs font-bold tracking-widest uppercase transition-all ${mode === "DISCOVERY" ? 'bg-primary/15 text-primary border border-primary/20' : 'text-on-surface-variant hover:text-on-surface border border-transparent'}`}>
+                              $1k Discovery Sprint
                            </button>
                         </div>
-                        
+
                         <div className="relative group">
-                           <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-3xl blur-lg opacity-0 transition duration-500 group-focus-within:opacity-100"></div>
-                           <textarea 
+                           <textarea
                              value={prompt}
                              onChange={(e) => setPrompt(e.target.value)}
-                             placeholder="e.g. 'I need my resume redone', 'Build me a landing page with Stripe checkout', 'Design a logo for my coffee brand'"
-                             className="w-full h-[400px] bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-2xl p-8 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-lg lg:text-xl focus:outline-none relative z-10 custom-scrollbar shadow-inner leading-relaxed"
+                             placeholder="Example: Build a customer portal with Stripe billing, role-based access, audit logs, and a staged launch plan. Target timeline is 4-6 weeks."
+                             className="w-full h-[320px] bg-surface border border-outline-variant/30 focus-within:border-primary/50 rounded-lg p-6 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none text-sm focus:outline-none relative z-10 custom-scrollbar leading-relaxed"
                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                           {["Meaningful", "Realistic", "Actionable", "Verifiable"].map((quality) => (
+                              <div key={quality} className="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2">
+                                 <span className="material-symbols-outlined text-secondary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                                 <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{quality}</span>
+                              </div>
+                           ))}
                         </div>
 
                         {/* Timeline / Deadline Input */}
@@ -359,30 +358,30 @@ export default function ProjectCreationWizard() {
                               <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">
                                 <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">schedule</span> Desired Timeline</span>
                               </label>
-                              <input 
-                                 type="text" 
+                              <input
+                                 type="text"
                                  value={desiredTimeline}
                                  onChange={(e) => setDesiredTimeline(e.target.value)}
                                  placeholder="e.g. '2 weeks', '30 days', 'by June 15th'"
-                                 className="w-full bg-surface border border-outline-variant/30 focus:border-primary/50 rounded-xl p-4 text-on-surface text-sm focus:ring-0 focus:outline-none relative z-10 shadow-inner placeholder:text-on-surface-variant/40"
+                                 className="w-full bg-surface border border-outline-variant/30 focus:border-primary/50 rounded-lg p-4 text-on-surface text-sm focus:ring-0 focus:outline-none relative z-10 placeholder:text-on-surface-variant/40"
                               />
                            </div>
                            {mode === "DISCOVERY" && (
                               <div className="flex-1 flex items-end">
-                                 <div className="w-full bg-primary/5 border border-primary/20 rounded-xl p-4">
+                                 <div className="w-full bg-primary/5 border border-primary/20 rounded-lg p-4">
                                     <p className="text-xs text-primary font-bold">Discovery Mode locks to a 7-day architecture sprint at $1,000.</p>
                                  </div>
                               </div>
                            )}
                         </div>
                         <div className="flex justify-end pt-4">
-                           <button 
-                             type="submit" 
-                             disabled={!prompt.trim()}
-                             className={`px-10 py-4 rounded-xl flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all shadow-[0_10px_20px_rgba(var(--color-primary),0.2)] ${!prompt.trim() ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed hidden' : 'bg-primary text-on-primary hover:-translate-y-1 hover:shadow-primary/40'}`}
+                           <button
+                             type="submit"
+                             disabled={prompt.trim().length < 5 || isGenerating}
+                             className={`px-8 py-3 rounded-md flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all ${prompt.trim().length < 5 || isGenerating ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-70' : 'bg-primary text-on-primary hover:bg-primary/90'}`}
                            >
-                              Generate Statement of Work
-                              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                              {prompt.trim().length < 5 ? "Describe Project First" : "Generate Statement of Work"}
+                              <span className="material-symbols-outlined text-[18px]">{prompt.trim().length < 5 ? "edit_note" : "arrow_forward"}</span>
                            </button>
                         </div>
                      </form>
@@ -403,24 +402,24 @@ export default function ProjectCreationWizard() {
             <div className="animate-in fade-in slide-in-from-right-8 duration-500 pb-28">
                {/* Elastic Scrolling Container */}
                <div className="w-full min-h-[600px] max-h-[80vh] overflow-y-auto custom-scrollbar pr-4 space-y-8">
-                  {/* Header â€” Editable Title & Summary */}
+                  {/* Header - editable title and summary */}
                   <div className="border-b border-outline-variant/20 pb-6 text-center max-w-3xl mx-auto space-y-3">
-                 <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center justify-center gap-2">
-                   <span className="material-symbols-outlined text-[14px]">calendar_clock</span> 
-                   {activePhaseIndex < milestones.length ? `Phase ${activePhaseIndex + 1} Editor` : 'Master Timeline Canvas'}
+                  <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2 flex items-center justify-center gap-2">
+                   <span className="material-symbols-outlined text-[14px]">calendar_clock</span>
+                    {activePhaseIndex < milestones.length ? `Milestone ${activePhaseIndex + 1} Review` : 'Delivery Timeline Review'}
                  </p>
-                 <input 
-                    type="text" 
+                 <input
+                    type="text"
                     value={editableSoW.title || ''}
                     onChange={(e) => updateSoWField('title', e.target.value)}
-                    className="text-3xl font-extrabold text-on-surface font-headline leading-snug bg-transparent border-b-2 border-transparent hover:border-outline-variant/30 focus:border-primary/50 text-center w-full focus:outline-none transition-colors"
+                     className="text-2xl font-black text-on-surface font-headline leading-snug bg-transparent border-b-2 border-transparent hover:border-outline-variant/30 focus:border-primary/50 text-center w-full focus:outline-none transition-colors"
                     placeholder="Project Title"
                  />
-                 <textarea 
+                 <textarea
                     value={editableSoW.executiveSummary || ''}
                     onChange={(e) => updateSoWField('executiveSummary', e.target.value)}
                     rows={6}
-                    className="text-base text-slate-200 leading-loose w-full bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-primary/30 rounded-lg p-2 text-center resize-none focus:outline-none focus:ring-0 transition-colors custom-scrollbar"
+                     className="text-sm text-on-surface leading-relaxed w-full bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-primary/30 rounded-lg p-2 text-center resize-none focus:outline-none focus:ring-0 transition-colors custom-scrollbar"
                     placeholder="Executive summary..."
                  />
                </div>
@@ -428,16 +427,40 @@ export default function ProjectCreationWizard() {
                {activePhaseIndex === milestones.length ? (
                  <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
                    {/* ===== MASTER TIMELINE REVIEW (GANTT CHART) ===== */}
-                   <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-2xl p-8 relative overflow-hidden shadow-xl">
-                      <div className="absolute top-0 right-0 w-40 h-40 bg-secondary/5 blur-3xl rounded-full pointer-events-none"></div>
-                      
+                    <div className="bg-surface border border-outline-variant/30 rounded-lg p-6 md:p-8 relative overflow-hidden">
                       <div className="flex items-center justify-between mb-8 relative z-10">
-                         <div>
-                           <h3 className="text-xl font-bold font-headline text-on-surface">Timeline Aggregate Review</h3>
-                           <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mt-1">{milestones.length} Phases Parsed</p>
-                         </div>
+                          <div>
+                            <h3 className="text-xl font-bold font-headline text-on-surface">Timeline Review</h3>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mt-1">{milestones.length} Phases Parsed</p>
+                          </div>
                          <div className="text-right">
                            <p className="text-3xl font-black text-secondary">{totalDays} <span className="text-sm text-on-surface-variant font-bold">Days</span></p>
+                         </div>
+                      </div>
+
+                      <div className={`mb-6 rounded-lg border p-4 ${allMilestonesReady ? 'bg-secondary/5 border-secondary/20' : 'bg-error/5 border-error/20'}`}>
+                         <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                            <div className="flex items-start gap-3">
+                               <span className={`material-symbols-outlined text-[20px] ${allMilestonesReady ? 'text-secondary' : 'text-error'}`}>{allMilestonesReady ? 'verified' : 'assignment_late'}</span>
+                               <div>
+                                  <p className="text-xs font-black uppercase tracking-widest text-on-surface">Milestone Readiness</p>
+                                  <p className="text-sm text-on-surface-variant mt-1">
+                                     {allMilestonesReady ? 'All milestones are ready to price and post.' : `${milestoneIssueCount} quality item${milestoneIssueCount === 1 ? '' : 's'} still need review before pricing.`}
+                                  </p>
+                               </div>
+                            </div>
+                            {!allMilestonesReady && (
+                               <button
+                                  type="button"
+                                  onClick={() => {
+                                     const firstIssueIndex = milestoneQualityAssessments.findIndex((assessment) => !assessment.passes);
+                                     setActivePhaseIndex(Math.max(0, firstIssueIndex));
+                                  }}
+                                  className="px-4 py-2 rounded-lg border border-error/30 text-error text-xs font-black uppercase tracking-widest hover:bg-error/10 transition-colors"
+                               >
+                                  Review First Issue
+                               </button>
+                            )}
                          </div>
                       </div>
 
@@ -449,19 +472,19 @@ export default function ProjectCreationWizard() {
                                const widthPct = totalDays > 0 ? (days / totalDays) * 100 : 100 / milestones.length;
                                const leftOffsetPct = totalDays > 0 ? (currentStartDays / totalDays) * 100 : idx * (100 / milestones.length);
                                const color = phaseColors[idx % phaseColors.length];
-                               
+
                                currentStartDays += days;
-                               
+
                                return (
                                   <div key={idx} className="flex items-center gap-4 group">
                                      <span className="text-xs font-bold text-on-surface-variant w-8 shrink-0 text-right">P{idx + 1}</span>
-                                     <div className="flex-1 h-12 bg-surface-container-low rounded-xl relative border border-outline-variant/10 shadow-inner overflow-hidden">
-                                        <div 
-                                           className="h-full rounded-xl flex items-center px-4 transition-all duration-500 ease-out absolute top-0 bottom-0 min-w-fit z-10 hover:z-20 hover:scale-[1.01] shadow-md cursor-default"
-                                           style={{ left: `${leftOffsetPct}%`, width: `${widthPct}%`, backgroundColor: color, opacity: 0.9 }}
-                                        >
-                                           <span className="text-xs font-black text-white whitespace-nowrap drop-shadow-md">
-                                              {m.title} â€” {days}d
+                                      <div className="flex-1 h-12 bg-surface-container-low rounded-lg relative border border-outline-variant/10 overflow-hidden">
+                                         <div
+                                            className="h-full rounded-md flex items-center px-4 transition-all duration-500 ease-out absolute top-0 bottom-0 min-w-fit z-10 cursor-default"
+                                            style={{ left: `${leftOffsetPct}%`, width: `${widthPct}%`, backgroundColor: color, opacity: 0.9 }}
+                                         >
+                                            <span className="text-xs font-black text-white whitespace-nowrap">
+                                               {m.title} - {days}d
                                            </span>
                                         </div>
                                      </div>
@@ -486,65 +509,94 @@ export default function ProjectCreationWizard() {
                       const idx = activePhaseIndex;
                       const m = milestones[idx] || {};
                       const color = phaseColors[idx % phaseColors.length];
+                      const quality = assessMilestoneQuality(m);
                       return (
-                        <div className="bg-surface/50 border border-outline-variant/30 rounded-3xl overflow-hidden shadow-xl">
-                           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-6 p-8 border-b border-outline-variant/20 relative" style={{ borderTopWidth: '4px', borderTopColor: color }}>
-                              <div className="absolute top-0 right-0 w-32 h-32 blur-3xl pointer-events-none opacity-20" style={{ backgroundColor: color }}></div>
-                              <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shrink-0 shadow-inner z-10 border border-white/5" style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}>
-                                 {idx + 1}
-                              </div>
+                         <div className="bg-surface border border-outline-variant/30 rounded-lg overflow-hidden">
+                            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-6 p-8 border-b border-outline-variant/20 relative" style={{ borderTopWidth: '4px', borderTopColor: color }}>
+                               <div className="w-14 h-14 rounded-lg flex items-center justify-center font-black text-xl shrink-0 z-10 border border-outline-variant/20" style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
+                                  {idx + 1}
+                               </div>
                               <div className="flex-1 min-w-0 space-y-3 z-10">
-                                 <input 
-                                    type="text" 
+                                 <input
+                                    type="text"
                                     value={m.title || ''}
                                     onChange={(e) => updateMilestoneField(idx, 'title', e.target.value)}
-                                    className="text-2xl lg:text-3xl font-black font-headline text-on-surface bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
+                                     className="text-xl lg:text-2xl font-black font-headline text-on-surface bg-transparent border-b border-transparent hover:border-outline-variant/30 focus:border-primary/50 w-full focus:outline-none transition-colors"
                                     placeholder="Phase title"
                                  />
-                                 <textarea 
+                                 <textarea
                                     value={m.description || ''}
                                     onChange={(e) => updateMilestoneField(idx, 'description', e.target.value)}
                                     rows={2}
-                                    className="w-full resize-none overflow-hidden text-wrap break-words text-sm text-slate-300 leading-relaxed bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-primary/30 py-1 focus:outline-none transition-colors"
+                                     className="w-full resize-none overflow-hidden text-wrap break-words text-sm text-on-surface-variant leading-relaxed bg-transparent border-b border-transparent hover:border-outline-variant/20 focus:border-primary/30 py-1 focus:outline-none transition-colors"
                                     placeholder="Phase description..."
                                  />
                               </div>
                               <div className="shrink-0 w-32 md:w-40 z-10">
                                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">Duration (Days)</label>
                                  <div className="flex items-center relative">
-                                    <input 
+                                    <input
                                        type="number" min={1}
-                                       value={m.estimated_duration_days || ''} 
+                                       value={m.estimated_duration_days || ''}
                                        onChange={(e) => updateMilestoneField(idx, 'estimated_duration_days', Number(e.target.value))}
-                                       className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl p-4 text-on-surface focus:border-primary/50 focus:ring-0 text-xl font-black shadow-inner pr-12 transition-colors"
+                                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-on-surface focus:border-primary/50 focus:ring-0 text-lg font-black pr-12 transition-colors"
                                     />
                                     <span className="absolute right-4 text-sm font-bold text-on-surface-variant pointer-events-none">Days</span>
                                  </div>
+                               </div>
+                           </div>
+
+                           <div className={`px-8 py-5 border-b ${quality.passes ? 'bg-secondary/5 border-secondary/20' : 'bg-error/5 border-error/20'}`}>
+                              <div className="flex flex-col lg:flex-row lg:items-start gap-4 justify-between">
+                                 <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${quality.passes ? 'text-secondary' : 'text-error'}`}>
+                                       <span className="material-symbols-outlined text-[16px]">{quality.passes ? 'verified' : 'priority_high'}</span>
+                                       Milestone Quality
+                                    </p>
+                                    <p className="text-sm text-on-surface-variant mt-2 max-w-2xl">
+                                       Each milestone should be meaningful, realistic, actionable, and verifiable before it can be posted for escrow-backed delivery.
+                                    </p>
+                                 </div>
+                                 <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Score</span>
+                                    <span className={`text-2xl font-black ${quality.passes ? 'text-secondary' : 'text-error'}`}>{quality.score}</span>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
+                                 {(quality.blockingIssues.length > 0 ? quality.blockingIssues : ["Ready for buyer review and facilitator execution."]).map((issue) => (
+                                    <div key={issue} className="flex items-start gap-2 text-xs text-on-surface-variant">
+                                       <span className={`material-symbols-outlined text-[15px] mt-0.5 ${quality.passes ? 'text-secondary' : 'text-error'}`}>
+                                          {quality.passes ? 'check_circle' : 'error'}
+                                       </span>
+                                       <span>{issue}</span>
+                                    </div>
+                                 ))}
                               </div>
                            </div>
-                        
+
                            <div className="p-8 space-y-6 bg-surface-container-lowest">
                               <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2 border-b border-outline-variant/10 pb-4">
                                  <span className="material-symbols-outlined text-[18px]">rule_folder</span>
-                                 Deliverables ({m.deliverables?.length || 0})
+                                 Reviewable Outputs ({m.deliverables?.length || 0})
                               </p>
-                              
+
                               <div className="space-y-4">
                                  {m.deliverables?.map((d: string, dIdx: number) => (
-                                    <div key={dIdx} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 group/item animate-in fade-in slide-in-from-bottom-2 duration-300 p-2 rounded-xl hover:bg-surface-container-low transition-colors">
-                                       <span className="w-8 h-8 rounded-lg bg-surface border border-outline-variant/20 flex items-center justify-center shrink-0 shadow-sm">
+                                     <div key={dIdx} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 group/item animate-in fade-in slide-in-from-bottom-2 duration-300 p-2 rounded-lg hover:bg-surface-container-low transition-colors">
+                                        <span className="w-8 h-8 rounded-lg bg-surface border border-outline-variant/20 flex items-center justify-center shrink-0">
                                           <span className="material-symbols-outlined text-[16px]" style={{ color, fontVariationSettings: "'FILL' 1" }}>done_all</span>
                                        </span>
-                                       <textarea 
+                                       <textarea
                                           value={d}
                                           onChange={(e) => updateDeliverable(idx, dIdx, e.target.value)}
                                           rows={2}
                                           placeholder="Describe this feature output..."
-                                          className="flex-1 w-full resize-none overflow-hidden text-wrap break-words bg-transparent border border-transparent hover:border-outline-variant/30 focus:border-primary/50 focus:bg-surface rounded-xl p-3 text-base text-slate-200 focus:ring-0 focus:outline-none transition-all shadow-sm placeholder:text-on-surface-variant/40"
+                                           className="flex-1 w-full resize-none overflow-hidden text-wrap break-words bg-transparent border border-transparent hover:border-outline-variant/30 focus:border-primary/50 focus:bg-surface rounded-lg p-3 text-sm text-on-surface focus:ring-0 focus:outline-none transition-all placeholder:text-on-surface-variant/40"
                                        />
-                                       <button 
+                                       <button
                                           onClick={() => removeDeliverable(idx, dIdx)}
-                                          className="w-10 h-10 rounded-xl flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-opacity bg-error/10 text-error hover:bg-error hover:text-white"
+                                           className="w-10 h-10 rounded-lg flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-opacity bg-error/10 text-error hover:bg-error hover:text-white"
                                           title="Remove feature"
                                        >
                                           <span className="material-symbols-outlined text-[20px]">delete</span>
@@ -552,24 +604,24 @@ export default function ProjectCreationWizard() {
                                     </div>
                                  ))}
                               </div>
-                              
-                              <button 
+
+                              <button
                                  onClick={() => addDeliverable(idx)}
-                                 className="w-full mt-4 py-4 rounded-xl border-2 border-dashed border-outline-variant/20 text-on-surface-variant hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm font-bold shadow-sm"
+                                  className="w-full mt-4 py-4 rounded-lg border-2 border-dashed border-outline-variant/20 text-on-surface-variant hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm font-bold"
                               >
                                  <span className="material-symbols-outlined text-[20px]">add</span>
                                  Add Deliverable
                               </button>
                            </div>
 
-                           <div className="p-8 border-t border-outline-variant/20 bg-surface/30">
-                              <div className="bg-surface-container p-5 rounded-2xl border border-secondary/20 shadow-inner">
+                            <div className="p-8 border-t border-outline-variant/20 bg-surface-container-lowest">
+                               <div className="bg-surface-container p-5 rounded-lg border border-secondary/20">
                                  <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-3 flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">verified_user</span> Acceptance Criteria</p>
-                                 <textarea 
+                                 <textarea
                                     value={m.acceptance_criteria || ''}
                                     onChange={(e) => updateMilestoneField(idx, 'acceptance_criteria', e.target.value)}
                                     rows={3}
-                                    className="w-full text-sm text-slate-300 leading-relaxed bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-secondary/40 focus:bg-surface rounded-xl p-3 focus:outline-none resize-none transition-all shadow-sm"
+                                     className="w-full text-sm text-on-surface leading-relaxed bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-secondary/40 focus:bg-surface rounded-lg p-3 focus:outline-none resize-none transition-all"
                                     placeholder="Define acceptance criteria for this milestone..."
                                  />
                               </div>
@@ -596,20 +648,18 @@ export default function ProjectCreationWizard() {
             <div className="animate-in fade-in slide-in-from-right-8 duration-500 pb-28">
                <div className="max-w-4xl mx-auto space-y-8">
                   <div className="text-center">
-                    <span className="material-symbols-outlined text-5xl text-tertiary mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
-                    <h3 className="text-4xl font-extrabold text-on-surface font-headline leading-snug">Financial Ledger</h3>
-                    <p className="text-on-surface-variant mt-3 text-lg">Adjust milestone amounts. These values represent the payment for each phase.</p>
+                    <span className="material-symbols-outlined text-3xl text-tertiary mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
+                    <h3 className="text-2xl font-black text-on-surface font-headline leading-snug">Milestone Pricing</h3>
+                    <p className="text-on-surface-variant mt-3 text-sm">Review each milestone amount before the project is posted for facilitator proposals.</p>
                   </div>
 
-                  <div className="bg-surface/50 border border-tertiary/20 rounded-3xl p-8 relative overflow-hidden shadow-xl">
-                     <div className="absolute top-0 right-0 w-96 h-96 bg-tertiary/5 blur-3xl rounded-full pointer-events-none"></div>
-                     
+                  <div className="bg-surface border border-outline-variant/30 rounded-lg p-6 md:p-8 relative overflow-hidden">
                      <div className="space-y-6 relative z-10">
                         {milestones.map((m: any, idx: number) => (
-                           <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/10 hover:border-primary/30 transition-colors">
+                           <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-surface-container-low p-5 rounded-lg border border-outline-variant/10 hover:border-primary/30 transition-colors">
                               <div className="flex-1 space-y-2">
                                  <div className="flex items-center gap-3">
-                                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0 shadow-inner">
+                                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
                                       <span className="text-primary font-black text-xs">{idx + 1}</span>
                                    </div>
                                    <p className="font-black text-lg text-on-surface">{m.title}</p>
@@ -618,14 +668,14 @@ export default function ProjectCreationWizard() {
                                  <p className="text-sm text-on-surface-variant leading-relaxed line-clamp-2 md:pl-11 opacity-80">{m.description || 'No technical summary provided.'}</p>
                               </div>
                               <div className="relative w-full md:w-56 shrink-0 md:pl-0 pl-11">
-                                 <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block mb-2">AI Recommended Price</label>
+                                 <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block mb-2">Milestone Amount</label>
                                  <div className="relative">
                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-lg pointer-events-none">$</span>
-                                   <input 
+                                   <input
                                       type="number"
                                       value={m.amount || ''}
                                       onChange={(e) => updateMilestoneField(idx, 'amount', Number(e.target.value))}
-                                      className="w-full bg-surface border-2 border-outline-variant/20 hover:border-primary/40 focus:border-primary rounded-xl py-4 pl-10 pr-4 text-on-surface font-black text-right shadow-inner text-xl transition-all outline-none focus:ring-4 focus:ring-primary/10"
+                                      className="w-full bg-surface border border-outline-variant/30 hover:border-primary/40 focus:border-primary rounded-lg py-4 pl-10 pr-4 text-on-surface font-black text-right text-xl transition-all outline-none focus:ring-4 focus:ring-primary/10"
                                    />
                                  </div>
                               </div>
@@ -634,7 +684,7 @@ export default function ProjectCreationWizard() {
 
 
                         {/* Bidding Window Deadline */}
-                        <div className="mt-6 bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5">
+                        <div className="mt-6 bg-surface-container-low border border-outline-variant/20 rounded-lg p-5">
                           <div className="flex flex-col md:flex-row md:items-center gap-4">
                             <div className="flex items-center gap-2">
                               <span className="material-symbols-outlined text-primary text-[20px]">timer</span>
@@ -655,7 +705,7 @@ export default function ProjectCreationWizard() {
                               <input type="date" value={biddingClosesAt}
                                 min={new Date().toISOString().split('T')[0]}
                                 onChange={e => setBiddingClosesAt(e.target.value)}
-                                className="bg-surface border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-bold text-on-surface outline-none focus:border-primary transition-colors cursor-pointer" />
+                                className="bg-surface border border-outline-variant/30 rounded-lg px-3 py-2 text-sm font-bold text-on-surface outline-none focus:border-primary transition-colors cursor-pointer" />
                             </div>
                           </div>
                         </div>
@@ -663,7 +713,7 @@ export default function ProjectCreationWizard() {
                            <p className="text-sm text-secondary uppercase tracking-widest font-black mb-2 flex items-center gap-2">
                               <span className="material-symbols-outlined text-[18px]">verified_user</span> Total Project Cost
                            </p>
-                           <p className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-on-surface-variant tracking-tighter">
+                           <p className="text-3xl font-black text-on-surface tracking-tight">
                               {formatCurrency(totalEscrow)}
                            </p>
                         </div>
@@ -680,23 +730,23 @@ export default function ProjectCreationWizard() {
          {/* ========================================================== */}
          {step === 4 && (editableSoW || sowData) && (
             <div className="animate-in fade-in slide-in-from-right-8 duration-500">
-               
+
                {isSquadLoading ? (
                   <div className="flex flex-col items-center justify-center py-20">
-                     <span className="material-symbols-outlined text-6xl text-on-surface-variant animate-spin mb-6" style={{ animationDuration: '3s' }}>radar</span>
-                     <h3 className="text-2xl font-bold font-headline text-on-surface">Analyzing Match Suitability...</h3>
-                     <p className="text-on-surface-variant text-sm mt-2 max-w-sm text-center">Matching your Statement of Work against our global pool of facilitators</p>
+                     <span className="material-symbols-outlined text-3xl text-on-surface-variant animate-spin mb-6" style={{ animationDuration: '3s' }}>radar</span>
+                     <h3 className="text-xl font-bold font-headline text-on-surface">Reviewing facilitator fit...</h3>
+                     <p className="text-on-surface-variant text-sm mt-2 max-w-sm text-center">Matching your statement of work against verified facilitator profiles.</p>
                   </div>
                ) : (
                   <div className="space-y-10">
                      <div className="text-center max-w-2xl mx-auto">
-                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border mb-4 inline-block ${squad.length > 0 ? 'bg-secondary/10 text-secondary border-secondary/20' : 'bg-surface-variant/20 text-on-surface-variant border-outline-variant/30'}`}>MATCH ANALYSIS COMPLETE</span>
-                       <h3 className="text-4xl font-extrabold text-on-surface font-headline leading-snug">
-                         {squad.length > 0 ? 'Elite Facilitators Located' : 'No Immediate Match Found'}
+                       <span className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest border mb-4 inline-block ${squad.length > 0 ? 'bg-secondary/10 text-secondary border-secondary/20' : 'bg-surface-variant/20 text-on-surface-variant border-outline-variant/30'}`}>MATCH ANALYSIS COMPLETE</span>
+                       <h3 className="text-2xl font-black text-on-surface font-headline leading-snug">
+                         {squad.length > 0 ? 'Recommended Facilitators' : 'No Immediate Match Found'}
                        </h3>
                        <p className="text-on-surface-variant mt-3 text-sm">
-                         {squad.length > 0 
-                           ? `We've found recommended facilitators that match your project.`
+                         {squad.length > 0
+                           ? `We've found facilitators that match your project requirements.`
                            : `We couldn't find a perfect match right now, but you can post this to the Open Marketplace to gather bids.`}
                        </p>
                      </div>
@@ -705,45 +755,45 @@ export default function ProjectCreationWizard() {
                         {squad.map((member) => {
                            const isSelected = selectedFacilitators.includes(member.id);
                            return (
-                              <div 
-                                 key={member.id} 
+                              <div
+                                 key={member.id}
                                  onClick={() => {
                                     if(isSelected) setSelectedFacilitators(prev => prev.filter(id => id !== member.id));
                                     else setSelectedFacilitators(prev => [...prev, member.id]);
                                  }}
-                                 className={`cursor-pointer transition-all duration-300 rounded-3xl p-6 border-2 relative overflow-hidden flex flex-col ${isSelected ? 'bg-secondary/5 border-secondary shadow-[0_10px_30px_rgba(var(--color-secondary),0.15)] -translate-y-2' : 'bg-surface/50 border-outline-variant/20 hover:border-outline-variant/60 hover:-translate-y-1'}`}
+                                 className={`cursor-pointer transition-all duration-300 rounded-lg p-6 border relative overflow-hidden flex flex-col ${isSelected ? 'bg-secondary/5 border-secondary' : 'bg-surface border-outline-variant/20 hover:border-outline-variant/60'}`}
                               >
                                  <div className="flex justify-between items-start mb-6">
-                                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-surface shadow-lg shrink-0">
-                                       <img src={member.image || 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&q=80&w=200'} alt={member.name} className="w-full h-full object-cover" />
+                                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-outline-variant/30 bg-surface-container-high shrink-0 flex items-center justify-center">
+                                       <span className="text-sm font-black text-on-surface-variant">{(member.name || 'UF').slice(0, 2).toUpperCase()}</span>
                                     </div>
                                     <div className="text-right">
                                        <span className="text-[10px] font-headline uppercase tracking-widest font-bold text-on-surface-variant block mb-1">Match Score</span>
                                        <span className="text-2xl font-black text-secondary">{member.match_score}%</span>
                                     </div>
                                  </div>
-                                 
+
                                  <div className="flex-1">
-                                    <h4 className="text-xl font-bold font-headline">{member.name || 'Anonymous Elite'}</h4>
+                                    <h4 className="text-lg font-bold font-headline">{member.name || 'Verified Facilitator'}</h4>
                                     <div className="flex items-center gap-1 text-tertiary mt-1 mb-4">
                                        <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                                        <span className="text-xs font-bold">{member.trust_score || '98.5'} Trust</span>
                                     </div>
-                                    
+
                                     <div className="grid grid-cols-2 gap-2 mt-auto">
-                                       <div className="bg-surface-container-low rounded-xl p-3 text-center border border-outline-variant/10">
-                                          <span className="block text-[9px] uppercase font-bold tracking-widest text-on-surface-variant">Clearances</span>
+                                       <div className="bg-surface-container-low rounded-lg p-3 text-center border border-outline-variant/10">
+                                          <span className="block text-[9px] uppercase font-bold tracking-widest text-on-surface-variant">Milestones</span>
                                           <span className="block text-lg font-black text-on-surface mt-1">{member.total_sprints_completed || 14}</span>
                                        </div>
-                                       <div className="bg-surface-container-low rounded-xl p-3 text-center border border-outline-variant/10">
-                                          <span className="block text-[9px] uppercase font-bold tracking-widest text-on-surface-variant">Avg Code</span>
+                                       <div className="bg-surface-container-low rounded-lg p-3 text-center border border-outline-variant/10">
+                                          <span className="block text-[9px] uppercase font-bold tracking-widest text-on-surface-variant">Audit Avg</span>
                                           <span className="block text-lg font-black text-on-surface mt-1">{member.average_ai_audit_score || 94}</span>
                                        </div>
                                     </div>
                                  </div>
 
                                  {/* Selection Overlay */}
-                                 <div className={`absolute top-4 left-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-secondary border-secondary text-surface' : 'border-outline-variant/30 text-transparent'}`}>
+                                 <div className={`absolute top-4 left-4 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-secondary border-secondary text-surface' : 'border-outline-variant/30 text-transparent'}`}>
                                     <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
                                  </div>
                               </div>
@@ -758,62 +808,64 @@ export default function ProjectCreationWizard() {
 
       {/* ===== UNIVERSAL STICKY FOOTER ===== */}
       {step > 1 && (
-         <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md border-t border-outline-variant/30 shadow-[0_-10px_30px_rgba(0,0,0,0.2)]">
+         <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-md border-t border-outline-variant/30">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-               <button 
+               <button
                   onClick={() => {
                      if (step === 2 && activePhaseIndex > 0) setActivePhaseIndex(activePhaseIndex - 1);
                      else setStep(step - 1);
-                  }} 
+                  }}
                   className="text-on-surface-variant font-bold text-sm uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-1.5"
                >
-                  <span className="material-symbols-outlined text-[16px]">arrow_back</span> 
+                  <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                   {step === 2 && activePhaseIndex > 0 ? "Previous Phase" : "Go Back"}
                </button>
-               
+
                <div className="flex items-center gap-4">
                   {step === 2 && activePhaseIndex < (editableSoW?.milestones?.length || 0) && (
-                     <button 
-                        onClick={() => setActivePhaseIndex(activePhaseIndex + 1)} 
-                        className="bg-primary text-on-primary px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-lg active:scale-95"
+                     <button
+                        onClick={() => setActivePhaseIndex(activePhaseIndex + 1)}
+                        disabled={activeMilestoneQuality ? !activeMilestoneQuality.passes : false}
+                        className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-3 transition-all ${activeMilestoneQuality && !activeMilestoneQuality.passes ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80' : 'bg-primary text-on-primary hover:bg-primary/90 active:scale-95'}`}
                      >
-                        {activePhaseIndex === (editableSoW?.milestones?.length || 0) - 1 ? 'Review Master Timeline' : 'Next Phase'} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        {activeMilestoneQuality && !activeMilestoneQuality.passes ? 'Resolve Quality Items' : activePhaseIndex === (editableSoW?.milestones?.length || 0) - 1 ? 'Review Master Timeline' : 'Next Phase'} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                      </button>
                   )}
                   {step === 2 && activePhaseIndex === (editableSoW?.milestones?.length || 0) && (
-                     <button 
-                        onClick={() => setStep(3)} 
-                        className="bg-on-surface text-surface px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-lg active:scale-95"
+                     <button
+                        onClick={() => setStep(3)}
+                        disabled={!allMilestonesReady}
+                        className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-3 transition-all ${allMilestonesReady ? 'bg-on-surface text-surface hover:bg-on-surface/90 active:scale-95' : 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80'}`}
                      >
-                        Approve Timeline & Set Pricing <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        {allMilestonesReady ? 'Approve Timeline & Set Pricing' : 'Resolve Milestone Issues'} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                      </button>
                   )}
                   {step === 3 && (
                      <>
-                        <button 
+                        <button
                            onClick={handleSkipAndPostToMarketplace}
                            disabled={isPending}
-                           className={`bg-transparent border-2 border-outline-variant/30 text-on-surface-variant px-6 py-4 rounded-xl font-bold uppercase tracking-widest text-sm transition-all flex items-center gap-2 ${isPending ? 'opacity-80 cursor-not-allowed' : 'hover:border-primary/50 hover:text-primary hover:bg-primary/5 active:scale-95'}`}
+                           className={`bg-transparent border border-outline-variant/30 text-on-surface-variant px-6 py-3 rounded-lg font-bold uppercase tracking-widest text-sm transition-all flex items-center gap-2 ${isPending ? 'opacity-80 cursor-not-allowed' : 'hover:border-primary/50 hover:text-primary hover:bg-primary/5 active:scale-95'}`}
                         >
-                           Skip & Post to Open Market
+                           Post to Open Marketplace
                         </button>
-                        <button 
+                        <button
                            onClick={() => {
                               // Wrap loadConciergeSquad trigger via setStep proxy
                               setStep(4);
                               loadConciergeSquad();
-                           }} 
-                           className="bg-primary text-on-primary px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:-translate-y-1 transition-all shadow-[0_15px_30px_rgba(var(--color-primary),0.3)] active:scale-95"
+                           }}
+                           className="bg-primary text-on-primary px-8 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-3 hover:bg-primary/90 transition-all active:scale-95"
                         >
-                           Next: AI Squad Assembly <span className="material-symbols-outlined text-[18px]">group_add</span>
+                           Review Recommended Facilitators <span className="material-symbols-outlined text-[18px]">group_add</span>
                         </button>
                      </>
                   )}
                   {step === 4 && (
-                     <button 
+                     <button
                         onClick={handlePostToMarketplace}
                         disabled={isPending}
-                        className={`px-8 py-4 rounded-xl flex items-center gap-3 font-black text-sm uppercase tracking-widest transition-all shadow-[0_15px_30px_rgba(var(--color-primary),0.3)] ${isPending ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80 shadow-none' : 'bg-on-surface text-surface hover:-translate-y-1 active:scale-95'}`}
+                        className={`px-8 py-3 rounded-lg flex items-center gap-3 font-black text-sm uppercase tracking-widest transition-all ${isPending ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80' : 'bg-on-surface text-surface hover:bg-on-surface/90 active:scale-95'}`}
                      >
                         {isPending ? (
                            <>

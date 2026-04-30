@@ -3,26 +3,25 @@
 import { prisma } from "@/lib/auth";
 import { hashPassword, encryptApiKey } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
+import { registrationInputSchema } from "@/lib/validators";
 
-export async function registerUser({
-  email,
-  password,
-  name,
-  role,
-  openai_key,
-  anthropic_key,
-}: {
-  email: string;
-  password: string;
-  name: string;
-  role: "CLIENT" | "FACILITATOR";
-  openai_key?: string;
-  anthropic_key?: string;
-}) {
+export async function registerUser(input: unknown) {
   try {
+    const parsed = registrationInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: "Enter a valid email, password, and account type." };
+    }
+
+    const { email: normalizedEmail, password, name, role, openai_key, anthropic_key } = parsed.data;
+    await assertDurableRateLimit({
+      key: rateLimitKey("auth.register", normalizedEmail),
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+
     // Check if user already exists
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
       return { success: false, error: "An account with this email already exists." };
     }
@@ -34,12 +33,10 @@ export async function registerUser({
 
     const user = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password_hash,
-        name: name || email.split("@")[0],
+        name: name || normalizedEmail.split("@")[0],
         role,
-        openai_key: openai_key?.trim() || null,
-        anthropic_key: anthropic_key?.trim() || null,
         openai_key_encrypted: encryptedOpenAI,
         anthropic_key_encrypted: encryptedAnthropic,
         skills: [],
@@ -50,6 +47,9 @@ export async function registerUser({
     revalidatePath("/login");
     return { success: true, userId: user.id };
   } catch (err: any) {
+    if (isRateLimitError(err)) {
+      return { success: false, error: err.message, code: err.code, retryAfterSeconds: err.retryAfterSeconds };
+    }
     console.error("Registration error:", err);
     return { success: false, error: err.message };
   }

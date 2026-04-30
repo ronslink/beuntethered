@@ -49,10 +49,10 @@ function TagPicker({ label, tags, setTags, suggestions }: {
       <div className="relative">
         <input value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (input.trim()) add(input); } }}
-          placeholder="Type and press Enter…"
-          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+          placeholder="Type and press Enter..."
+          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
         {input && filtered.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-20 bg-surface-container-high border border-outline-variant/30 rounded-xl mt-1 shadow-xl max-h-40 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 z-20 bg-surface-container-high border border-outline-variant/30 rounded-lg mt-1 max-h-40 overflow-y-auto">
             {filtered.slice(0, 6).map(s => (
               <button key={s} onClick={() => add(s)} className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-primary/10 hover:text-primary transition-colors">{s}</button>
             ))}
@@ -63,7 +63,7 @@ function TagPicker({ label, tags, setTags, suggestions }: {
         <div className="flex flex-wrap gap-1.5 mt-2">
           {suggestions.filter(s => !tags.includes(s)).slice(0, 8).map(s => (
             <button key={s} onClick={() => add(s)}
-              className="px-2.5 py-1 rounded-full border border-outline-variant/30 text-on-surface-variant text-[10px] font-bold hover:border-primary/40 hover:text-primary transition-colors">
+              className="px-2.5 py-1 rounded-md border border-outline-variant/30 text-on-surface-variant text-[10px] font-bold hover:border-primary/40 hover:text-primary transition-colors">
               + {s}
             </button>
           ))}
@@ -112,22 +112,22 @@ export function FacilitatorProfileSettings({ initial }: {
         <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Professional Bio</label>
         <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3}
           placeholder="A short professional summary visible to clients on your bid cards…"
-          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface focus:border-primary outline-none transition-colors resize-none" />
+          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-sm text-on-surface focus:border-primary outline-none transition-colors resize-none" />
       </div>
 
       {/* Skills */}
       <TagPicker label="Skills & Technologies" tags={skills} setTags={setSkills} suggestions={SKILL_SUGGESTIONS} />
 
-      {/* AI Stack */}
+      {/* AI tool workflow */}
       <div>
-        <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">AI Agent Stack</label>
+        <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">AI Tool Stack</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {AI_AGENT_OPTIONS.map(ag => {
             const selected = aiStack.includes(ag.id);
             return (
               <button key={ag.id} type="button"
                 onClick={() => setAiStack(selected ? aiStack.filter(a => a !== ag.id) : [...aiStack, ag.id])}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${selected ? "bg-primary/10 border-primary/40 text-primary" : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30 hover:text-on-surface"}`}>
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${selected ? "bg-primary/10 border-primary/40 text-primary" : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30 hover:text-on-surface"}`}>
                 <span className="material-symbols-outlined text-[15px]">{ag.icon}</span>
                 {ag.label}
                 {selected && <span className="material-symbols-outlined text-[13px] ml-auto" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
@@ -144,18 +144,18 @@ export function FacilitatorProfileSettings({ initial }: {
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-sm">$</span>
             <input type="number" min={1} value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))}
-              className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl pl-7 pr-3 py-2.5 text-sm font-black text-on-surface focus:border-primary outline-none transition-colors" />
+              className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg pl-7 pr-3 py-2.5 text-sm font-black text-on-surface focus:border-primary outline-none transition-colors" />
           </div>
         </div>
         <div>
           <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Years Exp.</label>
           <input type="number" min={0} max={40} value={yearsExp} onChange={e => setYearsExp(Number(e.target.value))}
-            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface focus:border-primary outline-none transition-colors" />
+            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm font-medium text-on-surface focus:border-primary outline-none transition-colors" />
         </div>
         <div>
           <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Availability</label>
           <select value={availability} onChange={e => setAvailability(e.target.value)}
-            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none cursor-pointer">
+            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none cursor-pointer">
             <option value="AVAILABLE">Available</option>
             <option value="BUSY">Busy</option>
             <option value="ON_LEAVE">On Leave</option>
@@ -164,16 +164,28 @@ export function FacilitatorProfileSettings({ initial }: {
       </div>
 
       {/* Portfolio URL */}
-      <div>
-        <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Portfolio / GitHub URL</label>
-        <input value={portfolioUrl} onChange={e => setPortfolioUrl(e.target.value)} placeholder="https://github.com/yourhandle"
-          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Portfolio / GitHub URL</label>
+          <input value={portfolioUrl} onChange={e => setPortfolioUrl(e.target.value)} placeholder="https://github.com/yourhandle"
+            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+        </div>
+        <div>
+          <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Preferred Project Size</label>
+          <select value={projectSize} onChange={e => setProjectSize(e.target.value)}
+            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none cursor-pointer">
+            <option value="ANY">Flexible</option>
+            <option value="SUB_10K">Under $10K</option>
+            <option value="10K_50K">$10K-$50K</option>
+            <option value="50K_PLUS">$50K+</option>
+          </select>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
         <button onClick={handleSave} disabled={isPending}
-          className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:-translate-y-0.5 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center gap-2">
-          {isPending ? <><span className="material-symbols-outlined animate-spin text-[15px]">refresh</span> Saving…</> : "Save Profile"}
+          className="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2">
+          {isPending ? <><span className="material-symbols-outlined animate-spin text-[15px]">refresh</span> Saving...</> : "Save Profile"}
         </button>
         {saved && <p className="text-xs text-[#059669] font-bold flex items-center gap-1"><span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Saved</p>}
       </div>
@@ -215,9 +227,14 @@ export function ClientPreferencesSettings({ initial }: {
 
   const BUDGET_RANGES = [
     { value: "SUB_5K", label: "Under $5,000" },
-    { value: "5K_25K", label: "$5k – $25k" },
-    { value: "25K_75K", label: "$25k – $75k" },
+    { value: "5K_25K", label: "$5k-$25k" },
+    { value: "25K_75K", label: "$25k-$75k" },
     { value: "75K_PLUS", label: "$75,000+" },
+  ];
+  const PROPOSAL_REVIEW_OPTIONS = [
+    { value: "QUICK", label: "Streamlined Quotes", detail: "Amount, timeline, and approach", icon: "bolt" },
+    { value: "FULL", label: "Detailed Delivery Plans", detail: "Milestones, stack, and risks", icon: "article" },
+    { value: "BOTH", label: "Allow Both", detail: "Compare lightweight and detailed responses", icon: "shuffle" },
   ];
 
   return (
@@ -226,25 +243,29 @@ export function ClientPreferencesSettings({ initial }: {
         <div>
           <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Company / Entity Name</label>
           <input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme Inc."
-            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
         </div>
         <div>
           <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">Entity Type</label>
           <select value={companyType} onChange={e => setCompanyType(e.target.value)}
-            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none cursor-pointer">
+            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none cursor-pointer">
             {["Individual / Freelancer", "LLC", "Corporation", "Partnership", "Non-Profit", "Other"].map(t => <option key={t}>{t}</option>)}
           </select>
         </div>
       </div>
 
       <div>
-        <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Preferred Proposal Format</label>
+        <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Proposal Review Preference</label>
+        <p className="mb-3 text-xs font-medium text-on-surface-variant">
+          Choose the type of facilitator responses you prefer to receive on future projects.
+        </p>
         <div className="flex gap-2">
-          {[{ value: "QUICK", label: "Quick Bids", icon: "bolt" }, { value: "FULL", label: "Full Proposals", icon: "article" }, { value: "BOTH", label: "Both", icon: "shuffle" }].map(b => (
+          {PROPOSAL_REVIEW_OPTIONS.map(b => (
             <button key={b.value} type="button" onClick={() => setPreferredBidType(b.value)}
-              className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border text-xs font-bold transition-all ${preferredBidType === b.value ? "bg-primary/10 border-primary/40 text-primary" : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30"}`}>
+              className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-lg border text-center text-xs font-bold transition-all ${preferredBidType === b.value ? "bg-primary/10 border-primary/40 text-primary" : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30"}`}>
               <span className="material-symbols-outlined text-[20px]">{b.icon}</span>
-              {b.label}
+              <span>{b.label}</span>
+              <span className="text-[10px] font-medium leading-snug opacity-75">{b.detail}</span>
             </button>
           ))}
         </div>
@@ -255,7 +276,7 @@ export function ClientPreferencesSettings({ initial }: {
         <div className="grid grid-cols-2 gap-2">
           {BUDGET_RANGES.map(b => (
             <button key={b.value} type="button" onClick={() => setBudgetRange(b.value)}
-              className={`text-left px-4 py-2.5 rounded-xl border transition-all text-sm font-bold ${budgetRange === b.value ? "bg-primary/10 border-primary/40 text-primary" : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30"}`}>
+              className={`text-left px-4 py-2.5 rounded-lg border transition-all text-sm font-bold ${budgetRange === b.value ? "bg-primary/10 border-primary/40 text-primary" : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30"}`}>
               {b.label}
             </button>
           ))}
@@ -266,22 +287,30 @@ export function ClientPreferencesSettings({ initial }: {
         <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-3">Billing Address</p>
         <div className="space-y-3">
           <input value={addressLine1} onChange={e => setAddressLine1(e.target.value)} placeholder="Street address"
-            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
-          <div className="grid grid-cols-3 gap-3">
+            className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <input value={addressCity} onChange={e => setAddressCity(e.target.value)} placeholder="City"
-              className="bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors col-span-1" />
+              className="bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
             <input value={addressState} onChange={e => setAddressState(e.target.value)} placeholder="State"
-              className="bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+              className="bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
             <input value={addressZip} onChange={e => setAddressZip(e.target.value)} placeholder="ZIP"
-              className="bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+              className="bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none transition-colors" />
+            <select value={addressCountry} onChange={e => setAddressCountry(e.target.value)}
+              className="bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:border-primary outline-none cursor-pointer">
+              <option value="US">US</option>
+              <option value="CA">CA</option>
+              <option value="GB">GB</option>
+              <option value="EU">EU</option>
+              <option value="OTHER">Other</option>
+            </select>
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         <button onClick={handleSave} disabled={isPending}
-          className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:-translate-y-0.5 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center gap-2">
-          {isPending ? <><span className="material-symbols-outlined animate-spin text-[15px]">refresh</span> Saving…</> : "Save Preferences"}
+          className="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2">
+          {isPending ? <><span className="material-symbols-outlined animate-spin text-[15px]">refresh</span> Saving...</> : "Save Preferences"}
         </button>
         {saved && <p className="text-xs text-[#059669] font-bold flex items-center gap-1"><span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Saved</p>}
       </div>

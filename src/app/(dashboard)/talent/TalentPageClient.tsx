@@ -1,338 +1,556 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { TalentProfile } from "./page";
-
-/* ─── Helpers ──────────────────────────────────────────────────────────────── */
+import { inviteFacilitatorToProject } from "@/app/actions/project-invites";
 
 function getInitials(name: string): string {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
-function tierColor(tier: string) {
-  if (tier === "ELITE") return { bg: "bg-primary/10", text: "text-primary", border: "border-primary/30" };
-  if (tier === "PRO") return { bg: "bg-tertiary/10", text: "text-tertiary", border: "border-tertiary/30" };
-  return { bg: "bg-outline/10", text: "text-on-surface-variant", border: "border-outline/30" };
+function tierClasses(tier: string) {
+  if (tier === "ELITE") return "border-primary/30 bg-primary/10 text-primary";
+  if (tier === "PRO") return "border-tertiary/30 bg-tertiary/10 text-tertiary";
+  return "border-outline-variant bg-surface-container-high text-on-surface-variant";
 }
 
-function availabilityStyle(avail: string | null) {
-  if (avail === "AVAILABLE") return { dot: "bg-[#059669]", label: "Available Now", cls: "bg-[#059669]/10 text-[#059669] border-[#059669]/20" };
-  if (avail === "SOON") return { dot: "bg-primary", label: "Available Soon", cls: "bg-primary/10 text-primary border-primary/20" };
-  return { dot: "bg-outline", label: avail || "Unknown", cls: "bg-outline/10 text-on-surface-variant border-outline/20" };
+function availabilityLabel(value: string | null) {
+  if (value === "AVAILABLE") return "Available now";
+  if (value === "SOON") return "Available soon";
+  if (value === "LIMITED") return "Limited capacity";
+  if (value === "READY_THIS_WEEK") return "Ready this week";
+  return value || "Availability unknown";
 }
 
-type SortKey = "trust" | "rate_asc" | "rate_desc" | "sprints";
+function inviteStatusLabel(status: TalentProfile["invite_status"]) {
+  if (status === "SENT") return "Invited";
+  if (status === "VIEWED") return "Viewed";
+  if (status === "ACCEPTED") return "Accepted";
+  if (status === "DECLINED") return "Declined";
+  return null;
+}
+
+type SortKey = "trust" | "audit" | "completed" | "rate_asc" | "rate_desc";
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "trust", label: "Trust Score" },
-  { value: "rate_asc", label: "Rate: Low → High" },
-  { value: "rate_desc", label: "Rate: High → Low" },
-  { value: "sprints", label: "Most Completed" },
+  { value: "trust", label: "Trust score" },
+  { value: "audit", label: "Audit score" },
+  { value: "completed", label: "Completed milestones" },
+  { value: "rate_asc", label: "Rate low to high" },
+  { value: "rate_desc", label: "Rate high to low" },
 ];
 
-/* ─── Component ────────────────────────────────────────────────────────────── */
-
-export default function TalentPageClient({ talent }: { talent: TalentProfile[] }) {
+export default function TalentPageClient({
+  talent,
+  openProjects,
+  canInvite,
+}: {
+  talent: TalentProfile[];
+  openProjects: { id: string; title: string }[];
+  canInvite: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("trust");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [selectedTier, setSelectedTier] = useState<string>("ALL");
+  const [selectedTier, setSelectedTier] = useState("ALL");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [availableOnly, setAvailableOnly] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState<TalentProfile | null>(null);
+  const [inviteProjectId, setInviteProjectId] = useState(openProjects[0]?.id ?? "");
+  const [inviteStatus, setInviteStatus] = useState("");
+  const [inviteStatusByFacilitator, setInviteStatusByFacilitator] = useState<Record<string, TalentProfile["invite_status"]>>({});
 
-  // ── Derive all unique skills ──────────────────────────────────────────────
   const allSkills = useMemo(() => {
-    const set = new Set<string>();
-    talent.forEach((t) => t.skills?.forEach((s) => set.add(s)));
-    return Array.from(set).sort();
+    const skills = new Set<string>();
+    talent.forEach((profile) => profile.skills.forEach((skill) => skills.add(skill)));
+    return Array.from(skills).sort();
   }, [talent]);
 
-  // ── Filter + sort ─────────────────────────────────────────────────────────
+  const marketplaceStats = useMemo(() => {
+    const verified = talent.filter((profile) => profile.identity_verified || profile.stripe_verified).length;
+    const completed = talent.reduce((sum, profile) => sum + profile.total_sprints_completed, 0);
+    const avgAudit = talent.length
+      ? Math.round(talent.reduce((sum, profile) => sum + profile.average_ai_audit_score, 0) / talent.length)
+      : 0;
+    return { verified, completed, avgAudit };
+  }, [talent]);
+
   const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
     let results = [...talent];
 
-    // Text search
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      results = results.filter(
-        (t) =>
-          (t.name || "").toLowerCase().includes(q) ||
-          (t.bio || "").toLowerCase().includes(q) ||
-          t.skills?.some((s) => s.toLowerCase().includes(q))
+    if (normalizedQuery) {
+      results = results.filter((profile) => {
+        const haystack = [
+          profile.name,
+          profile.bio,
+          profile.availability,
+          profile.platform_tier,
+          profile.portfolio_url,
+          ...profile.skills,
+          ...profile.ai_agent_stack,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(normalizedQuery);
+      });
+    }
+
+    if (selectedSkills.length) {
+      results = results.filter((profile) =>
+        selectedSkills.every((skill) => profile.skills.includes(skill))
       );
     }
 
-    // Skill filter
-    if (selectedSkills.length > 0) {
-      results = results.filter((t) =>
-        selectedSkills.every((sk) => t.skills?.includes(sk))
-      );
-    }
-
-    // Tier filter
     if (selectedTier !== "ALL") {
-      results = results.filter((t) => t.platform_tier === selectedTier);
+      results = results.filter((profile) => profile.platform_tier === selectedTier);
     }
 
-    // Sort
-    switch (sortBy) {
-      case "trust":
-        results.sort((a, b) => b.trust_score - a.trust_score);
-        break;
-      case "rate_asc":
-        results.sort((a, b) => a.hourly_rate - b.hourly_rate);
-        break;
-      case "rate_desc":
-        results.sort((a, b) => b.hourly_rate - a.hourly_rate);
-        break;
-      case "sprints":
-        results.sort((a, b) => b.total_sprints_completed - a.total_sprints_completed);
-        break;
+    if (verifiedOnly) {
+      results = results.filter((profile) => profile.identity_verified || profile.stripe_verified);
     }
+
+    if (availableOnly) {
+      results = results.filter((profile) => profile.availability === "AVAILABLE" || profile.availability === "SOON");
+    }
+
+    results.sort((a, b) => {
+      if (sortBy === "audit") return b.average_ai_audit_score - a.average_ai_audit_score;
+      if (sortBy === "completed") return b.total_sprints_completed - a.total_sprints_completed;
+      if (sortBy === "rate_asc") return a.hourly_rate - b.hourly_rate;
+      if (sortBy === "rate_desc") return b.hourly_rate - a.hourly_rate;
+      return b.trust_score - a.trust_score;
+    });
 
     return results;
-  }, [talent, query, selectedSkills, selectedTier, sortBy]);
+  }, [availableOnly, query, selectedSkills, selectedTier, sortBy, talent, verifiedOnly]);
 
-  const toggleSkill = (skill: string) => {
-    setSelectedSkills((prev) =>
-      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
-    );
-  };
-
-  const clearAll = () => {
+  const clearFilters = () => {
     setQuery("");
     setSelectedSkills([]);
     setSelectedTier("ALL");
+    setVerifiedOnly(false);
+    setAvailableOnly(false);
     setSortBy("trust");
   };
 
-  const hasActiveFilters = query || selectedSkills.length > 0 || selectedTier !== "ALL";
+  const toggleSkill = (skill: string) => {
+    setSelectedSkills((current) =>
+      current.includes(skill) ? current.filter((item) => item !== skill) : [...current, skill]
+    );
+  };
+
+  const sendInvite = async () => {
+    if (!inviteTarget || !inviteProjectId) return;
+    setInviteStatus("Sending invite...");
+    const res = await inviteFacilitatorToProject({
+      projectId: inviteProjectId,
+      facilitatorId: inviteTarget.id,
+      message: "We think your delivery profile is a strong fit for this project.",
+    });
+    setInviteStatus(
+      res.success
+        ? res.alreadyInvited
+          ? "Invite already active."
+          : "Invite sent."
+        : res.error || "Invite failed."
+    );
+    if (res.success) {
+      setInviteStatusByFacilitator((current) => ({
+        ...current,
+        [inviteTarget.id]: res.status ?? "SENT",
+      }));
+    }
+  };
+
+  const hasFilters =
+    Boolean(query) ||
+    selectedSkills.length > 0 ||
+    selectedTier !== "ALL" ||
+    verifiedOnly ||
+    availableOnly;
 
   return (
-    <main className="min-h-screen bg-[#07090F] relative overflow-hidden selection:bg-tertiary/30 pb-20">
-      <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-tertiary/5 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px] pointer-events-none" />
-
-      <div className="max-w-6xl mx-auto px-4 lg:px-6 relative z-10">
-        {/* ── Header ────────────────────────────────────────────────────────── */}
-        <header className="text-center max-w-3xl mx-auto pt-20 pb-10 space-y-5 animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <span className="font-headline font-black tracking-widest uppercase text-tertiary text-[10px] px-5 py-1.5 rounded-full border border-tertiary/30 bg-tertiary/10 inline-block">
-            Curated Network
-          </span>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black font-headline tracking-tighter text-on-surface leading-[0.9]">
-            Find your{" "}
-            <span className="bg-gradient-to-r from-tertiary to-primary bg-clip-text text-transparent">
-              facilitator
-            </span>
-          </h1>
-          <p className="text-on-surface-variant text-base max-w-xl mx-auto">
-            Browse vetted facilitators ranked by trust score, AI audit performance, and delivered outcomes.
-          </p>
-        </header>
-
-        {/* ── Search + Filters ──────────────────────────────────────────────── */}
-        <div className="mb-8 animate-in fade-in slide-in-from-bottom-8 duration-700" style={{ animationDelay: "100ms" }}>
-          {/* Search bar */}
-          <div className="relative mb-4">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, skill, or AI expertise..."
-              className="w-full bg-surface/40 backdrop-blur-xl border border-outline-variant/30 rounded-xl pl-11 pr-4 py-3.5 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary/50 transition-colors"
-            />
-            {query && (
-              <button onClick={() => setQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors">
-                <span className="material-symbols-outlined text-[16px]">close</span>
-              </button>
-            )}
+    <main className="min-h-screen bg-background pb-16 text-on-surface">
+      <div className="mx-auto max-w-[1400px] px-4 py-8 lg:px-6">
+        <header className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                Verified delivery network
+              </span>
+              <span className="text-xs font-bold text-on-surface-variant">
+                Outcome-based software facilitators
+              </span>
+            </div>
+            <h1 className="font-headline text-3xl font-black tracking-tight text-on-surface lg:text-4xl">
+              Browse Talent
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-on-surface-variant">
+              Compare facilitators by verification, delivery history, AI tool workflow, audit performance, and readiness before inviting them to bid.
+            </p>
           </div>
 
-          {/* Filter bar */}
-          <div className="bg-surface/30 backdrop-blur-xl border border-outline-variant/20 rounded-xl p-3 flex flex-wrap items-center gap-3">
-            {/* Tier filter */}
-            <div className="flex items-center gap-1.5">
-              {["ALL", "ELITE", "PRO", "STANDARD"].map((tier) => (
+          <div className="grid grid-cols-3 gap-2 sm:min-w-[420px]">
+            <Stat label="Verified" value={String(marketplaceStats.verified)} />
+            <Stat label="Milestones" value={String(marketplaceStats.completed)} />
+            <Stat label="Avg audit" value={`${marketplaceStats.avgAudit}%`} />
+          </div>
+        </header>
+
+        <section className="mb-5 rounded-2xl border border-outline-variant/30 bg-surface p-4 shadow-sm">
+          <div className="grid gap-3 lg:grid-cols-[1fr_190px_170px]">
+            <label className="relative block">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">
+                search
+              </span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search skills, AI tools, name, or delivery specialty"
+                className="h-11 w-full rounded-xl border border-outline-variant/30 bg-surface-container-low pl-10 pr-3 text-sm font-medium text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary/50"
+              />
+            </label>
+
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as SortKey)}
+              className="h-11 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 text-xs font-bold uppercase tracking-wider text-on-surface outline-none focus:border-primary/50"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex rounded-xl border border-outline-variant/30 bg-surface-container-low p-1">
+              {["ALL", "ELITE", "PRO"].map((tier) => (
                 <button
                   key={tier}
                   onClick={() => setSelectedTier(tier)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  className={`flex-1 rounded-lg px-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
                     selectedTier === tier
-                      ? "bg-primary/15 text-primary border border-primary/30"
-                      : "text-on-surface-variant hover:text-on-surface border border-transparent hover:border-outline-variant/30"
+                      ? "bg-primary text-on-primary"
+                      : "text-on-surface-variant hover:text-on-surface"
                   }`}
                 >
-                  {tier === "ALL" ? "All Tiers" : tier}
+                  {tier === "ALL" ? "All" : tier}
                 </button>
               ))}
-            </div>
-
-            <div className="h-5 w-px bg-outline-variant/20 hidden md:block" />
-
-            {/* Sort */}
-            <div className="flex items-center gap-1.5 ml-auto">
-              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Sort:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortKey)}
-                className="bg-transparent border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-on-surface outline-none cursor-pointer uppercase tracking-wider"
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Result count */}
-            <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant">
-              <span className="material-symbols-outlined text-primary text-[14px]">verified</span>
-              {filtered.length} facilitator{filtered.length !== 1 ? "s" : ""}
             </div>
           </div>
 
-          {/* Skill chips */}
-          {allSkills.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {allSkills.slice(0, 20).map((skill) => (
-                <button
-                  key={skill}
-                  onClick={() => toggleSkill(skill)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${
-                    selectedSkills.includes(skill)
-                      ? "bg-primary/15 text-primary border-primary/30"
-                      : "text-on-surface-variant border-outline-variant/20 hover:border-primary/30 hover:text-primary"
-                  }`}
-                >
-                  {skill}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setVerifiedOnly((value) => !value)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${
+                verifiedOnly
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-outline-variant/30 text-on-surface-variant"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[13px]">verified_user</span>
+              Verified only
+            </button>
+            <button
+              onClick={() => setAvailableOnly((value) => !value)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${
+                availableOnly
+                  ? "border-tertiary/30 bg-tertiary/10 text-tertiary"
+                  : "border-outline-variant/30 text-on-surface-variant"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[13px]">bolt</span>
+              Ready now
+            </button>
 
-          {/* Active filters */}
-          {hasActiveFilters && (
-            <div className="mt-3 flex items-center gap-2">
-              <button onClick={clearAll} className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">
-                Clear all
+            {allSkills.slice(0, 18).map((skill) => (
+              <button
+                key={skill}
+                onClick={() => toggleSkill(skill)}
+                className={`rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors ${
+                  selectedSkills.includes(skill)
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-outline-variant/30 text-on-surface-variant hover:border-primary/30 hover:text-primary"
+                }`}
+              >
+                {skill}
               </button>
-            </div>
+            ))}
+
+            {hasFilters && (
+              <button onClick={clearFilters} className="ml-auto text-[10px] font-black uppercase tracking-widest text-primary">
+                Clear filters
+              </button>
+            )}
+          </div>
+        </section>
+
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-bold text-on-surface-variant">
+            Showing {filtered.length} of {talent.length} facilitators
+          </p>
+          {canInvite && openProjects.length === 0 && (
+            <p className="text-xs font-bold text-on-surface-variant">
+              Post or reopen a project to enable invite-to-bid.
+            </p>
           )}
         </div>
 
-        {/* ── Results ───────────────────────────────────────────────────────── */}
         {filtered.length > 0 ? (
-          <div className="space-y-2">
-            {filtered.map((t, idx) => {
-              const tc = tierColor(t.platform_tier);
-              const av = availabilityStyle(t.availability);
-              return (
-                <div
-                  key={t.id}
-                  className="group bg-surface/30 backdrop-blur-xl border border-outline-variant/15 rounded-xl p-4 md:p-5 flex items-center gap-4 md:gap-5 hover:border-outline-variant/40 hover:bg-surface/50 transition-all animate-in fade-in slide-in-from-bottom-4 duration-300"
-                  style={{ animationDelay: `${Math.min(idx * 50, 500)}ms` }}
-                >
-                  {/* Avatar */}
-                  {t.image ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={t.image} alt={t.name || ""} className="w-11 h-11 rounded-xl object-cover border border-outline-variant/30 shrink-0" />
-                  ) : (
-                    <div className="w-11 h-11 rounded-xl bg-surface-container-high flex items-center justify-center shrink-0 border border-outline-variant/30">
-                      <span className="font-black font-headline text-sm text-on-surface-variant">{getInitials(t.name || "?")}</span>
-                    </div>
-                  )}
-
-                  {/* Name + Role */}
-                  <div className="min-w-0 flex-shrink-0 w-36 md:w-44">
-                    <p className="text-sm font-bold text-on-surface truncate">{t.name || "Anonymous"}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${tc.bg} ${tc.text} border ${tc.border}`}>
-                        {t.platform_tier}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Skills */}
-                  <div className="hidden md:flex flex-1 flex-wrap gap-1.5 min-w-0">
-                    {(t.skills || []).slice(0, 4).map((skill) => (
-                      <span key={skill} className="px-2 py-0.5 rounded-md bg-surface-container-high/50 border border-outline-variant/20 text-[10px] font-bold text-on-surface-variant">
-                        {skill}
-                      </span>
-                    ))}
-                    {(t.skills || []).length > 4 && (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold text-on-surface-variant">
-                        +{t.skills.length - 4}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Availability */}
-                  <div className="hidden lg:block shrink-0">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold border ${av.cls}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${av.dot}`} />
-                      {av.label}
-                    </span>
-                  </div>
-
-                  {/* Rate */}
-                  <div className="text-right shrink-0 w-20">
-                    <p className="text-lg font-black font-headline text-primary tracking-tighter">${t.hourly_rate}</p>
-                    <p className="text-[9px] font-bold text-on-surface-variant">/hour</p>
-                  </div>
-
-                  {/* Trust Score */}
-                  <div className="hidden sm:flex items-center gap-1.5 shrink-0 bg-tertiary/5 border border-tertiary/15 rounded-full px-2.5 py-1">
-                    <span className="material-symbols-outlined text-tertiary text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                    <span className="font-black font-headline text-sm text-tertiary">{t.trust_score}</span>
-                  </div>
-
-                  {/* Action */}
-                  <Link
-                    href={`/facilitators/${t.id}`}
-                    className="shrink-0 px-4 py-2 rounded-lg border border-outline-variant/30 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center gap-1.5"
-                  >
-                    Profile
-                    <span className="material-symbols-outlined text-[12px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        ) : talent.length === 0 ? (
-          /* No facilitators at all */
-          <div className="py-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="bg-surface/30 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-16 text-center">
-              <span className="material-symbols-outlined text-primary text-5xl mb-4 block" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
-              <h3 className="text-xl font-black font-headline tracking-tight text-on-surface mb-2">Be among the first</h3>
-              <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-6">
-                We&apos;re assembling our founding cohort of elite facilitators. Join now and get priority placement when clients start posting projects.
-              </p>
-              <Link
-                href="/register?role=FACILITATOR"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-on-primary font-black uppercase tracking-widest text-xs hover:-translate-y-0.5 transition-all shadow-lg shadow-primary/20"
-              >
-                Apply as a Facilitator
-                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-              </Link>
+          <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface shadow-sm">
+            <div className="grid grid-cols-[1.5fr_1.4fr_120px_120px_130px] gap-4 border-b border-outline-variant/30 bg-surface-container-low px-5 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface-variant max-lg:hidden">
+              <span>Facilitator</span>
+              <span>Fit signals</span>
+              <span>Delivery</span>
+              <span>Economics</span>
+              <span className="text-right">Action</span>
             </div>
-          </div>
+
+            <div className="divide-y divide-outline-variant/20">
+              {filtered.map((profile) => (
+                <TalentRow
+                  key={profile.id}
+                  profile={profile}
+                  inviteStatus={inviteStatusByFacilitator[profile.id] ?? profile.invite_status}
+                  canInvite={canInvite}
+                  hasOpenProjects={openProjects.length > 0}
+                  onInvite={() => {
+                    setInviteTarget(profile);
+                    setInviteProjectId(openProjects[0]?.id ?? "");
+                    setInviteStatus("");
+                  }}
+                />
+              ))}
+            </div>
+          </section>
         ) : (
-          /* Filtered to zero */
-          <div className="py-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="bg-surface/30 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-16 text-center">
-              <span className="material-symbols-outlined text-outline-variant text-5xl mb-4 block">search_off</span>
-              <h3 className="text-xl font-black font-headline tracking-tight text-on-surface mb-2">No matches</h3>
-              <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-6">
-                No facilitators match your current filters. Try broadening your search.
+          <section className="rounded-2xl border border-outline-variant/30 bg-surface p-12 text-center">
+            <span className="material-symbols-outlined text-4xl text-on-surface-variant">search_off</span>
+            <h2 className="mt-3 text-xl font-black text-on-surface">No matching facilitators</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
+              Broaden the filters or add more demo facilitator data for review coverage.
+            </p>
+            <button onClick={clearFilters} className="mt-5 rounded-xl bg-primary px-5 py-2.5 text-xs font-black uppercase tracking-widest text-on-primary">
+              Clear filters
+            </button>
+          </section>
+        )}
+      </div>
+
+      {inviteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button
+            aria-label="Close invite dialog"
+            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            onClick={() => setInviteTarget(null)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Invite to bid</p>
+            <h3 className="mt-2 text-xl font-black text-on-surface">{inviteTarget.name || "Facilitator"}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
+              Send a direct project invite. The facilitator will see this opportunity separately from the open marketplace feed.
+            </p>
+
+            <label className="mt-5 block text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+              Project
+            </label>
+            <select
+              value={inviteProjectId}
+              onChange={(event) => setInviteProjectId(event.target.value)}
+              className="mt-2 h-11 w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 text-sm font-medium text-on-surface outline-none focus:border-primary/50"
+            >
+              {openProjects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                </option>
+              ))}
+            </select>
+
+            {inviteStatus && (
+              <p className="mt-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant">
+                {inviteStatus}
               </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
               <button
-                onClick={clearAll}
-                className="px-6 py-2.5 rounded-xl bg-primary text-on-primary font-bold uppercase tracking-widest text-xs hover:bg-primary-container hover:text-on-primary-container transition-colors"
+                onClick={() => setInviteTarget(null)}
+                className="rounded-xl border border-outline-variant/30 px-4 py-2 text-xs font-bold text-on-surface-variant"
               >
-                Clear All Filters
+                Close
+              </button>
+              <button
+                onClick={sendInvite}
+                disabled={!inviteProjectId}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-black uppercase tracking-widest text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Send invite
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function TalentRow({
+  profile,
+  inviteStatus,
+  canInvite,
+  hasOpenProjects,
+  onInvite,
+}: {
+  profile: TalentProfile;
+  inviteStatus: TalentProfile["invite_status"];
+  canInvite: boolean;
+  hasOpenProjects: boolean;
+  onInvite: () => void;
+}) {
+  const verificationCount = [
+    profile.stripe_verified,
+    profile.identity_verified,
+    profile.profile_complete,
+    profile.portfolio_url,
+  ].filter(Boolean).length;
+  const inviteLabel = inviteStatusLabel(inviteStatus);
+  const canSendInvite = canInvite && hasOpenProjects && (!inviteStatus || inviteStatus === "DECLINED");
+
+  return (
+    <article className="grid gap-4 px-5 py-5 transition-colors hover:bg-surface-container-low/60 lg:grid-cols-[1.5fr_1.4fr_120px_120px_130px] lg:items-center">
+      <div className="flex min-w-0 gap-4">
+        {profile.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={profile.image}
+            alt={profile.name || "Facilitator"}
+            className="h-12 w-12 shrink-0 rounded-xl border border-outline-variant/30 object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-outline-variant/30 bg-surface-container-high">
+            <span className="font-headline text-sm font-black text-on-surface-variant">
+              {getInitials(profile.name || "?")}
+            </span>
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-base font-black text-on-surface">{profile.name || "Anonymous facilitator"}</h2>
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${tierClasses(profile.platform_tier)}`}>
+              {profile.platform_tier}
+            </span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-sm font-medium leading-relaxed text-on-surface-variant">
+            {profile.bio || "No profile summary yet."}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {profile.skills.slice(0, 4).map((skill) => (
+              <span key={skill} className="rounded-md border border-outline-variant/30 bg-surface-container-low px-2 py-1 text-[10px] font-bold text-on-surface-variant">
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:grid-cols-2">
+        <Signal label="Stripe" active={profile.stripe_verified} />
+        <Signal label="Identity" active={profile.identity_verified} />
+        <Signal label="Profile" active={profile.profile_complete} />
+        <Signal label="No disputes" active={profile.dispute_count === 0} />
+        <div className="col-span-2 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">AI tools</p>
+          <p className="mt-1 truncate text-xs font-bold text-on-surface">
+            {profile.ai_agent_stack.length ? profile.ai_agent_stack.slice(0, 3).join(", ") : "Not listed"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 lg:block lg:space-y-2">
+        <Metric label="Trust" value={`${Math.round(profile.trust_score)}`} />
+        <Metric label="Audit" value={`${Math.round(profile.average_ai_audit_score)}%`} />
+        <Metric label="Done" value={`${profile.total_sprints_completed}`} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 lg:block lg:space-y-2">
+        <Metric label="Rate" value={`$${profile.hourly_rate}`} />
+        <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Readiness</p>
+          <p className="mt-1 text-xs font-bold text-on-surface">{availabilityLabel(profile.availability)}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        {inviteLabel && (
+          <span className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+            <span className="material-symbols-outlined text-[14px]">
+              {inviteStatus === "ACCEPTED" ? "check_circle" : inviteStatus === "DECLINED" ? "block" : "mark_email_read"}
+            </span>
+            {inviteLabel}
+          </span>
+        )}
+        {canSendInvite && (
+          <button
+            onClick={onInvite}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-3 text-[10px] font-black uppercase tracking-widest text-on-primary transition-opacity hover:opacity-90"
+          >
+            <span className="material-symbols-outlined text-[14px]">outgoing_mail</span>
+            {inviteStatus === "DECLINED" ? "Reinvite" : "Invite"}
+          </button>
+        )}
+        <Link
+          href={`/facilitators/${profile.id}`}
+          className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-outline-variant/30 px-3 text-[10px] font-black uppercase tracking-widest text-on-surface-variant transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          Profile
+          <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+        </Link>
+      </div>
+
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant lg:hidden">
+        {verificationCount}/4 buyer trust signals complete
+      </div>
+    </article>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/30 bg-surface px-4 py-3">
+      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+      <p className="mt-1 text-xl font-black text-on-surface">{value}</p>
+    </div>
+  );
+}
+
+function Signal({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${active ? "border-tertiary/30 bg-tertiary/10" : "border-outline-variant/30 bg-surface-container-low"}`}>
+      <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+        <span className={`material-symbols-outlined text-[12px] ${active ? "text-tertiary" : "text-outline"}`}>
+          {active ? "check_circle" : "radio_button_unchecked"}
+        </span>
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2">
+      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+      <p className="mt-1 text-sm font-black text-on-surface">{value}</p>
+    </div>
   );
 }

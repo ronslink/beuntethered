@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { recordActivity } from "@/lib/activity";
+import { assertProjectBuyerManager, getProjectBuyerActivityMetadata } from "@/lib/project-access";
 
 export async function cancelOpenListing(projectId: string) {
   try {
@@ -13,7 +15,9 @@ export async function cancelOpenListing(projectId: string) {
       where: { id: projectId },
     });
 
-    if (!project || project.client_id !== user.id) throw new Error("Project not found or unauthorized");
+    if (!project) throw new Error("Project not found or unauthorized");
+    await assertProjectBuyerManager(projectId, user.id);
+    const buyerAudit = await getProjectBuyerActivityMetadata(projectId, user.id);
     if (project.status !== "OPEN_BIDDING") {
        throw new Error("Project is no longer in OPEN_BIDDING and cannot be safely cancelled. Contact arbitration if Escrow is locked.");
     }
@@ -22,6 +26,15 @@ export async function cancelOpenListing(projectId: string) {
     await prisma.project.update({
       where: { id: projectId },
       data: { status: "CANCELLED" }
+    });
+
+    await recordActivity({
+      projectId,
+      actorId: user.id,
+      action: "SYSTEM_EVENT",
+      entityType: "Project",
+      entityId: projectId,
+      metadata: { ...buyerAudit, operation: "LISTING_ARCHIVED" },
     });
 
     revalidatePath(`/projects/${projectId}`);
@@ -49,7 +62,9 @@ export async function editProjectSow(projectId: string, newSow: string) {
       include: { bids: true }
     });
 
-    if (!project || project.client_id !== user.id) throw new Error("Project not found or unauthorized");
+    if (!project) throw new Error("Project not found or unauthorized");
+    await assertProjectBuyerManager(projectId, user.id);
+    const buyerAudit = await getProjectBuyerActivityMetadata(projectId, user.id);
     if (project.status !== "OPEN_BIDDING") {
        throw new Error("Cannot modify SOW context of a project that is already active/locked.");
     }
@@ -64,6 +79,15 @@ export async function editProjectSow(projectId: string, newSow: string) {
          data: { ai_generated_sow: newSow.trim() }
        })
     ]);
+
+    await recordActivity({
+      projectId,
+      actorId: user.id,
+      action: "SYSTEM_EVENT",
+      entityType: "Project",
+      entityId: projectId,
+      metadata: { ...buyerAudit, operation: "SOW_UPDATED", cleared_bid_count: project.bids.length },
+    });
 
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/marketplace");

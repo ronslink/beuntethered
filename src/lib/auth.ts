@@ -87,7 +87,7 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
       }
@@ -109,6 +109,9 @@ export const authOptions: NextAuthOptions = {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
           select: {
+            email: true,
+            name: true,
+            image: true,
             role: true,
             stripe_account_id: true,
             stripe_customer_id: true,
@@ -117,6 +120,9 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (dbUser) {
+          session.user.email = dbUser.email;
+          session.user.name = dbUser.name;
+          session.user.image = dbUser.image;
           (session.user as any).role = dbUser.role;
           (session.user as any).stripe_account_id = dbUser.stripe_account_id;
           (session.user as any).stripe_customer_id = dbUser.stripe_customer_id;

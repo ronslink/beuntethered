@@ -4,11 +4,25 @@ import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { encryptApiKey } from "@/lib/encryption";
+import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
+import { projectRepositoryInputSchema } from "@/lib/validators";
 
-export async function linkProjectRepository(data: { projectId: string, repoUrl: string, token?: string }) {
+export async function linkProjectRepository(input: unknown) {
   try {
     const user = await getCurrentUser();
     if (!user || user.role !== "FACILITATOR") throw new Error("Unauthorized Access");
+
+    await assertDurableRateLimit({
+      key: rateLimitKey("integration.github.link", user.id),
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+
+    const parsed = projectRepositoryInputSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new Error("Enter a valid repository URL before linking GitHub evidence.");
+    }
+    const data = parsed.data;
 
     const project = await prisma.project.findUnique({
       where: { id: data.projectId },
@@ -36,6 +50,9 @@ export async function linkProjectRepository(data: { projectId: string, repoUrl: 
     revalidatePath("/command-center");
     return { success: true };
   } catch (error: any) {
+    if (isRateLimitError(error)) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: error.message };
   }
 }

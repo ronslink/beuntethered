@@ -18,16 +18,16 @@ export default function AgentKeyClient({ hasKeyBound }: AgentKeyClientProps) {
     if (res.success && res.key) {
       setNewKey(res.key);
     } else {
-      alert("Execution fault: " + res.error);
+      alert("Unable to generate automation key: " + res.error);
     }
     setIsLoading(false);
   };
 
   const handleRevoke = async () => {
-    if (!confirm("Are you sure? Any autonomous scripts relying on this key will instantly fail.")) return;
+    if (!confirm("Revoking this key will stop any approved tools or scripts that use it. Continue?")) return;
     setIsLoading(true);
     const res = await revokeAgentKey();
-    if (!res.success) alert("Revocation fault: " + res.error);
+    if (!res.success) alert("Unable to revoke automation key: " + res.error);
     setNewKey(null);
     setIsLoading(false);
   };
@@ -38,8 +38,8 @@ export default function AgentKeyClient({ hasKeyBound }: AgentKeyClientProps) {
     <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
       <div className="flex items-center justify-between mb-6 border-b border-outline-variant/20 pb-4">
         <h3 className="text-xl font-bold text-on-surface font-headline flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary">smart_toy</span>
-          Autonomous Agent Settings
+          <span className="material-symbols-outlined text-primary">vpn_key</span>
+          Delivery Automation Keys
         </h3>
         {currentStatus ? (
           <span className="bg-green-500/10 text-green-500 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border border-green-500/20 flex items-center gap-2">
@@ -53,13 +53,13 @@ export default function AgentKeyClient({ hasKeyBound }: AgentKeyClientProps) {
       </div>
 
       <p className="text-on-surface-variant text-sm mb-6 max-w-2xl leading-relaxed">
-        Issue a secure API credential allowing an automated AI Agent or CI/CD runner to act on your behalf. Bots holding this key can instantly submit milestone completions directly into the pipeline without your physical intervention.
+        Issue a secure API credential for approved AI-assisted tools, scripts, or CI/CD runners in your delivery workflow. You remain accountable for any milestone evidence submitted with this key.
       </p>
 
       {newKey ? (
         <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-6 mb-6">
            <h4 className="text-green-500 font-bold uppercase tracking-widest text-xs mb-2">Key Generated Successfully</h4>
-           <p className="text-on-surface-variant text-sm mb-4">Please copy this credential now. For extreme security, we will never show you this string again.</p>
+           <p className="text-on-surface-variant text-sm mb-4">Please copy this credential now. For security, we will never show you this string again.</p>
            
            <div className="flex items-center gap-4 bg-surface-container-highest p-4 rounded-xl border border-outline-variant/10">
               <code className="text-on-surface font-mono tracking-tight flex-1 font-medium">{newKey}</code>
@@ -81,14 +81,14 @@ export default function AgentKeyClient({ hasKeyBound }: AgentKeyClientProps) {
                 disabled={isLoading}
                 className="bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-outline-variant/30 px-6 py-3 rounded-xl uppercase tracking-widest text-xs font-bold transition-all disabled:opacity-50"
               >
-                {isLoading ? "Executing..." : "Cycle Key"}
+                {isLoading ? "Working..." : "Cycle Key"}
               </button>
               <button 
                 onClick={handleRevoke}
                 disabled={isLoading}
                 className="bg-error/10 text-error hover:bg-error/20 border border-error/20 px-6 py-3 rounded-xl uppercase tracking-widest text-xs font-bold transition-all disabled:opacity-50"
               >
-                {isLoading ? "Executing..." : "Revoke"}
+                {isLoading ? "Working..." : "Revoke"}
               </button>
            </div>
         ) : (
@@ -98,7 +98,7 @@ export default function AgentKeyClient({ hasKeyBound }: AgentKeyClientProps) {
              className="bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container shadow-lg shadow-primary/20 px-6 py-3 rounded-xl uppercase tracking-widest text-xs font-bold transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 flex items-center gap-2"
            >
              <span className="material-symbols-outlined text-sm">vpn_key</span>
-             {isLoading ? "Executing..." : "Generate Agent Key"}
+             {isLoading ? "Working..." : "Generate Automation Key"}
            </button>
         )}
       </div>

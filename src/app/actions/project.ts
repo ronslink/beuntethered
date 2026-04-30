@@ -3,9 +3,15 @@
 import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 import { revalidatePath } from "next/cache";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY || "missing-key");
+import { sendBYOCProjectReadyAlert } from "@/lib/resend";
+import {
+  assessMilestoneQuality,
+  normalizeGeneratedSow,
+  normalizeMilestoneForStorage,
+  type MilestoneQualityAssessment,
+  type MilestoneStorageDraft,
+} from "@/lib/milestone-quality";
+import { buildBYOCSowSnapshot, calculateBYOCInviteTotals } from "@/lib/byoc-sow";
 
 export async function createProjectFromSoW({
   sowData,
@@ -39,54 +45,106 @@ export async function createProjectFromSoW({
     if (client.role !== "CLIENT") {
       throw new Error("The provided email belongs to a non-CLIENT user. Only registered clients can be assigned to BYOC projects.");
     }
+    const clientOrganization = await prisma.organization.findFirst({
+      where: {
+        OR: [
+          { owner_id: client.id },
+          { members: { some: { user_id: client.id } } },
+        ],
+      },
+      select: { id: true },
+      orderBy: { created_at: "asc" },
+    });
 
-    // 2. Transmute AI JSON heavily into Prisma Escrow objects flawlessly
-    const project = await prisma.project.create({
-      data: {
-        title: sowData.title,
-        ai_generated_sow: sowData.executiveSummary,
-        is_byoc: true, // Auto-locked to True denoting Facilitator originate
-        status: "DRAFT",
-        creator_id: user.id,
-        client_id: client.id,
-        milestones: {
-          create: sowData.milestones.map((m: any) => ({
-            title: m.title,
-            amount: m.amount,
-            status: "PENDING",
-            facilitator_id: user.id
-          }))
-        },
-        messages: {
-          create: {
-            content: `BYOC client verified: ${client.name ?? clientEmail} (${clientEmail}). Project created by facilitator ${user.name ?? user.email}.`,
-            is_system_message: true,
-            sender_id: null
+    const normalizedSow = normalizeGeneratedSow(sowData);
+    const rawMilestones: any[] = Array.isArray(normalizedSow.milestones) ? normalizedSow.milestones : [];
+    const milestoneAssessments: MilestoneQualityAssessment[] = rawMilestones.map((milestone: any) => assessMilestoneQuality(milestone));
+    const firstInvalidMilestone = milestoneAssessments.find((assessment) => !assessment.passes);
+
+    if (rawMilestones.length === 0) {
+      throw new Error("Add at least one milestone before creating the project.");
+    }
+
+    if (firstInvalidMilestone) {
+      throw new Error(`Milestone needs review: ${firstInvalidMilestone.blockingIssues[0]}`);
+    }
+
+    const normalizedMilestones: MilestoneStorageDraft[] = rawMilestones.map((milestone: any) => normalizeMilestoneForStorage(milestone));
+
+    const sowSnapshot = buildBYOCSowSnapshot({
+      title: normalizedSow.title,
+      executiveSummary: normalizedSow.executiveSummary,
+      milestones: normalizedMilestones,
+    });
+    const totals = calculateBYOCInviteTotals(normalizedMilestones);
+
+    const project = await prisma.$transaction(async (tx) => {
+      const createdProject = await tx.project.create({
+        data: {
+          title: normalizedSow.title,
+          ai_generated_sow: sowSnapshot,
+          is_byoc: true,
+          status: "DRAFT",
+          creator_id: user.id,
+          client_id: client.id,
+          organization_id: clientOrganization?.id ?? null,
+          milestones: {
+            create: normalizedMilestones.map((m) => ({
+              title: m.title,
+              description: m.description || null,
+              deliverables: m.deliverables,
+              acceptance_criteria: m.acceptance_criteria,
+              estimated_duration_days: m.estimated_duration_days || null,
+              amount: m.amount,
+              status: "PENDING",
+              facilitator_id: user.id
+            }))
+          },
+          messages: {
+            create: {
+              content: `BYOC client verified: ${client.name ?? clientEmail} (${clientEmail}). Project created by facilitator ${user.name ?? user.email}.`,
+              is_system_message: true,
+              sender_id: null
+            }
           }
-        }
-      }
+        },
+      });
+
+      await tx.activityLog.create({
+        data: {
+          project_id: createdProject.id,
+          actor_id: user.id,
+          action: "PROJECT_CREATED",
+          entity_type: "Project",
+          entity_id: createdProject.id,
+          metadata: {
+            operation: "BYOC_REGISTERED_CLIENT_PROJECT_CREATED",
+            actor_project_role: "FACILITATOR",
+            byoc: true,
+            client_id: client.id,
+            organization_id: clientOrganization?.id ?? null,
+            milestone_count: normalizedMilestones.length,
+            gross_amount_cents: totals.grossAmountCents,
+            platform_fee_cents: totals.platformFeeCents,
+            client_total_cents: totals.clientTotalCents,
+            facilitator_payout_cents: totals.facilitatorPayoutCents,
+          },
+        },
+      });
+
+      return createdProject;
     });
 
     // Force Next.js to reconstruct the Dashboard mapping updating global views
     revalidatePath("/dashboard");
+    revalidatePath("/byoc/new");
 
     try {
-      await resend.emails.send({
-        from: "Untether Escrow <escrow@untether.network>",
-        to: clientEmail,
-        subject: `[ACTION REQUIRED] Secure Statement of Work: ${sowData.title}`,
-        html: `
-          <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #1a1a1a;">
-            <h2 style="color: #6366f1;">Secure Escrow Initialization</h2>
-            <p>Your expert facilitator has prepared a secure Statement of Work for you on Untether.</p>
-            <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
-              <h3 style="margin-top:0;">${sowData.title}</h3>
-              <p style="color: #475569; font-size: 14px;">${sowData.executiveSummary}</p>
-            </div>
-            <a href="${process.env.NEXTAUTH_URL}/projects/${project.id}" style="display: inline-block; background-color: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: bold; margin-top: 10px;">Review and Fund Escrow</a>
-            <p style="margin-top: 30px; font-size: 12px; color: #94a3b8;">Untether Secure Payment Network</p>
-          </div>
-        `
+      await sendBYOCProjectReadyAlert({
+        clientEmail,
+        projectId: project.id,
+        projectTitle: normalizedSow.title,
+        summary: normalizedSow.executiveSummary,
       });
     } catch (e) {
       console.error("Resend Trigger Warning: Output failure against standard boundaries", e);

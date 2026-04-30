@@ -54,12 +54,12 @@ export default function LoginPage() {
             <span className="text-on-surface-variant">Start paying for results.</span>
           </h1>
           <p className="text-on-surface-variant leading-relaxed mb-10 max-w-md">
-            AI-generated scopes. Stripe Escrow. Zero developer fees.
-            The marketplace where elite architects build with confidence.
+            AI-assisted scopes. Stripe Escrow. Zero facilitator fees.
+            The marketplace where verified software facilitators build with confidence.
           </p>
           <div className="flex items-center gap-8">
             {[
-              { value: "0%", label: "Developer Fees" },
+              { value: "0%", label: "Facilitator Fees" },
               { value: "8%", label: "Client Premium" },
               { value: "100%", label: "Escrow Protected" },
             ].map((stat) => (

@@ -34,7 +34,7 @@ export default function DisplayNameInput({ initialName }: { initialName: string 
           value={name}
           onChange={(e) => { setName(e.target.value); setSaved(false); }}
           placeholder="Your name"
-          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-sm text-on-surface font-medium focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-sm text-on-surface font-medium focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
         />
       </div>
       {dirty && (
@@ -42,10 +42,10 @@ export default function DisplayNameInput({ initialName }: { initialName: string 
           <button
             onClick={handleSave}
             disabled={isPending}
-            className="px-5 py-2 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:-translate-y-0.5 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center gap-2"
+            className="px-5 py-2 rounded-lg bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isPending ? (
-              <><span className="material-symbols-outlined animate-spin text-[15px]">refresh</span> Saving…</>
+              <><span className="material-symbols-outlined animate-spin text-[15px]">refresh</span> Saving...</>
             ) : "Save Name"}
           </button>
           {saved && (

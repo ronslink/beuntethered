@@ -15,7 +15,7 @@ export default function ChangeOrderPanel({ projectId, role, changeOrders }: { pr
        if (res.success) {
           setDescription("");
           setAddedCost("");
-          alert("Change Order physically pushed to Escrow boundaries.");
+          alert("Change order proposed for client review.");
        } else {
           alert(res.error);
        }
@@ -42,7 +42,7 @@ export default function ChangeOrderPanel({ projectId, role, changeOrders }: { pr
     <div className="bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-6 lg:p-8 mt-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
        <h3 className="text-xl font-bold font-headline mb-6 flex items-center gap-2 border-b border-outline-variant/20 pb-4">
           <span className="material-symbols-outlined text-tertiary">swap_horiz</span>
-          Escrow Expansion (Change Orders)
+          Scope Change Orders
        </h3>
 
        {changeOrders.length > 0 && (
@@ -64,7 +64,7 @@ export default function ChangeOrderPanel({ projectId, role, changeOrders }: { pr
                           disabled={isPending}
                           className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
                         >
-                           {isPending ? "Locking..." : "Approve Scope"}
+                           {isPending ? "Opening Checkout..." : "Approve Scope"}
                         </button>
                      )}
                   </div>
@@ -106,7 +106,7 @@ export default function ChangeOrderPanel({ projectId, role, changeOrders }: { pr
        )}
        {role === "CLIENT" && changeOrders.length === 0 && (
           <div className="text-center py-6 text-sm text-on-surface-variant bg-surface-container-low/50 rounded-2xl border border-outline-variant/20 border-dashed">
-             No expanded scope tracking detected. Escrow constraints strictly maintained.
+             No change orders have been proposed for this project.
           </div>
        )}
     </div>

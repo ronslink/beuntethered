@@ -4,9 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "next dev -p 3200",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --experimental-strip-types --test \"tests/**/*.test.ts\"",
+    "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-e2e.ps1",
+    "test:e2e:ui": "playwright test --ui",
+    "verify": "npm run lint && npx tsc --noEmit && npm test && npm run test:e2e && npm run build",
     "db:up": "docker compose up -d db",
     "db:init": "node scripts/local-db-init.mjs",
     "db:migrate": "prisma migrate dev",
@@ -41,6 +46,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",

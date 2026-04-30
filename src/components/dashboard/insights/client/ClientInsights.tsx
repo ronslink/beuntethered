@@ -1,139 +1,204 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-
 export default function ClientInsights({
   totalSpend,
   activeExposure,
-  avgCodeQuality,
-  totalSprintClears
+  totalSprintClears,
+  projectCount,
+  activeProjectCount,
+  openProjectCount,
+  fundedMilestones,
+  pendingMilestones,
+  reviewMilestones,
+  disputedMilestones,
+  facilitatorCount,
+  auditedMilestones,
+  auditPassRate,
+  durableAvgAuditScore,
 }: {
-  totalSpend: number,
-  activeExposure: number,
-  avgCodeQuality: number,
-  totalSprintClears: number
+  totalSpend: number;
+  activeExposure: number;
+  totalSprintClears: number;
+  projectCount: number;
+  activeProjectCount: number;
+  openProjectCount: number;
+  fundedMilestones: number;
+  pendingMilestones: number;
+  reviewMilestones: number;
+  disputedMilestones: number;
+  facilitatorCount: number;
+  auditedMilestones: number;
+  auditPassRate: number;
+  durableAvgAuditScore: number;
 }) {
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-  };
+  const completedSpend = Math.max(totalSpend - activeExposure, 0);
+  const activeShare = totalSpend > 0 ? Math.round((activeExposure / totalSpend) * 100) : 0;
+  const closedShare = totalSpend > 0 ? Math.max(0, 100 - activeShare) : 0;
 
-  const completedSpend = totalSpend - activeExposure;
-  const pieData = [
-     { name: 'Active Projects', value: activeExposure },
-     { name: 'Executed Assets', value: completedSpend > 0 ? completedSpend : 0.1 } // Fallback for pure charting safely preventing errors
+  const actionQueue = [
+    { label: "Milestones awaiting funding", value: pendingMilestones, icon: "account_balance_wallet" },
+    { label: "Milestones funded in escrow", value: fundedMilestones, icon: "lock" },
+    { label: "Milestones awaiting review", value: reviewMilestones, icon: "rate_review" },
+    { label: "Milestones in dispute", value: disputedMilestones, icon: "gavel" },
+    { label: "Open projects accepting proposals", value: openProjectCount, icon: "campaign" },
   ];
 
-  const COLORS = ['#3adffa', '#1e293b']; // Primary neon and Surface variant
-
   return (
-    <main className="p-6 md:p-10 min-h-screen relative overflow-hidden bg-background">
-       <div className="absolute top-0 right-[10%] w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0"></div>
+    <main className="min-h-screen bg-background px-4 py-8 text-on-surface lg:px-6">
+      <div className="mx-auto max-w-[1400px] space-y-6">
+        <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <span className="mb-3 inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+              Buyer insights
+            </span>
+            <h1 className="font-headline text-3xl font-black tracking-tight lg:text-4xl">Delivery Control Dashboard</h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-on-surface-variant">
+              Track committed spend, escrow exposure, milestone progress, facilitator quality, and buyer-side next actions.
+            </p>
+          </div>
 
-       <div className="max-w-7xl mx-auto relative z-10 space-y-12">
-          
-          <header className="border-b border-outline-variant/30 pb-8 flex justify-between items-end gap-6 flex-wrap">
-             <div>
-                <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black font-headline tracking-widest uppercase border border-primary/30 mb-4 inline-block shadow-[0_0_15px_rgba(var(--color-primary),0.2)]">Executive Dashboard</span>
-                <h1 className="text-4xl lg:text-6xl font-black font-headline tracking-tighter text-on-surface uppercase leading-[0.9]">
-                   Capital <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Efficiency</span>
-                </h1>
-                <p className="text-on-surface-variant font-medium mt-4 text-sm max-w-lg">Track spending across all your active projects in real time.</p>
-             </div>
-             
-             <div className="bg-surface-container-low border border-outline-variant/30 px-8 py-5 rounded-3xl shrink-0 hover:border-primary/40 transition-colors cursor-crosshair">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-1">Total Lifetime Valuation</p>
-                <p className="text-4xl font-black font-headline text-on-surface tracking-tighter opacity-90">{formatCurrency(totalSpend)}</p>
-             </div>
-          </header>
+          <div className="rounded-2xl border border-outline-variant/30 bg-surface px-5 py-4 text-right shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Total committed value</p>
+            <p className="mt-1 text-3xl font-black text-on-surface">{formatCurrency(totalSpend)}</p>
+          </div>
+        </header>
 
-          <section className="grid grid-cols-1 md:grid-cols-12 gap-8">
-             
-             {/* Capital Efficiency Pie Layout */}
-             <div className="col-span-1 md:col-span-8 bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl p-8 lg:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative group">
-                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none"></div>
-                <div className="flex flex-col xl:flex-row items-center gap-12">
-                   
-                   <div className="w-full xl:w-1/2 h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                         <PieChart>
-                            <Pie
-                               data={pieData}
-                               innerRadius={90}
-                               outerRadius={120}
-                               stroke="none"
-                               paddingAngle={5}
-                               dataKey="value"
-                            >
-                               {pieData.map((entry, index) => (
-                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                               ))}
-                            </Pie>
-                            <Tooltip 
-                               contentStyle={{ backgroundColor: 'rgba(30,41,59,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                               itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                               formatter={(value: any) => formatCurrency(value)}
-                            />
-                         </PieChart>
-                      </ResponsiveContainer>
-                   </div>
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Active Projects" value={String(activeProjectCount)} icon="workspaces" tone="primary" />
+          <Metric label="Completed Milestones" value={String(totalSprintClears)} icon="verified" tone="tertiary" />
+          <Metric label="Facilitators Engaged" value={String(facilitatorCount)} icon="groups" tone="primary" />
+          <Metric label="Avg Audit Quality" value={durableAvgAuditScore ? `${Math.round(durableAvgAuditScore)}%` : "Pending"} icon="fact_check" tone="tertiary" />
+        </section>
 
-                   <div className="w-full xl:w-1/2 space-y-8">
-                      <h3 className="text-xl font-black font-headline text-on-surface uppercase tracking-tight">Active Deployment Exposure</h3>
-                      
-                      <div>
-                         <p className="text-[10px] uppercase font-bold tracking-widest text-primary mb-2 flex items-center gap-2">
-                           <span className="w-3 h-3 rounded-full bg-primary border bg-glow shadow-[0_0_10px_rgba(var(--color-primary),0.5)]"></span>
-                           Money in Projects
-                         </p>
-                         <p className="text-5xl font-black text-on-surface tracking-tighter">{formatCurrency(activeExposure)}</p>
-                      </div>
+        <section className="grid gap-6 lg:grid-cols-[1fr_420px]">
+          <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Escrow And Delivery Mix</h2>
+                <p className="mt-1 text-sm text-on-surface-variant">Committed value split between active project exposure and closed delivery.</p>
+              </div>
+              <span className="rounded-full border border-outline-variant/30 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                {projectCount} projects
+              </span>
+            </div>
 
-                      <div className="border-t border-outline-variant/20 pt-6">
-                         <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-2 flex items-center gap-2">
-                           <span className="w-3 h-3 rounded-full bg-surface-variant"></span>
-                           Securely Closed & Capitalized Arrays
-                         </p>
-                         <p className="text-3xl font-black text-on-surface-variant tracking-tighter opacity-80">{formatCurrency(completedSpend)}</p>
-                      </div>
-                   </div>
-
+            <div className="grid gap-6 md:grid-cols-[280px_1fr] md:items-center">
+              <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Capital mix</p>
+                <div className="mt-5 overflow-hidden rounded-full bg-surface-container-high">
+                  <div className="flex h-5 w-full">
+                    <div className="bg-primary" style={{ width: `${activeShare}%` }} />
+                    <div className="bg-tertiary" style={{ width: `${closedShare}%` }} />
+                  </div>
                 </div>
-             </div>
-
-             <div className="col-span-1 md:col-span-4 flex flex-col gap-8">
-                
-                {/* Code Quality Metric */}
-                <div className="bg-surface/50 backdrop-blur-2xl border border-secondary/20 rounded-3xl p-8 flex-1 flex flex-col justify-center relative overflow-hidden group hover:border-secondary/40 transition-colors">
-                   <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-2xl group-hover:bg-secondary/20 transition-all"></div>
-                   
-                   <span className="material-symbols-outlined text-secondary text-4xl mb-6 relative z-10" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
-                   
-                   <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-4 relative z-10">Algorithmic Base Return</p>
-                   {avgCodeQuality === 0 ? (
-                      <p className="text-3xl font-black text-on-surface tracking-tighter mb-4">Awaiting Signal</p>
-                   ) : (
-                      <div className="flex items-end gap-2 mb-4 relative z-10">
-                         <span className="text-7xl font-black font-headline text-on-surface tracking-tighter leading-none">{avgCodeQuality.toFixed(0)}</span>
-                         <span className="text-secondary font-bold mb-2">/100</span>
-                      </div>
-                   )}
-                   <p className="text-xs font-medium text-on-surface-variant leading-relaxed opacity-90 relative z-10">The verifiable structural average algorithmic technical quality mapped securely across your acquired components.</p>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Active</p>
+                    <p className="text-2xl font-black text-primary">{activeShare}%</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Closed</p>
+                    <p className="text-2xl font-black text-tertiary">{closedShare}%</p>
+                  </div>
                 </div>
-
-                {/* Velocity Box */}
-                <div className="bg-primary hover:bg-primary-container transition-colors rounded-3xl p-8 text-on-primary hover:text-on-primary-container shadow-xl shadow-primary/10">
-                   <p className="text-[10px] uppercase font-bold tracking-widest mb-6 opacity-80">Aggregate Delivery Velocity</p>
-                   <div className="flex items-end gap-3">
-                      <span className="text-6xl font-black font-headline tracking-tighter leading-none">{totalSprintClears}</span>
-                      <span className="text-xs uppercase font-bold tracking-widest mb-1.5 opacity-90">Sprints Executed</span>
-                   </div>
+              </div>
+              <div className="space-y-3">
+                <SpendRow label="Active exposure" value={activeExposure} color="bg-primary" />
+                <SpendRow label="Closed delivery" value={completedSpend} color="bg-tertiary" />
+                <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Interpretation</p>
+                  <p className="mt-2 text-sm font-medium leading-relaxed text-on-surface-variant">
+                    Keep active exposure visible so buyers know what is funded, what is pending, and what still needs review before release.
+                  </p>
                 </div>
+              </div>
+            </div>
+          </div>
 
-             </div>
-          </section>
+          <aside className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Action Queue</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">Buyer-side operational signals for today.</p>
+            <div className="mt-5 space-y-3">
+              {actionQueue.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[18px] text-primary">{item.icon}</span>
+                    <p className="text-sm font-bold text-on-surface">{item.label}</p>
+                  </div>
+                  <span className="text-lg font-black text-on-surface">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </section>
 
-       </div>
+        <section className="grid gap-6 lg:grid-cols-[1fr_420px]">
+          <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Audit-Backed Delivery Evidence</h2>
+                <p className="mt-1 text-sm text-on-surface-variant">Latest durable milestone audits across your workspace.</p>
+              </div>
+              <span className="rounded-full border border-outline-variant/30 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                {auditedMilestones} audited
+              </span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <EvidenceMetric label="Pass rate" value={auditedMilestones ? `${auditPassRate}%` : "Pending"} icon="verified_user" testId="audit-pass-rate" />
+              <EvidenceMetric label="Average score" value={durableAvgAuditScore ? `${Math.round(durableAvgAuditScore)}%` : "Pending"} icon="fact_check" testId="audit-average-score" />
+              <EvidenceMetric label="Disputes" value={String(disputedMilestones)} icon="gavel" testId="audit-disputes" />
+            </div>
+          </div>
+
+          <aside className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Trust Interpretation</h2>
+            <p className="mt-3 text-sm font-medium leading-relaxed text-on-surface-variant">
+              Durable audit records are the strongest proof that a milestone was reviewed against acceptance criteria.
+              Use pass rate and disputes together: high pass rate with low disputes means delivery quality is trending safely.
+            </p>
+          </aside>
+        </section>
+      </div>
     </main>
+  );
+}
+
+function Metric({ label, value, icon, tone }: { label: string; value: string; icon: string; tone: "primary" | "tertiary" }) {
+  const color = tone === "primary" ? "text-primary bg-primary/10 border-primary/20" : "text-tertiary bg-tertiary/10 border-tertiary/20";
+  return (
+    <div className="rounded-2xl border border-outline-variant/30 bg-surface p-5 shadow-sm">
+      <span className={`material-symbols-outlined mb-4 inline-flex rounded-xl border p-2 text-[20px] ${color}`}>{icon}</span>
+      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+      <p className="mt-1 text-2xl font-black text-on-surface">{value}</p>
+    </div>
+  );
+}
+
+function EvidenceMetric({ label, value, icon, testId }: { label: string; value: string; icon: string; testId?: string }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4" data-testid={testId}>
+      <span className="material-symbols-outlined mb-3 text-[20px] text-primary">{icon}</span>
+      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+      <p className="mt-1 text-2xl font-black text-on-surface">{value}</p>
+    </div>
+  );
+}
+
+function SpendRow({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+          <p className="text-sm font-bold text-on-surface">{label}</p>
+        </div>
+        <p className="font-black text-on-surface">
+          {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value)}
+        </p>
+      </div>
+    </div>
   );
 }

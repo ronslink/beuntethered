@@ -4,50 +4,98 @@ import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import { hashAgentToken } from "@/lib/agent-api-rules";
+import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
 
 export async function generateAgentKey() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return { success: false, error: "Unauthorized." };
+    const sessionUser = await getCurrentUser();
+    if (!sessionUser) {
+      return { success: false, code: "UNAUTHORIZED", error: "Sign in before generating an automation key." };
     }
 
-    // 1. Construct physical key structure
-    const rawSecret = crypto.randomBytes(32).toString('hex');
+    const user = await prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      select: { id: true, role: true },
+    });
+
+    if (!user || user.role !== "FACILITATOR") {
+      return {
+        success: false,
+        code: "FACILITATOR_ONLY",
+        error: "Automation keys are available only for facilitator delivery accounts.",
+      };
+    }
+
+    await assertDurableRateLimit({
+      key: rateLimitKey("agent-key.generate", user.id),
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+
+    const rawSecret = crypto.randomBytes(32).toString("hex");
     const plaintextKey = `unth_${rawSecret}`;
+    const hashedKey = hashAgentToken(plaintextKey);
 
-    // 2. Hash securely before placing in DB scope
-    const hashedKey = crypto.createHash('sha256').update(plaintextKey).digest('hex');
-
-    // 3. Atomically overwrite any existing credential
     await prisma.user.update({
       where: { id: user.id },
-      data: { agent_key_hash: hashedKey }
+      data: {
+        agent_key_hash: hashedKey,
+        api_daily_request_count: 0,
+        locked_until: null,
+      },
     });
 
     revalidatePath("/settings");
 
-    // Give it back exactly once!
     return { success: true, key: plaintextKey };
   } catch (error: any) {
-    console.error("Failed to construct Agent Key:", error);
-    return { success: false, error: "Internal Database Fault." };
+    if (isRateLimitError(error)) {
+      return {
+        success: false,
+        code: error.code,
+        error: error.message,
+        retryAfterSeconds: error.retryAfterSeconds,
+      };
+    }
+    console.error("Failed to create automation key:", error);
+    return { success: false, code: "AGENT_KEY_FAILED", error: "Unable to create automation key. Please try again." };
   }
 }
 
 export async function revokeAgentKey() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) return { success: false, error: "Unauthorized." };
-        
-        await prisma.user.update({
-           where: { id: user.id },
-           data: { agent_key_hash: null }
-        });
-    
-        revalidatePath("/settings");
-        return { success: true };
-    } catch {
-        return { success: false, error: "Deletion Fault." };
+  try {
+    const sessionUser = await getCurrentUser();
+    if (!sessionUser) {
+      return { success: false, code: "UNAUTHORIZED", error: "Sign in before revoking an automation key." };
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      select: { id: true, role: true },
+    });
+
+    if (!user || user.role !== "FACILITATOR") {
+      return {
+        success: false,
+        code: "FACILITATOR_ONLY",
+        error: "Automation keys are available only for facilitator delivery accounts.",
+      };
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        agent_key_hash: null,
+        api_daily_request_count: 0,
+        locked_until: null,
+      },
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to revoke automation key:", error);
+    return { success: false, code: "AGENT_KEY_FAILED", error: "Unable to revoke automation key. Please try again." };
+  }
 }

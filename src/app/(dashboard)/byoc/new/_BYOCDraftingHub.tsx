@@ -1,29 +1,124 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { generateBYOCInvite } from "@/app/actions/byoc";
 
-export default function BYOCDraftingHub() {
+type SOWMilestone = {
+  title: string;
+  description?: string;
+  amount: number;
+  deliverables?: string[] | string;
+  acceptance_criteria?: string[] | string;
+  estimated_duration_days?: number;
+};
+
+type SOWData = {
+  title: string;
+  executiveSummary: string;
+  totalAmount: number;
+  milestones: SOWMilestone[];
+};
+
+type TriageResult = {
+  in_scope?: boolean;
+  reason?: string;
+  category?: string;
+  complexity?: string;
+  summary?: string;
+};
+
+type RecentBYOCPacket = {
+  id: string;
+  title: string;
+  status: string;
+  inviteToken: string | null;
+  createdAt: string;
+  clientTotalCents: number;
+  facilitatorPayoutCents: number;
+};
+
+function asList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value !== "string") return [];
+  return value
+    .split(/\n|;|(?<=\.)\s+/g)
+    .map((item) => item.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatCategory(value?: string) {
+  if (!value) return "Scope triage";
+  return value.replace(/_/g, " ").toLowerCase();
+}
+
+function formatStatus(value: string) {
+  return value.replace(/_/g, " ").toLowerCase();
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+const qualityGates = [
+  {
+    icon: "fact_check",
+    title: "Verifiable acceptance",
+    body: "Each milestone needs observable checks the client can approve against.",
+  },
+  {
+    icon: "inventory_2",
+    title: "Evidence-ready delivery",
+    body: "Deliverables should produce links, screenshots, repos, reports, or files.",
+  },
+  {
+    icon: "payments",
+    title: "Escrow clarity",
+    body: "The client sees the BYOC fee and funds milestone work before release.",
+  },
+  {
+    icon: "verified_user",
+    title: "Trust record",
+    body: "Accepted work becomes part of the audit, activity, and dispute trail.",
+  },
+];
+
+export default function BYOCDraftingHub({ recentPackets }: { recentPackets: RecentBYOCPacket[] }) {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [sowData, setSowData] = useState<any>(null);
-  
-  // Triage state
-  const [triageResult, setTriageResult] = useState<any>(null);
+  const [sowData, setSowData] = useState<SOWData | null>(null);
+  const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
   const [rejectionMessage, setRejectionMessage] = useState("");
-  
-  // Validation loop
   const [isPending, startTransition] = useTransition();
   const [magicLinkUrl, setMagicLinkUrl] = useState("");
   const [hostname, setHostname] = useState("");
+  const [packets, setPackets] = useState(recentPackets);
+  const [copiedPacketId, setCopiedPacketId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Render boundary lock ensuring client-side variables evaluate mathematically
     setHostname(window.location.origin);
   }, []);
 
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const milestoneCount = sowData?.milestones?.length ?? 0;
+  const estimatedClientFee = useMemo(() => {
+    if (!sowData) return 0;
+    return Math.round(sowData.totalAmount * 0.05);
+  }, [sowData]);
+
+  const handleGenerate = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!prompt.trim() || prompt.trim().length < 5) return;
 
     setIsGenerating(true);
@@ -33,267 +128,465 @@ export default function BYOCDraftingHub() {
     setRejectionMessage("");
 
     try {
-      // Step 1: Fast triage via M2.7-highspeed
       const triageRes = await fetch("/api/ai/triage-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
 
-      const triage = await triageRes.json();
+      const triage = (await triageRes.json()) as TriageResult;
 
       if (!triage.in_scope) {
-        setRejectionMessage(triage.reason || "This doesn't look like a remote digital service. BeUntethered connects you with freelancers for digital work — writing, design, software, marketing, and more.");
+        setRejectionMessage(
+          triage.reason ||
+            "This does not look like an outcome-based digital delivery project we can scope into verified milestones.",
+        );
         setIsGenerating(false);
         return;
       }
 
       setTriageResult(triage);
 
-      // Step 2: Generate SOW routed by category + complexity
       const response = await fetch("/api/ai/generate-sow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           prompt,
           category: triage.category,
           complexity: triage.complexity,
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = (await response.json()) as SOWData & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Unable to generate scope.");
 
       setSowData(data);
-    } catch (err: any) {
-      console.error(err);
-      setRejectionMessage(err.message || "Something went wrong. Please try again.");
+    } catch (error) {
+      console.error(error);
+      setRejectionMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleCreateMagicLink = () => {
+    if (!sowData) return;
+
     startTransition(async () => {
       const res = await generateBYOCInvite(sowData);
       if (res.success) {
         setMagicLinkUrl(`${hostname}/invite/${res.inviteToken}`);
+        if (res.packet) {
+          setPackets((current) => [res.packet, ...current.filter((packet) => packet.id !== res.packet.id)].slice(0, 5));
+        }
       } else {
-        alert(res.error || "Fatal Magic Link Generation Fault.");
+        alert(res.error || "Unable to create invite link.");
       }
     });
-  }
+  };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(magicLinkUrl);
-  }
+    void navigator.clipboard.writeText(magicLinkUrl);
+  };
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  const handleCopyPacketInvite = (packet: RecentBYOCPacket) => {
+    if (!packet.inviteToken) return;
+    const inviteUrl = `${hostname}/invite/${packet.inviteToken}`;
+    void navigator.clipboard.writeText(inviteUrl);
+    setCopiedPacketId(packet.id);
   };
 
   return (
-    <main className="lg:p-6 min-h-[calc(100vh-80px)] flex flex-col relative">
-      {/* Ambient light overlay across screen */}
-      <div className="absolute top-[0%] left-[20%] w-[500px] h-[500px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none"></div>
+    <main className="min-h-[calc(100vh-80px)] bg-surface px-4 py-6 lg:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+        <header className="rounded-lg border border-outline-variant/40 bg-surface-container-low/60 p-5 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                  <span className="material-symbols-outlined text-[14px]">person_add</span>
+                  Facilitator BYOC
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-outline-variant/40 bg-surface px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  Private client invite
+                </span>
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-on-surface md:text-3xl">
+                Create a verified private delivery packet
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
+                Turn an external client conversation into a milestone-based scope with escrow terms,
+                acceptance checks, and an audit-ready invite link.
+              </p>
+            </div>
 
-      <header className="mb-6 lg:mb-10 px-4 lg:px-0">
-        <h2 className="text-3xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface">
-          BYOC <span className="bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent">Magic Hub</span>
-        </h2>
-        <p className="text-on-surface-variant font-medium mt-2 max-w-2xl">Create a private project for your own client. Bypass the marketplace and work directly without platform fees.</p>
-      </header>
+            <div className="grid min-w-full grid-cols-3 gap-2 lg:min-w-[360px]">
+              <div className="rounded-lg border border-outline-variant/30 bg-surface p-3">
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Facilitator fee</p>
+                <p className="mt-1 text-xl font-black text-on-surface">0%</p>
+              </div>
+              <div className="rounded-lg border border-outline-variant/30 bg-surface p-3">
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Client fee</p>
+                <p className="mt-1 text-xl font-black text-on-surface">5%</p>
+              </div>
+              <div className="rounded-lg border border-outline-variant/30 bg-surface p-3">
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Release</p>
+                <p className="mt-1 text-xl font-black text-on-surface">Evidence</p>
+              </div>
+            </div>
+          </div>
+        </header>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 px-4 lg:px-0 pb-10">
-        
-        {/* Left Pane - Conversational Loop */}
-        <section className="lg:col-span-5 flex flex-col justify-end min-h-[400px] lg:min-h-0 bg-surface/50 backdrop-blur-2xl border border-outline-variant/30 rounded-3xl overflow-hidden relative">
-           
-           <div className="flex-1 p-8 overflow-y-auto w-full custom-scrollbar">
-              {!sowData && !isGenerating && (
-                 <div className="h-full flex flex-col items-center justify-center text-center opacity-70">
-                    <span className="material-symbols-outlined text-6xl text-secondary/40 mb-4 animate-pulse duration-1000" style={{ fontVariationSettings: "'FILL' 1" }}>person_add</span>
-                    <h3 className="text-xl font-bold font-headline text-on-surface mb-2">Build The Hook</h3>
-                    <p className="text-sm text-on-surface-variant max-w-xs">Enter your project details below. We will generate a detailed scope and pricing structure for your client.</p>
-                 </div>
-              )}
-
-              {prompt && (isGenerating || sowData) && (
-                <div className="flex flex-col gap-6 animate-in fade-in duration-500 pb-10">
-                  <div className="self-end bg-secondary/10 border border-secondary/20 p-4 rounded-2xl rounded-tr-none ml-8 max-w-[90%] relative shadow-lg shadow-secondary/5">
-                    <p className="text-sm text-on-surface leading-relaxed text-right">{prompt}</p>
-                    <span className="absolute -right-2 top-0 w-3 h-3 bg-secondary/20 rounded-bl-full"></span>
-                  </div>
-                  
-                  {(isGenerating || sowData) && (
-                     <div className="self-start bg-primary/5 border border-primary/20 p-4 rounded-2xl rounded-tl-none mr-8 max-w-[90%] relative shadow-lg shadow-primary/5">
-                       <p className="text-sm text-on-surface leading-relaxed w-full">
-                         {isGenerating 
-                           ? "Generating your project scope..." 
-                           : "Your project draft is ready. Review it and click Generate Magic Link when you are ready to send it to your client."}
-                       </p>
-                       <span className="absolute -left-2 top-0 w-3 h-3 bg-primary/20 rounded-br-full"></span>
-                     </div>
-                  )}
+        <div className="grid gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
+          <section className="flex flex-col gap-4">
+            <form onSubmit={handleGenerate} className="rounded-lg border border-outline-variant/40 bg-surface p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-primary">Scope Intake</p>
+                  <h2 className="mt-1 text-lg font-black text-on-surface">Describe the client outcome</h2>
                 </div>
-              )}
-           </div>
+                <span className="rounded-md bg-secondary/10 p-2 text-secondary">
+                  <span className="material-symbols-outlined text-[20px]">edit_note</span>
+                </span>
+              </div>
 
-           {/* Sleek Input Tool */}
-           <div className="p-6 bg-surface-container-low/80 backdrop-blur-xl border-t border-outline-variant/20 relative z-10 w-full">
-              <form onSubmit={handleGenerate} className="relative group">
-                 <div className="absolute -inset-1 bg-gradient-to-r from-secondary/30 to-primary/30 rounded-2xl blur-lg transition duration-500 group-focus-within:from-secondary/60 group-focus-within:to-primary/60 opacity-0 group-focus-within:opacity-100"></div>
-                 <div className="relative flex items-end gap-3 bg-surface border border-outline-variant/30 focus-within:border-secondary/50 transition-colors rounded-2xl p-2 shadow-inner">
-                   <textarea 
-                     value={prompt}
-                     onChange={(e) => setPrompt(e.target.value)}
-                     disabled={isGenerating || !!magicLinkUrl}
-                     placeholder="e.g., Building a React dashboard with user authentication. Total pricing $4500."
-                     className="w-full bg-transparent border-none text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 resize-none min-h-[80px] p-3 text-sm focus:outline-none custom-scrollbar"
-                   />
-                   <button 
-                     type="submit" 
-                     disabled={isGenerating || !prompt.trim() || !!magicLinkUrl}
-                     className={`mb-2 mr-2 p-3 rounded-xl flex items-center justify-center transition-all ${isGenerating ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed' : 'bg-secondary text-on-primary hover:bg-secondary-container hover:text-on-secondary-container shadow-lg shadow-secondary/20 hover:-translate-y-0.5'}`}
-                   >
-                     {isGenerating ? (
-                        <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>
-                     ) : (
-                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
-                     )}
-                   </button>
-                 </div>
-              </form>
-           </div>
-        </section>
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                disabled={isGenerating || !!magicLinkUrl}
+                placeholder="Example: Build a React operations dashboard with authentication, admin reporting, Stripe billing, and launch documentation. Budget is $4,500."
+                className="mt-4 min-h-[180px] w-full resize-none rounded-lg border border-outline-variant/40 bg-surface-container-low/40 p-4 text-sm leading-6 text-on-surface outline-none transition focus:border-primary/60 focus:bg-surface placeholder:text-on-surface-variant/60"
+              />
 
-        {/* Right Pane - Formal SoW Output Target */}
-        <section className="lg:col-span-7 bg-white dark:bg-white/[0.02] border border-outline-variant/30 rounded-3xl p-8 lg:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-surface-variant/5 relative overflow-hidden flex flex-col min-h-[500px]">
-           
-           <div className="absolute top-8 right-8 text-outline-variant/40 select-none pointer-events-none">
-             <span className="material-symbols-outlined text-6xl" style={{ fontVariationSettings: "'FILL' 0" }}>description</span>
-           </div>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs leading-5 text-on-surface-variant">
+                  Best results include target users, required systems, budget, evidence, and launch definition.
+                </p>
+                <button
+                  type="submit"
+                  disabled={isGenerating || !prompt.trim() || !!magicLinkUrl}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-xs font-black uppercase tracking-widest text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-primary/70 disabled:text-white/90"
+                >
+                  {isGenerating ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+                      Drafting
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+                      Generate Packet
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
 
-           {isGenerating ? (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface/50 backdrop-blur-2xl transition-all duration-500">
-                 <div className="relative flex items-center justify-center mb-8">
-                   <div className="absolute w-40 h-40 bg-secondary/20 rounded-full blur-3xl animate-pulse delay-75"></div>
-                   <div className="absolute w-32 h-32 bg-primary/30 rounded-full blur-2xl animate-pulse delay-150"></div>
-                   {triageResult ? (
-                     <span className="material-symbols-outlined text-6xl text-secondary animate-bounce" style={{ fontVariationSettings: "'FILL' 1" }}>edit_note</span>
-                   ) : (
-                     <span className="material-symbols-outlined text-6xl text-on-surface animate-spin" style={{ animationDuration: '4s' }}>search_insights</span>
-                   )}
-                 </div>
-                 {triageResult && (
-                   <div className="flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20">
-                     <span className="material-symbols-outlined text-secondary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                     <span className="text-xs font-bold uppercase tracking-widest text-secondary">{triageResult.category?.replace(/_/g, ' ')} · {triageResult.complexity}</span>
-                   </div>
-                 )}
-                 <h3 className="text-2xl font-bold font-headline text-on-surface">{triageResult ? `Generating ${triageResult.summary || 'project'} scope...` : 'Understanding your request...'}</h3>
+            <div className="rounded-lg border border-outline-variant/40 bg-surface p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Quality Gates</p>
+                  <h2 className="mt-1 text-base font-black text-on-surface">What the AI is optimizing for</h2>
+                </div>
+                <span className="material-symbols-outlined text-[20px] text-primary">checklist</span>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {qualityGates.map((gate) => (
+                  <div key={gate.title} className="flex gap-3 rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-3">
+                    <span className="mt-0.5 rounded-md bg-primary/10 p-1.5 text-primary">
+                      <span className="material-symbols-outlined text-[16px]">{gate.icon}</span>
+                    </span>
+                    <div>
+                      <p className="text-sm font-black text-on-surface">{gate.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{gate.body}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-outline-variant/40 bg-surface p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Recent Packets</p>
+                  <h2 className="mt-1 text-base font-black text-on-surface">Private client pipeline</h2>
+                </div>
+                <span className="material-symbols-outlined text-[20px] text-primary">history</span>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {packets.length > 0 ? (
+                  packets.map((packet) => {
+                    const href = packet.inviteToken ? `/invite/${packet.inviteToken}` : `/command-center/${packet.id}`;
+                    const isInvite = Boolean(packet.inviteToken);
+                    return (
+                      <div
+                        key={packet.id}
+                        className="rounded-lg border border-outline-variant/30 bg-surface-container-low/35 p-3 transition hover:border-primary/30 hover:bg-primary/5"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-on-surface">{packet.title}</p>
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                              {formatStatus(packet.status)} · {formatDate(packet.createdAt)}
+                            </p>
+                          </div>
+                          <span className="rounded-md border border-outline-variant/30 bg-surface px-2 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                            {packet.inviteToken ? "Invite" : "Work"}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="rounded-md bg-surface p-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Client total</p>
+                            <p className="mt-1 text-sm font-black text-on-surface">{formatCurrency(packet.clientTotalCents / 100)}</p>
+                          </div>
+                          <div className="rounded-md bg-surface p-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Payout</p>
+                            <p className="mt-1 text-sm font-black text-on-surface">{formatCurrency(packet.facilitatorPayoutCents / 100)}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <a
+                            href={href}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-outline-variant/35 bg-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface transition hover:border-primary/40 hover:text-primary"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">{isInvite ? "open_in_new" : "rocket_launch"}</span>
+                            {isInvite ? "Open Invite" : "Open Work"}
+                          </a>
+                          {packet.inviteToken && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPacketInvite(packet)}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition hover:bg-primary/15"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                              {copiedPacketId === packet.id ? "Copied" : "Copy Link"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-lg border border-dashed border-outline-variant/40 bg-surface-container-low/30 p-4">
+                    <p className="text-sm font-black text-on-surface">No private packets yet</p>
+                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                      Generated BYOC invites will appear here with claim status and escrow totals.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-outline-variant/40 bg-surface shadow-sm">
+            <div className="border-b border-outline-variant/30 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-primary">Client Packet Preview</p>
+                  <h2 className="mt-1 text-xl font-black text-on-surface">
+                    {sowData ? sowData.title : "No scope generated yet"}
+                  </h2>
+                </div>
+                {triageResult && (
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-md border border-secondary/20 bg-secondary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-secondary">
+                      {formatCategory(triageResult.category)}
+                    </span>
+                    {triageResult.complexity && (
+                      <span className="rounded-md border border-outline-variant/40 bg-surface-container-low px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                        {triageResult.complexity}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {isGenerating ? (
+              <div className="flex min-h-[560px] flex-col items-center justify-center p-8 text-center">
+                <span className="rounded-lg bg-primary/10 p-4 text-primary">
+                  <span className="material-symbols-outlined animate-spin text-[34px]">progress_activity</span>
+                </span>
+                <h3 className="mt-5 text-xl font-black text-on-surface">
+                  {triageResult ? "Building verification-ready milestones" : "Checking project fit"}
+                </h3>
+                <p className="mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
+                  The draft is being shaped around concrete deliverables, acceptance criteria, escrow visibility, and evidence collection.
+                </p>
               </div>
             ) : rejectionMessage && !sowData ? (
-              <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                 <div className="relative flex items-center justify-center mb-6">
-                   <div className="absolute w-32 h-32 bg-error/10 rounded-full blur-3xl"></div>
-                   <span className="material-symbols-outlined text-6xl text-error/80" style={{ fontVariationSettings: "'FILL' 1" }}>block</span>
-                 </div>
-                 <h3 className="text-xl font-bold font-headline text-on-surface mb-3">Can't scope this one</h3>
-                 <p className="text-on-surface-variant max-w-md leading-relaxed">{rejectionMessage}</p>
-                 <button 
-                   type="button" 
-                   onClick={() => { setRejectionMessage(""); setPrompt(""); }}
-                   className="mt-6 px-6 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface font-bold text-sm uppercase tracking-widest hover:border-primary/50 hover:text-primary transition-all"
-                 >
-                   Try Something Else
-                 </button>
+              <div className="flex min-h-[560px] flex-col items-center justify-center p-8 text-center">
+                <span className="rounded-lg bg-error/10 p-4 text-error">
+                  <span className="material-symbols-outlined text-[34px]">block</span>
+                </span>
+                <h3 className="mt-5 text-xl font-black text-on-surface">This needs a clearer delivery shape</h3>
+                <p className="mt-2 max-w-md text-sm leading-6 text-on-surface-variant">{rejectionMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRejectionMessage("");
+                    setPrompt("");
+                  }}
+                  className="mt-6 inline-flex items-center gap-2 rounded-lg border border-outline-variant/40 bg-surface px-4 py-3 text-xs font-black uppercase tracking-widest text-on-surface transition hover:border-primary/50 hover:text-primary"
+                >
+                  <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                  Reset Intake
+                </button>
               </div>
             ) : sowData ? (
-             <div className="relative z-10 w-full h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="border-b border-outline-variant/20 pb-6 mb-8 mt-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-2 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[14px]">psychology</span> 
-                    Independent Facilitator Contract
-                  </p>
-                  <h3 className="text-3xl font-extrabold text-on-surface font-headline leading-snug">{sowData.title}</h3>
-                </div>
-                
-                <div className="space-y-8 flex-1 overflow-y-auto pr-4 custom-scrollbar">
-                   <div className="space-y-4">
-                     <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">Executive Summary</h4>
-                     <p className="text-on-surface leading-loose text-sm md:text-base font-medium opacity-90">{sowData.executiveSummary}</p>
-                   </div>
-                   
-                   <div className="space-y-4 pt-4 pb-4">
-                     <h4 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg inline-block border border-outline-variant/20 shadow-inner">Milestone Schedule</h4>
-                     <div className="space-y-3">
-                       {sowData.milestones.map((m: any, idx: number) => (
-                         <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border border-outline-variant/30 bg-surface-container-low/30 backdrop-blur-sm gap-4">
-                           <div className="flex items-start gap-4">
-                             <div className="w-10 h-10 mt-1 rounded-full bg-secondary/10 flex items-center justify-center shrink-0 border border-secondary/20 shadow-[0_0_10px_var(--color-secondary)]">
-                               <span className="text-secondary font-bold">{idx + 1}</span>
-                             </div>
-                             <div>
-                               <span className="font-bold text-on-surface text-sm md:text-base block mb-1">{m.title}</span>
-                               <span className="text-[11px] md:text-xs text-on-surface-variant font-medium opacity-80 block max-w-lg">{m.description}</span>
-                             </div>
-                           </div>
-                           <span className="font-black text-on-surface text-lg md:text-xl tracking-tight shrink-0">{formatCurrency(m.amount)}</span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
+              <div className="p-5">
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-4 md:col-span-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Facilitator payout</p>
+                    <p className="mt-1 text-2xl font-black text-on-surface">{formatCurrency(sowData.totalAmount)}</p>
+                  </div>
+                  <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Client fee estimate</p>
+                    <p className="mt-1 text-2xl font-black text-on-surface">{formatCurrency(estimatedClientFee)}</p>
+                  </div>
+                  <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Milestones</p>
+                    <p className="mt-1 text-2xl font-black text-on-surface">{milestoneCount}</p>
+                  </div>
                 </div>
 
-                <div className="border-t border-outline-variant/20 pt-8 mt-8 flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-30 bg-surface py-2 rounded-xl">
-                   <div className="shrink-0 mb-4 md:mb-0">
-                     <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">Total Verified Revenue Target</p>
-                     <p className="text-4xl font-black text-secondary tracking-tighter">{formatCurrency(sowData.totalAmount)}</p>
-                   </div>
-                   
-                   {!magicLinkUrl ? (
-                      <button 
-                         onClick={handleCreateMagicLink}
-                         disabled={isPending}
-                         className={`w-full md:w-auto flex justify-center items-center gap-2 px-8 py-4 rounded-xl font-bold font-headline text-sm tracking-widest uppercase transition-all duration-300 ${isPending ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80 shadow-none' : 'bg-primary text-on-primary shadow-[0_8px_20px_rgba(var(--color-primary),0.3)] hover:shadow-primary/50 hover:-translate-y-1'}`}
-                      >
-                       {isPending ? (
-                          <>
-                           <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
-                           <span>Generating Secure Link...</span>
-                          </>
-                       ) : "Generate Magic Link"}
-                      </button>
-                   ) : (
-                      <div className="w-full md:max-w-md bg-surface-container-low border-2 border-primary/40 rounded-xl p-4 shadow-lg shadow-primary/10 animate-in fade-in zoom-in duration-500">
-                         <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">Secure Link Deployed</p>
-                         <div className="flex items-center gap-2 bg-surface border border-outline-variant/50 rounded-lg p-2">
-                            <input 
-                              type="text" 
-                              readOnly 
-                              value={magicLinkUrl} 
-                              className="w-full bg-transparent border-none text-xs text-on-surface font-mono focus:outline-none px-2 truncate"
-                            />
-                            <button 
-                               onClick={handleCopy}
-                               className="bg-primary/10 hover:bg-primary/20 text-primary p-2 rounded-md transition-colors"
-                            >
-                               <span className="material-symbols-outlined text-sm">content_copy</span>
-                            </button>
-                         </div>
+                <div className="mt-5 rounded-lg border border-outline-variant/30 bg-surface-container-low/30 p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-primary">Executive Summary</p>
+                  <p className="mt-3 text-sm leading-7 text-on-surface-variant">{sowData.executiveSummary}</p>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {sowData.milestones.map((milestone, index) => {
+                    const deliverables = asList(milestone.deliverables);
+                    const checks = asList(milestone.acceptance_criteria);
+
+                    return (
+                      <article key={`${milestone.title}-${index}`} className="rounded-lg border border-outline-variant/35 bg-surface p-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="flex gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">
+                              {index + 1}
+                            </span>
+                            <div>
+                              <h3 className="text-base font-black text-on-surface">{milestone.title}</h3>
+                              {milestone.description && (
+                                <p className="mt-1 max-w-2xl text-sm leading-6 text-on-surface-variant">{milestone.description}</p>
+                              )}
+                              {milestone.estimated_duration_days && (
+                                <span className="mt-2 inline-flex items-center gap-1 rounded-md border border-outline-variant/30 bg-surface-container-low px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                  <span className="material-symbols-outlined text-[13px]">schedule</span>
+                                  {milestone.estimated_duration_days} days
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xl font-black text-on-surface">{formatCurrency(milestone.amount)}</p>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                          <div className="rounded-lg border border-outline-variant/25 bg-surface-container-low/40 p-3">
+                            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                              <span className="material-symbols-outlined text-[14px] text-primary">inventory_2</span>
+                              Deliverables
+                            </p>
+                            <div className="space-y-2">
+                              {(deliverables.length ? deliverables : ["Delivery artifact to be attached for review"]).slice(0, 5).map((item) => (
+                                <p key={item} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
+                                  <span className="material-symbols-outlined mt-0.5 text-[14px] text-primary">check_circle</span>
+                                  {item}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-outline-variant/25 bg-surface-container-low/40 p-3">
+                            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                              <span className="material-symbols-outlined text-[14px] text-secondary">fact_check</span>
+                              Acceptance checks
+                            </p>
+                            <div className="space-y-2">
+                              {(checks.length ? checks : ["Client can verify the milestone against attached evidence"]).slice(0, 5).map((item) => (
+                                <p key={item} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
+                                  <span className="material-symbols-outlined mt-0.5 text-[14px] text-secondary">verified</span>
+                                  {item}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="sticky bottom-0 mt-5 rounded-lg border border-primary/25 bg-surface/95 p-4 shadow-lg backdrop-blur">
+                  {!magicLinkUrl ? (
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-primary">Ready for client review</p>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          The invite will create a private project with the locked scope snapshot and milestone evidence terms.
+                        </p>
                       </div>
-                   )}
+                      <button
+                        type="button"
+                        onClick={handleCreateMagicLink}
+                        disabled={isPending}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-surface-variant disabled:text-on-surface-variant"
+                      >
+                        {isPending ? (
+                          <>
+                            <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+                            Creating Link
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[16px]">link</span>
+                            Create Invite Link
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-widest text-primary">Invite link ready</p>
+                        <input
+                          type="text"
+                          readOnly
+                          value={magicLinkUrl}
+                          className="mt-2 w-full min-w-0 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 font-mono text-xs text-on-surface outline-none lg:min-w-[520px]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopy}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-5 py-3 text-xs font-black uppercase tracking-widest text-primary transition hover:bg-primary/15"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                        Copy
+                      </button>
+                    </div>
+                  )}
                 </div>
-             </div>
-           ) : (
-             <div className="flex flex-col items-center justify-center h-full text-outline-variant/30 text-center select-none pt-12">
-                <span className="material-symbols-outlined text-[80px] mb-4">bolt</span>
-                <p className="mt-4 text-sm font-bold uppercase tracking-widest text-on-surface-variant/40">Start Your Private Project</p>
-             </div>
-           )}
-        </section>
-
+              </div>
+            ) : (
+              <div className="grid min-h-[560px] content-center gap-4 p-5 md:grid-cols-3">
+                {[
+                  ["1", "Triage", "Confirms this is outcome-based digital delivery before drafting."],
+                  ["2", "Milestones", "Builds realistic slices with deliverables and review checks."],
+                  ["3", "Invite", "Creates a private client link backed by escrow and evidence records."],
+                ].map(([step, title, body]) => (
+                  <div key={step} className="rounded-lg border border-outline-variant/35 bg-surface-container-low/35 p-4">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">{step}</span>
+                    <h3 className="mt-4 text-base font-black text-on-surface">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">{body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   );

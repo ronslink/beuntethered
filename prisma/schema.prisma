@@ -27,7 +27,7 @@ model Account {
 }
 
 model Bid {
-  id                     String    @id @default(cuid())
+  id                     String        @id @default(cuid())
   project_id             String
   developer_id           String
   proposed_amount        Decimal
@@ -38,18 +38,20 @@ model Bid {
   proposed_milestones    Json?
   ai_translation_summary String
   ai_score_card          Json?
-  status                 BidStatus @default(PENDING)
+  status                 BidStatus     @default(PENDING)
   last_action_by         Role?
   counter_amount         Decimal?
   counter_reason         String?
   counter_milestones     Json?
-  negotiation_rounds     Int       @default(0)
-  required_escrow_pct    Int       @default(100)  // Facilitator's escrow funding requirement (%)
-  counter_escrow_pct     Int?                      // Client's counter escrow requirement (%)
-  created_at             DateTime  @default(now())
-  updated_at             DateTime  @updatedAt
-  developer              User      @relation(fields: [developer_id], references: [id])
-  project                Project   @relation(fields: [project_id], references: [id])
+  negotiation_rounds     Int           @default(0)
+  required_escrow_pct    Int           @default(100) // Facilitator's escrow funding requirement (%)
+  counter_escrow_pct     Int? // Client's counter escrow requirement (%)
+  created_at             DateTime      @default(now())
+  updated_at             DateTime      @updatedAt
+  developer              User          @relation(fields: [developer_id], references: [id])
+  project                Project       @relation(fields: [project_id], references: [id])
+  activity_logs          ActivityLog[]
+  account_risk_signals   AccountRiskSignal[]
 }
 
 model ChangeOrder {
@@ -62,67 +64,80 @@ model ChangeOrder {
 }
 
 model Message {
-  id                String     @id @default(cuid())
+  id                String       @id @default(cuid())
   project_id        String
   milestone_id      String?
   sender_id         String?
   content           String
-  is_system_message Boolean    @default(false)
-  created_at        DateTime   @default(now())
-  milestone         Milestone? @relation(fields: [milestone_id], references: [id])
-  project           Project    @relation(fields: [project_id], references: [id])
-  sender            User?      @relation(fields: [sender_id], references: [id])
+  is_system_message Boolean      @default(false)
+  created_at        DateTime     @default(now())
+  milestone         Milestone?   @relation(fields: [milestone_id], references: [id])
+  project           Project      @relation(fields: [project_id], references: [id])
+  sender            User?        @relation(fields: [sender_id], references: [id])
+  attachments       Attachment[]
 }
 
 model Milestone {
-  id                       String          @id @default(cuid())
+  id                       String           @id @default(cuid())
   project_id               String
   facilitator_id           String?
   title                    String
   amount                   Decimal
-  status                   MilestoneStatus @default(PENDING)
+  status                   MilestoneStatus  @default(PENDING)
   stripe_payment_intent_id String?
   acceptance_criteria      String[]
   deliverables             String[]
   description              String?
   estimated_duration_days  Int?
-  paid_at                  DateTime?       // Set when status transitions to APPROVED_AND_PAID
+  paid_at                  DateTime? // Set when status transitions to APPROVED_AND_PAID
   messages                 Message[]
-  facilitator              User?           @relation(fields: [facilitator_id], references: [id])
-  project                  Project         @relation(fields: [project_id], references: [id])
+  facilitator              User?            @relation(fields: [facilitator_id], references: [id])
+  project                  Project          @relation(fields: [project_id], references: [id])
   squad_members            SquadMember[]
   live_preview_url         String?
   payload_storage_path     String?
   disputes                 Dispute[]
   timeline_events          TimelineEvent[]
+  attachments              Attachment[]
+  audits                   MilestoneAudit[]
+  payment_records          PaymentRecord[]
+  activity_logs            ActivityLog[]
 }
 
 model Project {
-  id                     String          @id @default(cuid())
-  creator_id             String
-  client_id              String?
-  title                  String
-  ai_generated_sow       String
-  is_byoc                Boolean         @default(false)
-  billing_type           BillingType     @default(FIXED_MILESTONE)
-  github_repo_url        String?
-  github_access_token    String?
-  invite_token           String?         @unique
-  status                 ProjectStatus   @default(DRAFT)
-  views                  Int             @default(0)
-  created_at             DateTime        @default(now())
-  active_bid_id          String?         // Exclusive negotiation lock
-  bidding_closes_at      DateTime?       // Bidding window deadline
-  bids                   Bid[]
-  change_orders          ChangeOrder[]
-  messages               Message[]
-  milestones             Milestone[]
-  client                 User?           @relation("Project_client_idToUser", fields: [client_id], references: [id])
-  creator                User            @relation("Project_creator_idToUser", fields: [creator_id], references: [id])
-  reviews                Review[]
-  squad_proposals        SquadProposal[]
-  disputes               Dispute[]
-  timeline_events        TimelineEvent[]
+  id                  String           @id @default(cuid())
+  creator_id          String
+  client_id           String?
+  organization_id     String?
+  title               String
+  ai_generated_sow    String
+  is_byoc             Boolean          @default(false)
+  billing_type        BillingType      @default(FIXED_MILESTONE)
+  github_repo_url     String?
+  github_access_token String?
+  invite_token        String?          @unique
+  status              ProjectStatus    @default(DRAFT)
+  views               Int              @default(0)
+  created_at          DateTime         @default(now())
+  active_bid_id       String? // Exclusive negotiation lock
+  bidding_closes_at   DateTime? // Bidding window deadline
+  bids                Bid[]
+  change_orders       ChangeOrder[]
+  messages            Message[]
+  milestones          Milestone[]
+  client              User?            @relation("Project_client_idToUser", fields: [client_id], references: [id])
+  creator             User             @relation("Project_creator_idToUser", fields: [creator_id], references: [id])
+  organization        Organization?    @relation(fields: [organization_id], references: [id])
+  reviews             Review[]
+  squad_proposals     SquadProposal[]
+  disputes            Dispute[]
+  timeline_events     TimelineEvent[]
+  attachments         Attachment[]
+  audits              MilestoneAudit[]
+  invites             ProjectInvite[]
+  activity_logs       ActivityLog[]
+  payment_records     PaymentRecord[]
+  account_risk_signals AccountRiskSignal[]
 }
 
 model Review {
@@ -177,10 +192,11 @@ model Dispute {
   status                 DisputeStatus @default(OPEN)
   created_at             DateTime      @default(now())
 
-  project     Project   @relation(fields: [project_id], references: [id])
-  milestone   Milestone @relation(fields: [milestone_id], references: [id])
-  client      User      @relation("Dispute_client_idToUser", fields: [client_id], references: [id])
-  facilitator User      @relation("Dispute_facilitator_idToUser", fields: [facilitator_id], references: [id])
+  project     Project      @relation(fields: [project_id], references: [id])
+  milestone   Milestone    @relation(fields: [milestone_id], references: [id])
+  client      User         @relation("Dispute_client_idToUser", fields: [client_id], references: [id])
+  facilitator User         @relation("Dispute_facilitator_idToUser", fields: [facilitator_id], references: [id])
+  attachments Attachment[]
 }
 
 model User {
@@ -211,49 +227,267 @@ model User {
   average_ai_audit_score  Float                        @default(0.0)
 
   // ── Onboarding ──────────────────────────────────
-  onboarding_complete     Boolean                      @default(false)
-  tos_accepted_at         DateTime?
-  tos_version             String?
+  onboarding_complete Boolean   @default(false)
+  tos_accepted_at     DateTime?
+  tos_version         String?
 
   // ── Address (shared) ────────────────────────────
-  address_line1           String?
-  address_city            String?
-  address_state           String?
-  address_zip             String?
-  address_country         String                       @default("US")
+  address_line1   String?
+  address_city    String?
+  address_state   String?
+  address_zip     String?
+  address_country String  @default("US")
 
   // ── Facilitator profile ──────────────────────────
-  bio                     String?
-  skills                  String[]                     @default([])
-  ai_agent_stack          String[]                     @default([])
-  portfolio_url           String?
-  availability            String?
-  years_experience        Int?
-  preferred_project_size  String?
+  bio                    String?
+  skills                 String[] @default([])
+  ai_agent_stack         String[] @default([])
+  portfolio_url          String?
+  availability           String?
+  years_experience       Int?
+  preferred_project_size String?
 
   // ── Client profile ───────────────────────────────
-  company_name            String?
-  company_type            String?
-  preferred_bid_type      String?
-  typical_project_budget  String?
+  company_name           String?
+  company_type           String?
+  preferred_bid_type     String?
+  typical_project_budget String?
 
-  accounts                Account[]
-  bids                    Bid[]
-  messages                Message[]
-  milestones              Milestone[]
-  client_projects         Project[]                    @relation("Project_client_idToUser")
-  created_projects        Project[]                    @relation("Project_creator_idToUser")
-  client_reviews          Review[]                     @relation("Review_client_idToUser")
-  reviews_received        Review[]                     @relation("Review_facilitator_idToUser")
-  client_disputes         Dispute[]                    @relation("Dispute_client_idToUser")
-  facilitator_disputes    Dispute[]                    @relation("Dispute_facilitator_idToUser")
-  sessions                Session[]
-  squad_members           SquadMember[]
+  accounts                 Account[]
+  bids                     Bid[]
+  messages                 Message[]
+  milestones               Milestone[]
+  organizations            OrganizationMember[]
+  owned_organizations      Organization[]       @relation("OrganizationOwner")
+  verifications            Verification[]
+  sent_project_invites     ProjectInvite[]      @relation("ProjectInviteInviter")
+  received_project_invites ProjectInvite[]      @relation("ProjectInviteFacilitator")
+  attachments              Attachment[]
+  activity_logs            ActivityLog[]
+  saved_searches           SavedSearch[]
+  notifications            Notification[]
+  payment_records          PaymentRecord[]
+  requested_audits         MilestoneAudit[]
+  client_projects          Project[]            @relation("Project_client_idToUser")
+  created_projects         Project[]            @relation("Project_creator_idToUser")
+  client_reviews           Review[]             @relation("Review_client_idToUser")
+  reviews_received         Review[]             @relation("Review_facilitator_idToUser")
+  client_disputes          Dispute[]            @relation("Dispute_client_idToUser")
+  facilitator_disputes     Dispute[]            @relation("Dispute_facilitator_idToUser")
+  sessions                 Session[]
+  squad_members            SquadMember[]
+  account_risk_signals     AccountRiskSignal[]
 
   // ─── Notification Preferences ───────────────────────
-  notify_payment_updates    Boolean @default(true)
-  notify_new_proposals      Boolean @default(false)
-  notify_milestone_reviews  Boolean @default(true)
+  notify_payment_updates   Boolean @default(true)
+  notify_new_proposals     Boolean @default(false)
+  notify_milestone_reviews Boolean @default(true)
+}
+
+model Organization {
+  id            String               @id @default(cuid())
+  owner_id      String
+  name          String
+  type          String?
+  website       String?
+  billing_email String?
+  created_at    DateTime             @default(now())
+  owner         User                 @relation("OrganizationOwner", fields: [owner_id], references: [id])
+  members       OrganizationMember[]
+  projects      Project[]
+}
+
+model OrganizationMember {
+  id              String           @id @default(cuid())
+  organization_id String
+  user_id         String
+  role            OrganizationRole @default(MEMBER)
+  created_at      DateTime         @default(now())
+  organization    Organization     @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([organization_id, user_id])
+}
+
+model Verification {
+  id          String             @id @default(cuid())
+  user_id     String
+  type        VerificationType
+  status      VerificationStatus @default(PENDING)
+  provider    String?
+  evidence    Json?
+  reviewed_at DateTime?
+  created_at  DateTime           @default(now())
+  updated_at  DateTime           @updatedAt
+  user        User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, type])
+}
+
+model ProjectInvite {
+  id             String              @id @default(cuid())
+  project_id     String
+  inviter_id     String
+  facilitator_id String
+  status         ProjectInviteStatus @default(SENT)
+  message        String?
+  viewed_at      DateTime?
+  responded_at   DateTime?
+  created_at     DateTime            @default(now())
+  project        Project             @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  inviter        User                @relation("ProjectInviteInviter", fields: [inviter_id], references: [id], onDelete: Cascade)
+  facilitator    User                @relation("ProjectInviteFacilitator", fields: [facilitator_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, facilitator_id])
+  @@index([facilitator_id, status])
+}
+
+model Attachment {
+  id           String            @id @default(cuid())
+  uploader_id  String
+  project_id   String?
+  milestone_id String?
+  message_id   String?
+  dispute_id   String?
+  audit_id     String?
+  name         String
+  url          String
+  content_type String?
+  size_bytes   Int?
+  purpose      AttachmentPurpose @default(GENERAL)
+  created_at   DateTime          @default(now())
+  uploader     User              @relation(fields: [uploader_id], references: [id])
+  project      Project?          @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  milestone    Milestone?        @relation(fields: [milestone_id], references: [id], onDelete: Cascade)
+  message      Message?          @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  dispute      Dispute?          @relation(fields: [dispute_id], references: [id], onDelete: Cascade)
+  audit        MilestoneAudit?   @relation(fields: [audit_id], references: [id], onDelete: Cascade)
+}
+
+model MilestoneAudit {
+  id              String       @id @default(cuid())
+  milestone_id    String
+  project_id      String
+  requested_by_id String?
+  provider        String       @default("openai")
+  model           String
+  score           Int
+  is_passing      Boolean
+  criteria_met    String[]     @default([])
+  criteria_missed String[]     @default([])
+  summary         String
+  raw_result      Json
+  created_at      DateTime     @default(now())
+  milestone       Milestone    @relation(fields: [milestone_id], references: [id], onDelete: Cascade)
+  project         Project      @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  requested_by    User?        @relation(fields: [requested_by_id], references: [id])
+  attachments     Attachment[]
+}
+
+model ActivityLog {
+  id           String         @id @default(cuid())
+  project_id   String
+  actor_id     String?
+  milestone_id String?
+  bid_id       String?
+  action       ActivityAction
+  entity_type  String
+  entity_id    String
+  metadata     Json?
+  created_at   DateTime       @default(now())
+  project      Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  actor        User?          @relation(fields: [actor_id], references: [id])
+  milestone    Milestone?     @relation(fields: [milestone_id], references: [id])
+  bid          Bid?           @relation(fields: [bid_id], references: [id])
+
+  @@index([project_id, created_at])
+}
+
+model AccountRiskSignal {
+  id              String               @id @default(cuid())
+  event_type      AccountRiskEventType
+  severity        AccountRiskSeverity  @default(INFO)
+  user_id         String
+  counterparty_id String?
+  project_id      String?
+  bid_id          String?
+  hashed_ip       String?
+  user_agent_hash String?
+  reason          String
+  metadata        Json?
+  created_at      DateTime             @default(now())
+  user            User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  project         Project?             @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  bid             Bid?                 @relation(fields: [bid_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, event_type, created_at])
+  @@index([project_id, event_type, created_at])
+  @@index([hashed_ip, created_at])
+}
+
+model SavedSearch {
+  id                     String         @id @default(cuid())
+  user_id                String
+  name                   String
+  filters                Json
+  alert_frequency        AlertFrequency @default(DAILY)
+  enabled                Boolean        @default(true)
+  last_alerted_at        DateTime?
+  last_alert_match_count Int            @default(0)
+  created_at             DateTime       @default(now())
+  updated_at             DateTime       @updatedAt
+  user            User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  user_id    String
+  message    String
+  type       NotificationType @default(INFO)
+  href       String?
+  read_at    DateTime?
+  source_key String?          @unique
+  metadata   Json?
+  created_at DateTime         @default(now())
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, read_at, created_at])
+}
+
+model RateLimitBucket {
+  key        String   @id
+  count      Int      @default(0)
+  reset_at   DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  @@index([reset_at])
+}
+
+model PaymentRecord {
+  id                         String        @id @default(cuid())
+  project_id                 String
+  milestone_id               String
+  client_id                  String
+  facilitator_id             String?
+  kind                       PaymentKind
+  status                     PaymentStatus @default(PENDING)
+  gross_amount_cents         Int
+  platform_fee_cents         Int
+  facilitator_payout_cents   Int
+  stripe_checkout_session_id String?
+  stripe_payment_intent_id   String?
+  stripe_transfer_id         String?
+  stripe_refund_id           String?
+  idempotency_key            String?       @unique
+  metadata                   Json?
+  created_at                 DateTime      @default(now())
+  updated_at                 DateTime      @updatedAt
+  project                    Project       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  milestone                  Milestone     @relation(fields: [milestone_id], references: [id], onDelete: Cascade)
+  client                     User          @relation(fields: [client_id], references: [id])
+
+  @@index([milestone_id, kind, status])
 }
 
 model VerificationToken {
@@ -359,4 +593,103 @@ enum DisputeStatus {
   OPEN
   RESOLVED_CLIENT
   RESOLVED_FACILITATOR
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum VerificationType {
+  IDENTITY
+  STRIPE
+  PORTFOLIO
+  BUSINESS
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ProjectInviteStatus {
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+}
+
+enum AttachmentPurpose {
+  GENERAL
+  MESSAGE
+  MILESTONE_SUBMISSION
+  AUDIT_EVIDENCE
+  DISPUTE_EVIDENCE
+}
+
+enum ActivityAction {
+  PROJECT_CREATED
+  PROJECT_POSTED
+  BID_SUBMITTED
+  BID_SHORTLISTED
+  NEGOTIATION_STARTED
+  BID_COUNTERED
+  BID_ACCEPTED
+  INVITE_SENT
+  INVITE_RESPONDED
+  MILESTONE_FUNDED
+  MILESTONE_SUBMITTED
+  AUDIT_COMPLETED
+  MILESTONE_APPROVED
+  PAYMENT_RELEASED
+  DISPUTE_OPENED
+  DISPUTE_RESOLVED
+  MESSAGE_SENT
+  SYSTEM_EVENT
+}
+
+enum AccountRiskEventType {
+  PROJECT_POSTED
+  DUPLICATE_SCOPE_REVIEW
+  BID_SUBMITTED
+  SELF_DEALING_REVIEW
+  AWARD_REVIEW
+}
+
+enum AccountRiskSeverity {
+  INFO
+  REVIEW
+  BLOCK
+}
+
+enum AlertFrequency {
+  DAILY
+  WEEKLY
+  NEVER
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  MILESTONE
+  MESSAGE
+  BID
+  ALERT
+}
+
+enum PaymentKind {
+  MILESTONE_FUNDING
+  ESCROW_RELEASE
+  REFUND
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
 }

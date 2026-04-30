@@ -2,7 +2,6 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypt
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
-const TAG_LENGTH = 16;
 const SALT_LENGTH = 32;
 
 // Derive a 32-byte key from the environment secret using scrypt
@@ -51,11 +50,11 @@ export function decrypt(encrypted: string, secret: string): string {
   const key = deriveKey(secret);
   const parts = Buffer.from(encrypted, "base64").toString("utf8").split(":");
 
-  if (parts.length !== 5) {
+  if (parts.length !== 4) {
     throw new Error("Invalid encrypted payload format");
   }
 
-  const [_salt, ivB64, tagB64, ciphertextB64] = parts.slice(-4);
+  const [, ivB64, tagB64, ciphertextB64] = parts;
   const iv = Buffer.from(ivB64, "base64");
   const tag = Buffer.from(tagB64, "base64");
   const ciphertext = ciphertextB64; // already base64 from the combined string
@@ -89,7 +88,6 @@ export async function verifyPassword(
 
 const API_KEY_ALGORITHM = "aes-256-gcm";
 const API_KEY_IV_LENGTH = 16;
-const API_KEY_TAG_LENGTH = 16;
 
 function getMasterKey(): Buffer | null {
   const key = process.env.ENCRYPTION_MASTER_KEY;
@@ -131,6 +129,9 @@ export function encryptApiKey(plaintext: string): string {
  */
 export function decryptApiKey(encrypted: string): string {
   const key = getMasterKey();
+  if (!key) {
+    throw new Error("ENCRYPTION_MASTER_KEY environment variable is not set");
+  }
   const parts = Buffer.from(encrypted, "base64").toString("utf8").split(":");
 
   if (parts.length !== 3) {

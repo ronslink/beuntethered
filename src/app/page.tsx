@@ -1,321 +1,176 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
 import PublicNavbar from "@/components/layout/PublicNavbar";
-import InteractiveDemo from "@/components/marketing/InteractiveDemo";
-import TestimonialGrid from "@/components/marketing/TestimonialGrid";
-import FAQAccordion from "@/components/marketing/FAQAccordion";
-
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Untether — AI-Native Freelance Marketplace with Escrow Protection",
+  title: "Untether - Verified Software Delivery Marketplace",
   description:
-    "Post projects, get AI-generated scopes, and hire vetted facilitators who orchestrate AI agents and human expertise. Milestone-based Stripe Escrow. 0% facilitator fees.",
-  openGraph: {
-    title: "Untether — AI-Native Freelance Marketplace with Escrow Protection",
-    description:
-      "Stop paying for hours. Start paying for verifiable software. AI scopes, Stripe escrow, 0% facilitator fees.",
-    type: "website",
-  },
+    "Hire human-led, AI-assisted software facilitators for milestone-based delivery, escrow protection, and audit-backed acceptance.",
 };
 
-/* ─── Data ─────────────────────────────────────────────────────────────────── */
-
-const CONTRAST_ROWS = [
-  { old: "Vague job posts nobody reads", now: "AI-generated Statements of Work" },
-  { old: "Hourly tracking spyware", now: "Fixed-price milestone escrow" },
-  { old: "Blindly paying for unverified code", now: "AI Code Audits verify Acceptance Criteria" },
-  { old: "20% platform fees on talent", now: "0% facilitator fees — they keep every dollar" },
-  { old: "IP hostage situations", now: "Atomic Code Swaps — code unlocks on payment" },
+const outcomes = [
+  "AI-assisted scope, milestone budget, and acceptance criteria before work begins",
+  "Human facilitators stay accountable for delivery quality, communication, and handoff",
+  "Milestone escrow with 8% client fee, 0% facilitator fee, and visible payout math",
+  "Durable delivery audits tied to evidence, demos, attachments, and activity logs",
 ];
 
-const STATS = [
-  { label: "Facilitator Fee", value: "0%", sub: "They keep everything" },
-  { label: "Client Premium", value: "8%", sub: "Escrow orchestration" },
-  { label: "Payout Speed", value: "Instant", sub: "On milestone approval" },
+const steps = [
+  { title: "Scope", body: "Turn a rough business need into a structured software brief, milestones, budget, and acceptance criteria." },
+  { title: "Match", body: "Invite vetted facilitators or post to the marketplace for proposals with timeline, escrow, and risk signals." },
+  { title: "Verify", body: "Review submitted work with audit evidence before approving escrow release and IP transfer." },
 ];
 
-const TRUST_BADGES = [
-  { icon: "lock", text: "Stripe-secured escrow" },
-  { icon: "verified_user", text: "Identity-verified facilitators" },
-  { icon: "gavel", text: "Autonomous AI code audits" },
-  { icon: "shield", text: "AES-256 encrypted credentials" },
+const metrics = [
+  { label: "Facilitator fee", value: "0%", body: "Talent keeps the rate they quote." },
+  { label: "Client fee", value: "8%", body: "Applied to marketplace milestones." },
+  { label: "BYOC fee", value: "5%", body: "For facilitator-sourced clients." },
 ];
 
-/* ─── Page ─────────────────────────────────────────────────────────────────── */
+const trustRows = [
+  ["Scope", "Acceptance criteria, milestones, budget, and risk flags generated before posting."],
+  ["Escrow", "Client total, platform fee, and facilitator payout shown before checkout."],
+  ["Audit", "Delivery report records confidence, criteria met, criteria missed, and artifacts."],
+  ["Release", "Funds release only after review, approval, and evidence-backed handoff."],
+];
 
 export default function LandingPage() {
   return (
-    <div className={`${mono.variable} min-h-screen bg-background text-on-surface overflow-hidden`}>
-
-      {/* ─── NAV ────────────────────────────────────────────────────────────── */}
+    <div className="min-h-screen bg-background text-on-surface">
       <PublicNavbar />
 
-      {/* ─── HERO ───────────────────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-24 md:pt-44 md:pb-32 px-4">
-        {/* Ambient glows */}
-        <div className="absolute top-[-15%] left-[-10%] w-[700px] h-[700px] bg-primary/8 blur-[160px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] bg-secondary/6 blur-[130px] rounded-full pointer-events-none" />
-
-        <div className="max-w-5xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-primary" style={{ fontFamily: "var(--font-mono, monospace)" }}>AI-Native Escrow Marketplace</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black font-headline tracking-tighter leading-[0.95] mb-6">
-            Stop paying for hours.
-            <br />
-            <span className="bg-gradient-to-r from-primary via-[#7c3aed] to-secondary bg-[length:200%_auto] bg-clip-text text-transparent tracking-[-0.03em]">
-              Start paying for verified software.
-            </span>
-          </h1>
-
-          <p className="text-base sm:text-lg text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed">
-            Tomorrow&apos;s software is built collaboratively. On Untether, both clients and facilitators work alongside autonomous AI agents to perfectly scope, build, and objectively verify every milestone before escrow releases.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/register?role=CLIENT"
-              className="px-8 py-4 bg-on-surface text-surface font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.4)] hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-2.5 dark:bg-white dark:text-[#0a0e18]"
-            >
-              <span className="material-symbols-outlined text-[16px]">psychology</span>
-              Get Started Free — I&apos;m a Client
-            </Link>
-            <Link
-              href="/register?role=FACILITATOR"
-              className="px-8 py-4 border-2 border-outline-variant/30 text-on-surface font-black uppercase tracking-widest text-xs rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center gap-2.5"
-            >
-              <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-              Apply as Facilitator — I Build Software
-            </Link>
-          </div>
-
-          {/* Social proof pills */}
-          <div className="mt-10 flex flex-col items-center gap-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Trusted by teams building in</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {["Fintech", "Healthtech", "SaaS", "AI Infrastructure", "Web3"].map((tag) => (
-                <span key={tag} className="px-3 py-1 rounded-full border border-outline-variant/30 text-on-surface-variant text-[10px] font-bold">{tag}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── CONTRAST GRID (Enemy vs. Solution) ─────────────────────────────── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="absolute inset-0 bg-surface-container-low/30" />
-        <div className="max-w-5xl mx-auto relative z-10">
-          <div className="text-center mb-14">
-            <p className="text-[10px] font-black uppercase tracking-widest text-secondary mb-3">Why switch?</p>
-            <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
-              The old way is{" "}
-              <span className="line-through opacity-40">broken</span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Old Way */}
-            <div className="bg-surface/40 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-outline-variant/30 to-transparent" />
-              <div className="flex items-center gap-2.5 mb-6">
-                <span className="material-symbols-outlined text-outline-variant text-xl">block</span>
-                <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant">The Old Way</h3>
+      <main>
+        <section className="px-4 pt-24 md:pt-28 border-b border-outline-variant/30">
+          <div className="max-w-7xl mx-auto min-h-[calc(100vh-7rem)] grid content-between gap-10">
+            <div className="pt-8 md:pt-16 max-w-5xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-primary mb-6">
+                <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                Verified software delivery
               </div>
-              <ul className="space-y-4">
-                {CONTRAST_ROWS.map((row, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-outline-variant text-[16px] mt-0.5 shrink-0">close</span>
-                    <span className="text-on-surface-variant line-through opacity-60 text-sm">{row.old}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Untether Way */}
-            <div className="bg-surface/40 backdrop-blur-xl border border-primary/20 rounded-2xl p-8 relative overflow-hidden shadow-[0_0_40px_rgba(var(--color-primary),0.05)]">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary" />
-              <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 blur-3xl rounded-full pointer-events-none" />
-              <div className="flex items-center gap-2.5 mb-6 relative z-10">
-                <span className="material-symbols-outlined text-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                <h3 className="text-xs font-black uppercase tracking-widest text-primary">The Untether Way</h3>
-              </div>
-              <ul className="space-y-4 relative z-10">
-                {CONTRAST_ROWS.map((row, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-primary text-[16px] mt-0.5 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    <span className="text-on-surface font-medium text-sm">{row.now}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── INTERACTIVE HOW IT WORKS ───────────────────────────────────────── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-[10px] font-black uppercase tracking-widest text-tertiary mb-3">How it works</p>
-            <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
-              From idea to{" "}
-              <span className="bg-gradient-to-r from-tertiary to-primary bg-clip-text text-transparent">verified delivery</span>
-            </h2>
-          </div>
-          <InteractiveDemo />
-        </div>
-      </section>
-
-      {/* ─── TALENT-FIRST DECLARATION ───────────────────────────────────────── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="absolute inset-0 bg-surface-container-low/30" />
-        <div className="absolute top-[20%] left-[30%] w-[600px] h-[400px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none" />
-
-        <div className="max-w-5xl mx-auto relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-secondary mb-4">For Facilitators</p>
-              <h2 className="text-4xl md:text-5xl font-black font-headline tracking-tighter leading-[0.95] mb-6">
-                We take 0%.
-                <br />
-                <span className="text-on-surface-variant">You keep your rate.</span>
-              </h2>
-              <p className="text-on-surface-variant leading-relaxed mb-8">
-                We don&apos;t tax your expertise. Clients pay an 8% Escrow Orchestration premium
-                so you can focus on delivering elite outcomes — with AI agents as your force multiplier.
-                No scope creep. No invoice chasing. No surprises.
+              <h1 className="text-4xl md:text-7xl font-black font-headline tracking-tight leading-[0.95] max-w-5xl">
+                Hire human-led software facilitators, accelerated by AI.
+              </h1>
+              <p className="mt-6 text-lg text-on-surface-variant leading-relaxed max-w-2xl">
+                Untether is not hourly staffing or pure AI labor. SMB teams scope outcomes, compare verified facilitators, fund escrow, review audit-backed evidence, and release payment when software milestones are accepted.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/register?role=FACILITATOR"
-                  className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-on-surface text-surface font-black uppercase tracking-widest text-xs rounded-xl hover:-translate-y-0.5 transition-all shadow-lg active:scale-95 dark:bg-white dark:text-[#0a0e18]"
-                >
-                  Join as a Facilitator
+              <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                <Link href="/register?role=CLIENT" className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-black uppercase tracking-widest text-on-primary shadow-sm">
+                  Post a Project
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </Link>
-                <Link
-                  href="/build"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 border border-outline-variant/30 text-on-surface-variant font-bold text-xs rounded-xl hover:border-primary/40 hover:text-on-surface transition-all"
-                >
-                  Learn more
+                <Link href="/talent" className="inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant/50 bg-surface px-6 py-3 text-sm font-bold text-on-surface hover:border-primary/50">
+                  Browse Facilitators
                 </Link>
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {STATS.map((stat, i) => (
-                <div key={i} className="bg-surface/50 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-6 text-center hover:border-primary/30 transition-colors">
-                  <p className="text-3xl font-black text-primary tracking-tighter mb-1" style={{ fontFamily: "var(--font-mono, monospace)" }}>{stat.value}</p>
-                  <p className="text-xs font-black uppercase tracking-widest text-on-surface mb-0.5">{stat.label}</p>
-                  <p className="text-[10px] text-on-surface-variant">{stat.sub}</p>
+            <div className="pb-6">
+              <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="overflow-hidden rounded-lg border border-outline-variant/30 bg-surface shadow-xl shadow-black/5">
+                  <div className="flex items-center justify-between border-b border-outline-variant/20 px-5 py-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Live delivery control</p>
+                      <h2 className="text-lg font-black">Customer Portal MVP</h2>
+                    </div>
+                    <span className="rounded-md bg-tertiary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-tertiary border border-tertiary/20">Audit passed</span>
+                  </div>
+                  <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-outline-variant/15">
+                    {trustRows.map(([label, body]) => (
+                      <div key={label} className="p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">{label}</p>
+                        <p className="mt-3 text-sm font-semibold leading-relaxed text-on-surface">{body}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid md:grid-cols-4 border-t border-outline-variant/20 bg-surface-container-low">
+                    {["Escrow funded", "Preview submitted", "Audit report", "Client approval"].map((item, index) => (
+                      <div key={item} className="flex items-center gap-3 px-5 py-4">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center ${index < 3 ? "bg-primary/10 text-primary" : "bg-surface-container text-on-surface-variant"}`}>
+                          <span className="material-symbols-outlined text-[15px]">{index < 3 ? "check" : "lock"}</span>
+                        </div>
+                        <span className="text-sm font-bold">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-outline-variant/30 bg-surface p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Payment clarity</p>
+                  <div className="mt-4 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-on-surface-variant">Milestone amount</span>
+                      <span className="font-black">$10,000</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-on-surface-variant">Client fee at 8%</span>
+                      <span className="font-black">$800</span>
+                    </div>
+                    <div className="flex justify-between border-t border-outline-variant/20 pt-3 text-sm">
+                      <span className="text-on-surface-variant">Facilitator payout</span>
+                      <span className="font-black text-tertiary">$10,000</span>
+                    </div>
+                  </div>
+                  <div className="mt-5 rounded-lg border border-tertiary/20 bg-tertiary/10 px-4 py-3 text-xs font-bold text-tertiary">
+                    Human-led delivery. 0% facilitator fee. No hourly ambiguity.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 py-16">
+          <div className="max-w-7xl mx-auto grid lg:grid-cols-[0.8fr_1.2fr] gap-10">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-primary">Why teams switch</p>
+              <h2 className="mt-3 text-3xl font-black font-headline tracking-tight">Less staffing theater. More accountable delivery evidence.</h2>
+              <p className="mt-4 text-on-surface-variant leading-relaxed">
+                Upwork-style hiring optimizes for access. Untether optimizes for human-led, AI-assisted software outcomes: scope, escrow, audit, and handoff.
+              </p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              {outcomes.map((item) => (
+                <div key={item} className="rounded-xl border border-outline-variant/30 bg-surface p-5">
+                  <span className="material-symbols-outlined text-primary text-[20px]">task_alt</span>
+                  <p className="mt-3 text-sm font-semibold leading-relaxed">{item}</p>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ─── TESTIMONIALS ───────────────────────────────────────────────────── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-[10px] font-black uppercase tracking-widest text-secondary mb-3">Social proof</p>
-            <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
-              What our users are <span className="text-primary">saying</span>
-            </h2>
+        <section className="px-4 py-16 bg-surface-container-low border-y border-outline-variant/30">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-widest text-primary">Workflow</p>
+                <h2 className="mt-3 text-3xl font-black font-headline tracking-tight">From idea to verified milestone.</h2>
+              </div>
+              <Link href="/pricing" className="text-sm font-bold text-primary">See pricing</Link>
+            </div>
+            <div className="grid md:grid-cols-3 gap-4">
+              {steps.map((step, index) => (
+                <div key={step.title} className="rounded-xl border border-outline-variant/30 bg-surface p-6">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">0{index + 1}</p>
+                  <h3 className="mt-4 text-xl font-black">{step.title}</h3>
+                  <p className="mt-3 text-sm text-on-surface-variant leading-relaxed">{step.body}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <TestimonialGrid />
-        </div>
-      </section>
+        </section>
 
-      {/* ─── TRUST ARCHITECTURE ─────────────────────────────────────────────── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="absolute inset-0 bg-surface-container-low/30" />
-        <div className="max-w-4xl mx-auto relative z-10">
-          <div className="text-center mb-10">
-            <p className="text-[10px] font-black uppercase tracking-widest text-tertiary mb-3">Security</p>
-            <h2 className="text-2xl md:text-3xl font-black font-headline tracking-tighter">
-              Built on trust, secured by Stripe
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14">
-            {TRUST_BADGES.map((b, i) => (
-              <div key={i} className="bg-surface/50 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-5 flex flex-col items-center gap-3 text-center hover:border-primary/20 transition-colors">
-                <span className="material-symbols-outlined text-primary text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>{b.icon}</span>
-                <p className="text-[10px] font-bold text-on-surface-variant leading-snug">{b.text}</p>
+        <section className="px-4 py-16">
+          <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-4">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="rounded-xl border border-outline-variant/30 bg-surface p-6">
+                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{metric.label}</p>
+                <p className="mt-3 text-4xl font-black text-primary">{metric.value}</p>
+                <p className="mt-2 text-sm text-on-surface-variant">{metric.body}</p>
               </div>
             ))}
           </div>
-
-          {/* FAQ */}
-          <div className="text-center mb-10">
-            <p className="text-[10px] font-black uppercase tracking-widest text-tertiary mb-3">FAQ</p>
-            <h2 className="text-2xl md:text-3xl font-black font-headline tracking-tighter">
-              Frequently asked questions
-            </h2>
-          </div>
-          <FAQAccordion />
-        </div>
-      </section>
-
-      {/* ─── FINAL CTA ──────────────────────────────────────────────────────── */}
-      <section className="relative py-24 md:py-32 px-4 text-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/3 to-transparent pointer-events-none" />
-        <div className="max-w-2xl mx-auto relative z-10">
-          <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter mb-5">
-            Ready to build software{" "}
-            <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">the right way?</span>
-          </h2>
-          <p className="text-on-surface-variant mb-8">
-            Join the marketplace where AI writes the scope, agents build alongside facilitators, and Stripe locks the escrow.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/hire"
-              className="px-8 py-4 bg-primary text-on-primary font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_20px_40px_rgba(var(--color-primary),0.3)] hover:-translate-y-1 transition-all active:scale-95 flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[16px]">psychology</span>
-              I&apos;m Hiring
-            </Link>
-            <Link
-              href="/build"
-              className="px-8 py-4 border-2 border-outline-variant/30 text-on-surface font-black uppercase tracking-widest text-xs rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-              I&apos;m Building
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── FOOTER ─────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-outline-variant/15 py-10 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>all_inclusive</span>
-            </div>
-            <span className="font-black font-headline text-xs tracking-tight text-on-surface">Untether</span>
-            <span className="text-[10px] text-on-surface-variant ml-1">© {new Date().getFullYear()}</span>
-          </div>
-          <div className="flex items-center gap-6 text-xs text-on-surface-variant">
-            <Link href="/hire" className="hover:text-on-surface transition-colors">For Clients</Link>
-            <Link href="/build" className="hover:text-on-surface transition-colors">For Facilitators</Link>
-            <Link href="/pricing" className="hover:text-on-surface transition-colors">Pricing</Link>
-            <Link href="/terms" className="hover:text-on-surface transition-colors">Terms</Link>
-            <Link href="/privacy" className="hover:text-on-surface transition-colors">Privacy</Link>
-          </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
-            <span className="material-symbols-outlined text-[14px]">lock</span>
-            Payments secured by Stripe
-          </div>
-        </div>
-      </footer>
+        </section>
+      </main>
     </div>
   );
 }

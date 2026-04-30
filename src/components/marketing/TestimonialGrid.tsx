@@ -28,7 +28,7 @@ const TESTIMONIALS = [
     role: "AI/ML Facilitator",
     type: "CLIENT" as const,
     quote:
-      "Clients can actually see my AI agent stack — Cursor, Claude, custom pipelines. On other platforms I had to hide my AI usage. Here it's my competitive edge.",
+      "Clients can actually see my AI tool stack: Cursor, Claude, and custom review pipelines. On other platforms I had to hide my AI usage. Here it's part of how I prove delivery quality.",
     metric: "5× more bids accepted",
   },
   {
@@ -36,7 +36,7 @@ const TESTIMONIALS = [
     role: "VP Engineering, Meridian",
     type: "CLIENT" as const,
     quote:
-      "We've posted 8 projects so far. The AI-generated SOWs are better than what our internal PMs produce. Facilitator matching is eerily accurate.",
+      "We've posted 8 projects so far. The AI-assisted SOW drafts give our team a strong starting point, and facilitator matching is impressively accurate.",
     metric: "8 projects shipped",
   },
   {

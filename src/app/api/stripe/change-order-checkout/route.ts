@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123", {
-  apiVersion: "2023-10-16" as any,
-});
+import { isPaymentConfigurationError } from "@/lib/stripe";
+import { userCanManageBuyerProject } from "@/lib/project-access";
+import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
+import { paymentError } from "@/lib/payment-route";
+import { createChangeOrderCheckoutSession } from "@/lib/change-order-checkout";
+import { changeOrderCheckoutInputSchema } from "@/lib/validators";
 
 /**
  * POST /api/stripe/change-order-checkout
@@ -18,78 +19,62 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     if (!user || user.role !== "CLIENT") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return paymentError({ error: "Only client accounts can approve change orders.", code: "UNAUTHORIZED", status: 401 });
     }
 
-    const { changeOrderId } = await req.json();
-    if (!changeOrderId) {
-      return NextResponse.json(
-        { error: "changeOrderId is required" },
-        { status: 400 }
-      );
+    const parsed = changeOrderCheckoutInputSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return paymentError({ error: "Change order ID is required.", code: "INVALID_PAYMENT_REQUEST", status: 400 });
     }
 
     const order = await prisma.changeOrder.findUnique({
-      where: { id: changeOrderId },
+      where: { id: parsed.data.changeOrderId },
       include: { project: true },
     });
 
     if (!order) {
-      return NextResponse.json({ error: "Change Order not found" }, { status: 404 });
+      return paymentError({ error: "Change order not found.", code: "CHANGE_ORDER_NOT_FOUND", status: 404 });
     }
 
-    if (order.project.client_id !== user.id) {
-      return NextResponse.json({ error: "Unauthorized — not your project" }, { status: 403 });
+    const canApproveOrder = await userCanManageBuyerProject(order.project_id, user.id);
+    if (!canApproveOrder) {
+      return paymentError({ error: "You need buyer admin access to approve this change order.", code: "PAYMENT_ACCESS_DENIED", status: 403 });
     }
 
-    if (order.status !== "PROPOSED") {
-      return NextResponse.json(
-        { error: "Change Order is not in a fundable state" },
-        { status: 400 }
-      );
-    }
-
-    const unitAmount = Math.round(Number(order.added_cost) * 100);
-    if (unitAmount <= 0) {
-      return NextResponse.json(
-        { error: "Change Order cost must be greater than zero" },
-        { status: 400 }
-      );
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `Scope Expansion: ${order.project.title}`,
-              description: order.description,
-            },
-            unit_amount: unitAmount,
-          },
-          quantity: 1,
-        },
-      ],
-      payment_intent_data: {
-        metadata: {
-          change_order_id: order.id,
-          project_id: order.project_id,
-        },
-      },
-      metadata: {
-        change_order_id: order.id,
-        project_id: order.project_id,
-      },
-      success_url: `${process.env.NEXTAUTH_URL}/command-center/${order.project_id}`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/command-center/${order.project_id}`,
+    await assertDurableRateLimit({
+      key: rateLimitKey("change-order.checkout", user.id),
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
     });
 
-    return NextResponse.json({ url: session.url });
+    const checkout = await createChangeOrderCheckoutSession(order);
+    if (!checkout.ok) {
+      return paymentError(checkout);
+    }
+    if (!checkout.checkoutUrl) {
+      return paymentError({
+        error: "Unable to create change order checkout.",
+        code: "PAYMENT_OPERATION_FAILED",
+        status: 500,
+      });
+    }
+
+    return NextResponse.json({ url: checkout.checkoutUrl });
   } catch (error: any) {
+    if (isRateLimitError(error)) {
+      return NextResponse.json(
+        { error: error.message, code: error.code, retryAfterSeconds: error.retryAfterSeconds },
+        { status: 429 }
+      );
+    }
+    if (isPaymentConfigurationError(error)) {
+      return paymentError({ error: error.message, code: error.code, status: 503 });
+    }
     console.error("[change-order-checkout] Fault:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return paymentError({
+      error: "Unable to create change order checkout.",
+      code: "PAYMENT_OPERATION_FAILED",
+      status: 500,
+    });
   }
 }

@@ -20,20 +20,20 @@ export default function ListingControlArray({
   const [loadingEdit, setLoadingEdit] = useState(false);
 
   const handleCancel = async () => {
-     if (!confirm("WARNING: Archiving this listing will permanently remove it from the Marketplace and instantly sever all Developer proposals. This action cannot be reversed. Proceed?")) return;
+     if (!confirm("Archiving this listing removes it from the marketplace and closes current facilitator proposals. This cannot be undone. Continue?")) return;
      
      setLoadingCancel(true);
      try {
         const res = await cancelOpenListing(projectId);
         if (res.success) {
-           alert("Listing Archived. It has been securely removed from the Marketplace.");
+           alert("Listing archived. It has been removed from the marketplace.");
            router.refresh();
            router.push("/dashboard");
         } else {
            alert("Failed to cancel listing: " + res.error);
         }
-     } catch (e: any) {
-        alert("Network fault attempting to terminate Escrow bounds.");
+     } catch {
+        alert("Network error while archiving the listing.");
      }
      setLoadingCancel(false);
   };
@@ -44,7 +44,7 @@ export default function ListingControlArray({
         return;
      }
 
-     if (!confirm("WARNING: Modifying the Scope of Work (SOW) fundamentally changes the contract parameters. To protect developers, executing this action will instantly DELETE all currently submitted bids. Are you sure you want to alter the scope?")) return;
+     if (!confirm("Editing the Scope of Work changes the posted contract and clears current bids so facilitators can rebid against the new terms. Continue?")) return;
 
      setLoadingEdit(true);
      try {
@@ -55,8 +55,8 @@ export default function ListingControlArray({
         } else {
            alert("Failed to edit scope: " + res.error);
         }
-     } catch (e: any) {
-        alert("Network fault attempting to execute SOW replacement.");
+     } catch {
+        alert("Network error while saving the updated SOW.");
      }
      setLoadingEdit(false);
   };
@@ -66,9 +66,9 @@ export default function ListingControlArray({
         <div className="bg-surface/50 backdrop-blur-2xl border border-secondary/40 rounded-3xl p-8 shadow-[0_0_20px_rgba(var(--color-secondary),0.1)] relative overflow-hidden mb-12">
             <h3 className="text-xl font-bold font-headline mb-4 flex items-center gap-2 text-on-surface">
                  <span className="material-symbols-outlined text-secondary">edit_document</span>
-                 Warning: Editing Contract Scope
+                 Editing Contract Scope
             </h3>
-            <p className="text-sm font-medium text-secondary mb-4 p-4 bg-secondary/10 border border-secondary/20 rounded-xl">Altering these base metrics will securely purge all pre-existing bids to ensure complete Escrow safety.</p>
+            <p className="text-sm font-medium text-secondary mb-4 p-4 bg-secondary/10 border border-secondary/20 rounded-xl">Updating this scope will clear existing bids so facilitators can review and bid on the revised terms.</p>
             
             <textarea 
                className="w-full bg-surface-container-low text-sm font-medium text-on-surface p-6 rounded-2xl border border-outline-variant/30 min-h-[300px] mb-6 focus:ring-2 focus:ring-secondary focus:border-transparent outline-none custom-scrollbar"
@@ -89,7 +89,7 @@ export default function ListingControlArray({
                   disabled={loadingEdit || sowDraft.trim() === ""}
                   className={`bg-secondary text-secondary-container-on px-8 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-secondary/20 transition-all ${loadingEdit ? 'opacity-50' : 'hover:-translate-y-0.5'}`}
                >
-                  {loadingEdit ? "Securing Limits..." : "Commit SOW Edit"}
+                  {loadingEdit ? "Saving..." : "Save SOW"}
                </button>
             </div>
         </div>
@@ -113,7 +113,7 @@ export default function ListingControlArray({
                 className={`flex-1 md:flex-none border border-error/30 text-error hover:bg-error hover:text-error-container-on px-5 py-2 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 bg-error/5 ${loadingCancel ? 'opacity-50' : ''}`}
             >
                <span className="material-symbols-outlined text-[14px]">delete_forever</span> 
-               {loadingCancel ? "Pulling..." : "Archive Listing"}
+               {loadingCancel ? "Archiving..." : "Archive Listing"}
             </button>
         </div>
     </div>

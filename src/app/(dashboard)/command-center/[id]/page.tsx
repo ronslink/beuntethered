@@ -10,6 +10,10 @@ import PostProjectReviewClient from "@/components/dashboard/command-center/PostP
 import OpenDisputeButton from "@/components/dashboard/command-center/OpenDisputeButton";
 import CommitSyncTimeline from "@/components/dashboard/command-center/CommitSyncTimeline";
 import ChangeOrderPanel from "@/components/dashboard/command-center/ChangeOrderPanel";
+import ProjectActivityLedger from "@/components/dashboard/ProjectActivityLedger";
+import { getMilestoneReadiness } from "@/lib/milestone-readiness";
+import { getMilestoneProofPlan } from "@/lib/milestone-proof";
+import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 
 export default async function ProjectCommandCenter({
   params,
@@ -28,19 +32,50 @@ export default async function ProjectCommandCenter({
     where: { id },
     include: {
       client: true,
+      organization: {
+        select: {
+          members: {
+            where: { user_id: user.id },
+            select: { role: true },
+          },
+        },
+      },
       milestones: {
         orderBy: { id: "asc" },
-        include: { facilitator: true },
+        include: {
+          facilitator: true,
+          audits: { orderBy: { created_at: "desc" }, include: { attachments: true } },
+          attachments: { orderBy: { created_at: "desc" } },
+          payment_records: { orderBy: { created_at: "desc" } },
+          activity_logs: { orderBy: { created_at: "desc" }, take: 8 },
+        },
       },
       bids: { include: { developer: true } },
       timeline_events: { orderBy: { timestamp: "desc" } },
+      activity_logs: {
+        orderBy: { created_at: "desc" },
+        take: 12,
+        include: { actor: { select: { name: true, email: true, role: true } } },
+      },
+      disputes: {
+        orderBy: { created_at: "desc" },
+        include: {
+          milestone: { select: { id: true, title: true, status: true } },
+          client: { select: { id: true, name: true, email: true } },
+          facilitator: { select: { id: true, name: true, email: true } },
+          attachments: { orderBy: { created_at: "desc" } },
+        },
+      },
       change_orders: { orderBy: { added_cost: "desc" } },
     },
   });
 
   if (!project) notFound();
 
-  const isClient = user.role === "CLIENT" && project.client_id === user.id;
+  const isClientOwner = user.role === "CLIENT" && project.client_id === user.id;
+  const isClient =
+    user.role === "CLIENT" &&
+    (isClientOwner || project.creator_id === user.id || (project.organization?.members.length ?? 0) > 0);
   const isFacilitator =
     user.role === "FACILITATOR" &&
     project.milestones.some((m) => m.facilitator_id === user.id);
@@ -64,11 +99,49 @@ export default async function ProjectCommandCenter({
   const isHubLocked = isRetainer && !project.github_repo_url;
   const isCompleted = project.status === "COMPLETED";
   const totalValue = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
+  const integrationProject = {
+    id: project.id,
+    title: project.title,
+    status: project.status,
+    billing_type: project.billing_type,
+    is_byoc: project.is_byoc,
+    github_repo_url: project.github_repo_url,
+    has_github_token: !!project.github_access_token,
+  };
+  const timelineEvents = project.timeline_events.map((event) => ({
+    id: event.id,
+    type: event.type,
+    timestamp: event.timestamp.toISOString(),
+    description: event.description,
+    status: event.status,
+    author: event.author,
+    commitHash: event.commitHash,
+  }));
+  const changeOrders = project.change_orders.map((order) => ({
+    id: order.id,
+    description: order.description,
+    added_cost: Number(order.added_cost),
+    status: order.status,
+  }));
+  const disputeCases = project.disputes.map((dispute) => ({
+    id: dispute.id,
+    status: dispute.status,
+    reason: dispute.reason,
+    createdAt: dispute.created_at,
+    milestone: dispute.milestone,
+    clientName: dispute.client.name || dispute.client.email,
+    facilitatorName: dispute.facilitator.name || dispute.facilitator.email,
+    openedByRole: dispute.reason.startsWith("[CODE DOES NOT RUN]")
+      ? "Evidence issue"
+      : "Dispute case",
+    aiReport: dispute.ai_fact_finding_report,
+    attachmentCount: dispute.attachments.length,
+  }));
 
   let hasReviewed = false;
   let primaryFacilitator: any = null;
 
-  if (isCompleted && isClient) {
+  if (isCompleted && isClientOwner) {
     const fnMilestone = project.milestones.find((m) => m.facilitator);
     primaryFacilitator = fnMilestone?.facilitator;
     if (primaryFacilitator) {
@@ -81,6 +154,20 @@ export default async function ProjectCommandCenter({
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
+  const formatBytes = (bytes: number | null) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+  const formatAuditTimestamp = (value: Date) =>
+    new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(value);
 
   const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
     PENDING:               { label: "Awaiting Funding",  color: "text-on-surface-variant bg-surface-container-high border-outline-variant/30",  icon: "hourglass_empty" },
@@ -88,6 +175,11 @@ export default async function ProjectCommandCenter({
     SUBMITTED_FOR_REVIEW:  { label: "In Review",         color: "text-secondary bg-secondary/10 border-secondary/20",                            icon: "rate_review" },
     APPROVED_AND_PAID:     { label: "Completed",         color: "text-tertiary bg-tertiary/10 border-tertiary/20",                               icon: "check_circle" },
     DISPUTED:              { label: "Disputed",          color: "text-error bg-error/10 border-error/20",                                        icon: "gavel" },
+  };
+  const readinessStatusConfig = {
+    complete: { icon: "check_circle", color: "text-tertiary bg-tertiary/10 border-tertiary/20" },
+    pending: { icon: "pending", color: "text-on-surface-variant bg-surface-container-high border-outline-variant/30" },
+    attention: { icon: "error", color: "text-error bg-error/10 border-error/20" },
   };
 
   const tabs = [
@@ -131,7 +223,7 @@ export default async function ProjectCommandCenter({
               </span>
               <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">·</span>
               <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
-                {isClient ? "Client View" : "Developer View"}
+                {isClient ? "Client View" : "Facilitator View"}
               </span>
             </div>
             <h1 className="text-3xl lg:text-4xl font-black font-headline tracking-tighter text-on-surface uppercase leading-tight">
@@ -199,7 +291,7 @@ export default async function ProjectCommandCenter({
 
       ) : activeTab === "integrations" ? (
         <div className="px-4 lg:px-0 relative z-10 w-full max-w-4xl">
-          <IntegrationsTab project={{ ...project, has_github_token: !!project.github_access_token, github_access_token: undefined }} />
+          <IntegrationsTab project={integrationProject} viewerRole={isFacilitator ? "FACILITATOR" : "CLIENT"} />
         </div>
 
       ) : activeTab === "contract" ? (
@@ -216,7 +308,7 @@ export default async function ProjectCommandCenter({
             </div>
 
             <p className="text-sm text-on-surface-variant font-medium leading-relaxed mb-6">
-              This agreement binds the Scope of Work between the funding Client and executing Developer. It serves as the sole reference for Escrow distribution and dispute arbitration.
+              This agreement binds the Scope of Work between the funding client and executing facilitator. It serves as the source of truth for escrow release and dispute review.
             </p>
 
             <div className="bg-surface rounded-2xl border border-outline-variant/20 border-l-4 border-l-secondary p-5 mb-6">
@@ -231,8 +323,8 @@ export default async function ProjectCommandCenter({
                 <span className="material-symbols-outlined text-[13px]">gavel</span> IP Transfer Clause
               </p>
               <p className="text-sm text-on-surface-variant font-medium leading-relaxed">
-                The Developer retains all Intellectual Property rights until the Client triggers the Atomic Swap approval.{" "}
-                <strong className="text-on-surface">Upon Escrow release, 100% of IP transfers permanently to the Client.</strong>{" "}
+                The facilitator retains Intellectual Property rights until the client approves the milestone and releases escrow.{" "}
+                <strong className="text-on-surface">Upon escrow release, 100% of IP transfers permanently to the client.</strong>{" "}
                 Disputes are resolved exclusively against the locked Scope above.
               </p>
             </div>
@@ -270,6 +362,33 @@ export default async function ProjectCommandCenter({
                   {project.milestones.map((milestone, idx) => {
                     const isActive = milestone.id === activeMilestone?.id;
                     const isDone = milestone.status === "APPROVED_AND_PAID";
+                    const latestAudit = milestone.audits[0];
+                    const latestFunding = milestone.payment_records.find((record) => record.kind === "MILESTONE_FUNDING");
+                    const submissionAttachments = milestone.attachments.filter(
+                      (attachment) => attachment.purpose === "MILESTONE_SUBMISSION"
+                    );
+                    const visibleSubmissionAttachments = milestone.attachments.filter(
+                      (attachment) =>
+                        attachment.purpose === "MILESTONE_SUBMISSION" &&
+                        attachment.url !== milestone.payload_storage_path
+                    );
+                    const proofPlan = getMilestoneProofPlan(milestone);
+                    const disputeReviewContext = buildDisputeEvidenceContext(milestone);
+                    const readiness = getMilestoneReadiness({
+                      status: milestone.status,
+                      acceptanceCriteriaCount: milestone.acceptance_criteria.length,
+                      deliverablesCount: milestone.deliverables.length,
+                      hasPreviewUrl: Boolean(milestone.live_preview_url),
+                      hasPayload: Boolean(milestone.payload_storage_path),
+                      submissionAttachmentCount: submissionAttachments.length,
+                      latestAudit: latestAudit
+                        ? { isPassing: latestAudit.is_passing, score: latestAudit.score }
+                        : null,
+                      paymentRecords: milestone.payment_records.map((record) => ({
+                        kind: record.kind,
+                        status: record.status,
+                      })),
+                    });
                     const cfg = statusConfig[milestone.status] ?? { label: milestone.status, color: "text-on-surface-variant bg-surface-container-high border-outline-variant/20", icon: "circle" };
 
                     return (
@@ -314,36 +433,258 @@ export default async function ProjectCommandCenter({
                                   {milestone.estimated_duration_days} days est.
                                 </p>
                               )}
+                              {latestFunding && (
+                                <p className="text-[10px] text-on-surface-variant font-medium mt-1 flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[11px]">payments</span>
+                                  Escrow {latestFunding.status.toLowerCase()} · platform fee {formatCurrency(latestFunding.platform_fee_cents / 100)}
+                                </p>
+                              )}
+                              <p className="mt-2 text-xs font-medium text-on-surface-variant">
+                                {isClient ? readiness.nextAction.client : readiness.nextAction.facilitator}
+                              </p>
                             </div>
                             <div className="shrink-0 text-right">
                               <p className="text-lg font-black text-on-surface">{formatCurrency(Number(milestone.amount))}</p>
                             </div>
                           </div>
 
+                          {(proofPlan.deliverables.length > 0 || proofPlan.reviewChecks.length > 0) && (
+                            <div className="mt-4 rounded-xl border border-primary/15 bg-primary/5 p-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[13px]">rule</span>
+                                    Proof Contract
+                                  </p>
+                                  <p className="mt-1 text-xs font-medium text-on-surface-variant">
+                                    {proofPlan.summary}. These are the review terms for approval, audit, and disputes.
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {proofPlan.requiredArtifacts.map((artifact) => (
+                                    <span
+                                      key={artifact.key}
+                                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${
+                                        artifact.available
+                                          ? "border-tertiary/20 bg-tertiary/10 text-tertiary"
+                                          : "border-outline-variant/20 bg-surface text-on-surface-variant"
+                                      }`}
+                                    >
+                                      <span className="material-symbols-outlined text-[11px]">{artifact.available ? "check_circle" : "radio_button_unchecked"}</span>
+                                      {artifact.label}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {proofPlan.deliverables.length > 0 && (
+                                  <div>
+                                    <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Deliverables</p>
+                                    <div className="space-y-1.5">
+                                      {proofPlan.deliverables.slice(0, 4).map((deliverable) => (
+                                        <p key={deliverable} className="flex items-start gap-1.5 text-xs font-medium text-on-surface-variant">
+                                          <span className="material-symbols-outlined text-[13px] text-primary mt-0.5">inventory_2</span>
+                                          {deliverable}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {proofPlan.reviewChecks.length > 0 && (
+                                  <div>
+                                    <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Acceptance Checks</p>
+                                    <div className="space-y-1.5">
+                                      {proofPlan.reviewChecks.slice(0, 4).map((check) => (
+                                        <p key={check} className="flex items-start gap-1.5 text-xs font-medium text-on-surface-variant">
+                                          <span className="material-symbols-outlined text-[13px] text-tertiary mt-0.5">check_circle</span>
+                                          {check}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-4 rounded-xl border border-outline-variant/20 bg-surface-container-low/30 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1.5">
+                                  <span className="material-symbols-outlined text-[13px]">fact_check</span>
+                                  Proof Readiness
+                                </p>
+                                <p className="mt-1 text-xs font-medium text-on-surface-variant">
+                                  Evidence package strength for escrow release and dispute review.
+                                </p>
+                              </div>
+                              <div className="min-w-[120px]">
+                                <div className="mb-1 flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                                  <span>Ready</span>
+                                  <span>{readiness.score}%</span>
+                                </div>
+                                <div className="h-1.5 overflow-hidden rounded-full bg-outline-variant/20">
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      readiness.score >= 80
+                                        ? "bg-tertiary"
+                                        : readiness.score >= 50
+                                          ? "bg-secondary"
+                                          : "bg-error"
+                                    }`}
+                                    style={{ width: `${readiness.score}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2">
+                              {readiness.items.map((item) => {
+                                const itemConfig = readinessStatusConfig[item.status];
+                                return (
+                                  <div
+                                    key={item.key}
+                                    className={`rounded-lg border px-3 py-2 ${itemConfig.color}`}
+                                  >
+                                    <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest">
+                                      <span className="material-symbols-outlined text-[12px]">{itemConfig.icon}</span>
+                                      {item.label}
+                                    </p>
+                                    <p className="mt-1 text-[10px] font-medium normal-case tracking-normal text-on-surface-variant">
+                                      {item.detail}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {latestAudit && (
+                            <div className={`mt-4 rounded-xl border p-4 ${
+                              latestAudit.is_passing
+                                ? "bg-tertiary/5 border-tertiary/20"
+                                : "bg-error/5 border-error/20"
+                            }`}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[13px]">
+                                      {latestAudit.is_passing ? "verified" : "report"}
+                                    </span>
+                                    AI Delivery Audit
+                                  </p>
+                                  <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                    Generated {formatAuditTimestamp(latestAudit.created_at)} · {latestAudit.provider}/{latestAudit.model}
+                                  </p>
+                                  <p className="text-sm text-on-surface font-medium mt-1">{latestAudit.summary}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className={`text-2xl font-black ${latestAudit.is_passing ? "text-tertiary" : "text-error"}`}>
+                                    {latestAudit.score}%
+                                  </p>
+                                  <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                    {latestAudit.is_passing ? "Passed" : "Needs Work"}
+                                  </p>
+                                </div>
+                              </div>
+                              {(latestAudit.criteria_met.length > 0 || latestAudit.criteria_missed.length > 0) && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-tertiary mb-2">Criteria Met</p>
+                                    <ul className="space-y-1">
+                                      {latestAudit.criteria_met.slice(0, 4).map((item) => (
+                                        <li key={item} className="text-xs text-on-surface-variant flex gap-1.5">
+                                          <span className="material-symbols-outlined text-[12px] text-tertiary">check</span>
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-error mb-2">Gaps</p>
+                                    <ul className="space-y-1">
+                                      {(latestAudit.criteria_missed.length ? latestAudit.criteria_missed : ["No material gaps reported."]).slice(0, 4).map((item) => (
+                                        <li key={item} className="text-xs text-on-surface-variant flex gap-1.5">
+                                          <span className="material-symbols-outlined text-[12px] text-error">priority_high</span>
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+                              )}
+                              {latestAudit.attachments.length > 0 && (
+                                <div className="mt-4">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Audit Artifacts</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {latestAudit.attachments.map((attachment) => (
+                                      <a
+                                        key={attachment.id}
+                                        href={`/api/attachments/${attachment.id}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex max-w-full items-center gap-2 rounded-lg border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant transition-colors hover:border-primary/40 hover:text-primary"
+                                      >
+                                        <span className="material-symbols-outlined text-[14px]">link</span>
+                                        <span className="truncate">{attachment.name}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {visibleSubmissionAttachments.length > 0 && (
+                            <div className="mt-4 rounded-xl border border-outline-variant/20 bg-surface-container-low/40 p-4">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Submission Evidence</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {visibleSubmissionAttachments.map((attachment) => (
+                                  <a
+                                    key={attachment.id}
+                                    href={`/api/attachments/${attachment.id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex min-w-0 items-center gap-2 rounded-lg border border-outline-variant/30 bg-surface px-3 py-2 text-xs font-bold text-on-surface transition-colors hover:border-primary/40"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px] text-primary">attach_file</span>
+                                    <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+                                    {attachment.size_bytes && (
+                                      <span className="shrink-0 text-[10px] text-on-surface-variant">{formatBytes(attachment.size_bytes)}</span>
+                                    )}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Gateway Actions */}
                           {isActive && !isDone && (
                             <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-outline-variant/10">
-                              {isClient && milestone.status === "PENDING" && (
-                                <ClientFundGateway milestoneId={milestone.id} amount={Number(milestone.amount)} />
+                              {isClientOwner && milestone.status === "PENDING" && (
+                                <ClientFundGateway milestoneId={milestone.id} amount={Number(milestone.amount)} isByoc={project.is_byoc} />
                               )}
                               {isFacilitator && !isHubLocked && milestone.status === "FUNDED_IN_ESCROW" && (
                                 <FacilitatorSubmitGateway milestoneId={milestone.id} />
                               )}
-                              {isClient && milestone.status === "SUBMITTED_FOR_REVIEW" && milestone.live_preview_url && (() => {
-                                const systemEvents = (project.timeline_events as any[]).filter(e => e.type === "SYSTEM" && e.milestone_id === milestone.id);
+                              {isClientOwner && milestone.status === "SUBMITTED_FOR_REVIEW" && milestone.live_preview_url && (() => {
                                 let auditStatus: "PENDING" | "SUCCESS" | "FAILED" | "NONE" = "PENDING";
-                                if (systemEvents.length > 0) {
-                                  const latest = systemEvents[0];
-                                  if (latest.status === "SUCCESS") auditStatus = "SUCCESS";
-                                  else if (latest.status === "FAILED") auditStatus = "FAILED";
+                                if (latestAudit) {
+                                  auditStatus = latestAudit.is_passing ? "SUCCESS" : "FAILED";
                                 } else {
                                   auditStatus = "PENDING";
                                 }
                                 return (
-                                  <ClientReviewGateway milestoneId={milestone.id} previewUrl={milestone.live_preview_url} aiAuditStatus={auditStatus} />
+                                  <ClientReviewGateway
+                                    milestoneId={milestone.id}
+                                    previewUrl={milestone.live_preview_url}
+                                    amount={Number(milestone.amount)}
+                                    isByoc={project.is_byoc}
+                                    aiAuditStatus={auditStatus}
+                                  />
                                 );
                               })()}
-                              {isClient && milestone.status === "APPROVED_AND_PAID" && milestone.payload_storage_path && (
+                              {isClientOwner && milestone.status === "APPROVED_AND_PAID" && milestone.payload_storage_path && (
                                 <a
                                   href={`/api/stripe/download-payload?id=${milestone.id}`}
                                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs font-bold uppercase tracking-widest hover:border-primary/40 transition-all w-fit"
@@ -353,12 +694,25 @@ export default async function ProjectCommandCenter({
                                 </a>
                               )}
                               {isClient && !isCompleted && project.status !== "DISPUTED" && (
-                                <OpenDisputeButton projectId={project.id} />
+                                <OpenDisputeButton
+                                  projectId={project.id}
+                                  milestoneId={milestone.id}
+                                  reviewContext={disputeReviewContext}
+                                  label="Open Dispute"
+                                />
+                              )}
+                              {isFacilitator && !isCompleted && project.status !== "DISPUTED" && (
+                                <OpenDisputeButton
+                                  projectId={project.id}
+                                  milestoneId={milestone.id}
+                                  reviewContext={disputeReviewContext}
+                                  label="Raise Dispute"
+                                />
                               )}
                               {isClient && milestone.status === "FUNDED_IN_ESCROW" && (
                                 <p className="text-[10px] font-bold text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-lg uppercase tracking-widest flex items-center gap-1.5">
                                   <span className="material-symbols-outlined text-[12px] animate-pulse">hourglass_top</span>
-                                  Awaiting developer submission
+                                  Awaiting facilitator submission
                                 </p>
                               )}
                               {isFacilitator && milestone.status === "SUBMITTED_FOR_REVIEW" && (
@@ -383,7 +737,7 @@ export default async function ProjectCommandCenter({
                 <span className="material-symbols-outlined text-5xl text-tertiary mb-3" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
                 <h3 className="text-2xl font-black font-headline text-on-surface uppercase tracking-tight mb-1">Project Complete</h3>
                 <p className="text-sm text-on-surface-variant max-w-md mx-auto">All milestones approved and funds released.</p>
-                {isClient && primaryFacilitator && !hasReviewed && (
+                {isClientOwner && primaryFacilitator && !hasReviewed && (
                   <PostProjectReviewClient
                     projectId={project.id}
                     facilitatorId={primaryFacilitator.id}
@@ -408,16 +762,72 @@ export default async function ProjectCommandCenter({
               </div>
             )}
 
-            <ChangeOrderPanel
-              projectId={project.id}
-              role={isClient ? "CLIENT" : "FACILITATOR"}
-              changeOrders={project.change_orders}
-            />
+            {(isClientOwner || isFacilitator) && (
+              <ChangeOrderPanel
+                projectId={project.id}
+                role={isClientOwner ? "CLIENT" : "FACILITATOR"}
+                changeOrders={changeOrders}
+              />
+            )}
           </div>
 
           {/* Right: Timeline */}
-          <div className="lg:col-span-1">
-            <CommitSyncTimeline events={project.timeline_events as any} />
+          <div className="lg:col-span-1 space-y-6">
+            {disputeCases.length > 0 && (
+              <section className="rounded-2xl border border-error/20 bg-error/5 p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-error">
+                      <span className="material-symbols-outlined text-[14px]">gavel</span>
+                      Dispute Case
+                    </p>
+                    <h2 className="mt-1 text-base font-black text-on-surface">Exception Review</h2>
+                  </div>
+                  <span className="rounded-lg border border-error/20 bg-surface px-2 py-1 text-[10px] font-black uppercase tracking-widest text-error">
+                    {disputeCases[0].status.toLowerCase().replaceAll("_", " ")}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {disputeCases.slice(0, 3).map((dispute) => (
+                    <div key={dispute.id} className="rounded-xl border border-outline-variant/20 bg-surface p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-on-surface">{dispute.milestone.title}</p>
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                            {formatAuditTimestamp(dispute.createdAt)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-md border border-outline-variant/20 bg-surface-container-low px-2 py-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                          {dispute.attachmentCount} files
+                        </span>
+                      </div>
+                      <p className="mt-3 line-clamp-3 text-xs font-medium leading-5 text-on-surface-variant">
+                        {dispute.reason}
+                      </p>
+                      <div className="mt-3 grid grid-cols-1 gap-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        <p>Client: <span className="normal-case tracking-normal text-on-surface">{dispute.clientName}</span></p>
+                        <p>Facilitator: <span className="normal-case tracking-normal text-on-surface">{dispute.facilitatorName}</span></p>
+                      </div>
+                      {dispute.aiReport ? (
+                        <div className="mt-3 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-primary">AI fact finding ready</p>
+                          <p className="mt-1 line-clamp-3 text-xs font-medium leading-5 text-on-surface-variant">
+                            {dispute.aiReport}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-3 rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                          AI fact finding pending
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            <CommitSyncTimeline events={timelineEvents} />
+            <ProjectActivityLedger logs={project.activity_logs} />
           </div>
         </div>
       )}

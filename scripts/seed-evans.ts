@@ -5,7 +5,10 @@
 import { Client } from "pg";
 import bcrypt from "bcrypt";
 
-const DB_URL = "postgresql://postgres.iotkcsnalgwrewbpclcu:6OrPMVYx3FdP2l92@aws-0-eu-west-1.pooler.supabase.com:5432/postgres";
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) {
+  throw new Error("DATABASE_URL is required to run scripts/seed-evans.ts");
+}
 const db = new Client({ connectionString: DB_URL });
 
 function cuid(): string {

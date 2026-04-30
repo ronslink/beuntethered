@@ -95,9 +95,7 @@ function formatRelativeTime(timestamp: string | Date): string {
 export default function CommitSyncTimeline({
   events: propEvents,
 }: CommitSyncTimelineProps) {
-  const [events, setEvents] = useState<TimelineEvent[]>(
-    propEvents || []
-  );
+  const events = propEvents || [];
   const [visibleCount, setVisibleCount] = useState(4);
   const [mounted, setMounted] = useState(false);
 

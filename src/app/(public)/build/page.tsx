@@ -3,108 +3,164 @@ import type { Metadata } from "next";
 import EarningsCalculator from "@/components/marketing/EarningsCalculator";
 
 export const metadata: Metadata = {
-  title: "Build on Untether — Keep 100% of Your Rate",
+  title: "Build on Untether - Verified Software Delivery",
   description:
-    "Join the AI-native marketplace where facilitators keep 0% platform fees, get instant Stripe payouts, and showcase their AI agent stack to clients.",
+    "Join Untether as a human-led, AI-assisted software facilitator. Keep 100% of your milestone rate, work from funded escrow, and build audit-backed delivery reputation.",
 };
+
+const PLATFORM_SIGNALS = [
+  { label: "Facilitator platform fee", value: "0%", detail: "Client fees fund the marketplace, not deductions from your payout." },
+  { label: "Work model", value: "Milestones", detail: "Outcome-based delivery with acceptance criteria before work starts." },
+  { label: "Payment protection", value: "Escrow", detail: "Milestones are funded before delivery work begins." },
+  { label: "Reputation layer", value: "Audit-backed", detail: "Delivery reports help quality work compound into trust." },
+];
 
 const FACILITATOR_PERKS = [
   {
     icon: "payments",
-    title: "Keep 100% of Your Rate",
-    body: "We charge clients, not you. Your hourly rate is your take-home. No 20% tax, no hidden deductions, no monthly fees.",
+    title: "Keep 100% of your accepted milestone rate",
+    body: "Untether charges a transparent client fee. Your accepted facilitator amount is not reduced by a marketplace commission.",
   },
   {
-    icon: "bolt",
-    title: "Instant Stripe Payouts",
-    body: "The moment a client approves your milestone, escrow releases instantly to your connected Stripe account. No net-30, no invoice chasing.",
+    icon: "lock",
+    title: "Build against funded escrow",
+    body: "Milestone state is explicit: pending funding, funded, submitted, audited, approved, paid, or disputed.",
+  },
+  {
+    icon: "verified",
+    title: "Turn delivery quality into buyer confidence",
+    body: "Completed milestones, audit scores, dispute history, and verification signals become part of your marketplace profile.",
   },
   {
     icon: "smart_toy",
-    title: "AI is Your Edge — Not a Secret",
-    body: "Showcase your AI agent stack — Cursor, Copilot, Claude, custom pipelines. Clients on Untether value AI-augmented delivery. It's your competitive advantage.",
-  },
-  {
-    icon: "shield",
-    title: "Guaranteed Payment",
-    body: "Every milestone is funded into escrow before you start work. You never build on a promise — the money is already locked in Stripe.",
+    title: "Show your AI-assisted workflow",
+    body: "Document your AI tool stack, code assistants, review process, and BYOK setup so clients understand how you deliver outcomes.",
   },
 ];
 
-const VETTING_CRITERIA = [
-  "Verified identity via Stripe KYC",
-  "Demonstrated portfolio or GitHub activity",
-  "AI tooling proficiency (BYOC credentials or agent stack)",
-  "Professional bio and skills profile completed",
-  "Terms of Service and platform guidelines accepted",
+const DELIVERY_FLOW = [
+  { step: "01", title: "Complete verification", desc: "Add identity, Stripe payout readiness, portfolio links, skills, availability, and AI tool stack." },
+  { step: "02", title: "Find the right opportunities", desc: "Review open projects, invited bids, saved searches, scope quality, budget, timeline, and buyer readiness." },
+  { step: "03", title: "Propose milestones", desc: "Submit delivery plans with scope, risks, timeline, acceptance criteria, and a clear escrow requirement." },
+  { step: "04", title: "Submit evidence", desc: "Attach artifacts, links, notes, and completion proof so the client and audit report can review the milestone." },
+  { step: "05", title: "Get approved and paid", desc: "When the milestone passes review and the client approves, payout records make the release traceable." },
 ];
 
-const HOW_IT_WORKS = [
-  { step: "01", title: "Complete your profile", desc: "Add your skills, AI agent stack, hourly rate, and connect Stripe for payouts." },
-  { step: "02", title: "Browse open projects", desc: "Filter by tech stack, budget, and timeline. AI-generated scopes make requirements crystal clear." },
-  { step: "03", title: "Submit proposals", desc: "Propose your approach, timeline, and milestones. Our AI scores and ranks proposals for clients." },
-  { step: "04", title: "Build & get paid", desc: "Deliver milestone by milestone. Submit, get approved, get paid — instantly." },
+const PROFILE_REQUIREMENTS = [
+  "Stripe payout readiness and verification status",
+  "Portfolio URL, GitHub activity, or relevant delivery evidence",
+  "Skills, preferred project types, and availability",
+  "AI tool stack, review workflow, and quality controls",
+  "Clear response expectations and proposal preference",
 ];
 
 export default function BuildPage() {
   return (
-    <div className="min-h-screen bg-background text-on-surface overflow-hidden">
-      {/* ─── Hero ── */}
-      <section className="relative pt-32 pb-20 md:pt-44 md:pb-28 px-4">
-        <div className="absolute top-[-15%] right-[-10%] w-[700px] h-[700px] bg-secondary/8 blur-[160px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-primary/6 blur-[130px] rounded-full pointer-events-none" />
+    <div className="min-h-screen bg-background text-on-surface">
+      <section className="border-b border-outline-variant/30 bg-[linear-gradient(135deg,rgba(var(--color-primary),0.08),rgba(var(--color-secondary),0.045)_42%,rgba(var(--color-tertiary),0.035))] px-4 pt-28 pb-16 md:pt-36 md:pb-20">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-outline-variant/40 bg-surface px-3 py-1.5">
+              <span className="material-symbols-outlined text-[16px] text-primary">engineering</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                For AI-assisted software facilitators
+              </span>
+            </div>
 
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-secondary/20 bg-secondary/5 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-secondary">
-              For Facilitators
-            </span>
+            <h1 className="max-w-3xl text-4xl font-black leading-[1.02] tracking-tight text-on-surface sm:text-5xl md:text-6xl">
+              Build verified software outcomes{" "}
+              <span className="bg-gradient-to-r from-primary via-secondary to-tertiary bg-clip-text text-transparent">
+                without giving up your margin.
+              </span>
+            </h1>
+
+            <p className="mt-6 max-w-2xl text-base leading-8 text-on-surface-variant sm:text-lg">
+              Untether is built for facilitators who combine AI tools, engineering judgment, and milestone discipline to ship software. Work from funded escrow, keep 100% of your accepted facilitator rate, and turn audited delivery into reputation.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/register?role=FACILITATOR"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-xs font-black uppercase tracking-widest text-on-primary transition hover:bg-primary/90"
+              >
+                <span className="material-symbols-outlined text-[17px]">verified</span>
+                Apply as a facilitator
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant/50 bg-surface px-6 py-3 text-xs font-black uppercase tracking-widest text-on-surface transition hover:border-primary/40"
+              >
+                Sign in
+                <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
+              </Link>
+            </div>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black font-headline tracking-tighter leading-[0.95] mb-6">
-            We take 0%.
-            <br />
-            <span className="bg-gradient-to-r from-secondary via-primary to-[#7c3aed] bg-clip-text text-transparent">
-              You keep everything.
-            </span>
-          </h1>
-
-          <p className="text-base sm:text-lg text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed">
-            The marketplace built for developers who orchestrate AI agents. No platform tax on your earnings,
-            instant Stripe payouts, and clients who actually value your AI workflow.
-          </p>
-
-          <Link
-            href="/register?role=FACILITATOR"
-            className="inline-flex items-center gap-2.5 px-10 py-4 bg-on-surface text-surface font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.4)] hover:-translate-y-1 transition-all active:scale-95 dark:bg-white dark:text-[#0a0e18]"
-          >
-            <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-            Apply as a Facilitator
-          </Link>
+          <div className="overflow-hidden rounded-lg border border-primary/20 bg-surface shadow-sm">
+            <div className="h-1 bg-gradient-to-r from-primary via-secondary to-tertiary" />
+            <div className="border-b border-outline-variant/30 px-5 py-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary">Facilitator control plane</p>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-on-surface">Outcome work, visible state</h2>
+            </div>
+            <div className="divide-y divide-outline-variant/25">
+              {PLATFORM_SIGNALS.map((signal) => (
+                <div key={signal.label} className="grid gap-3 px-5 py-4 sm:grid-cols-[150px_90px_1fr] sm:items-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{signal.label}</p>
+                  <p className="font-mono text-lg font-black text-on-surface">{signal.value}</p>
+                  <p className="text-sm leading-6 text-on-surface-variant">{signal.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ─── Perks Grid ── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="absolute inset-0 bg-surface-container-low/30" />
-        <div className="max-w-5xl mx-auto relative z-10">
-          <div className="text-center mb-14">
-            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Why facilitators choose us</p>
-            <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
-              Built for <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">modern developers</span>
+      <section className="px-4 py-16 md:py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 max-w-2xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Why build here</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-on-surface md:text-4xl">
+              The marketplace layer is designed around trust, not hourly staffing.
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {FACILITATOR_PERKS.map((p, i) => (
-              <div key={i} className="group relative">
-                <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-br from-secondary/15 to-primary/10 blur opacity-0 group-hover:opacity-30 transition-all duration-500" />
-                <div className="bg-surface/50 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-8 relative z-10 h-full hover:border-outline-variant/40 transition-all">
-                  <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center mb-5 border border-secondary/10">
-                    <span className="material-symbols-outlined text-secondary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>{p.icon}</span>
-                  </div>
-                  <h3 className="text-lg font-black font-headline tracking-tight text-on-surface mb-3">{p.title}</h3>
-                  <p className="text-sm text-on-surface-variant leading-relaxed">{p.body}</p>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {FACILITATOR_PERKS.map((perk) => (
+              <div key={perk.title} className="rounded-lg border border-outline-variant/35 bg-surface p-6 shadow-[0_12px_35px_rgba(var(--color-primary),0.035)]">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <span className="material-symbols-outlined text-[22px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {perk.icon}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black tracking-tight text-on-surface">{perk.title}</h3>
+                <p className="mt-2 text-sm leading-7 text-on-surface-variant">{perk.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-outline-variant/30 bg-[linear-gradient(180deg,rgba(var(--color-secondary),0.05),rgba(var(--color-primary),0.025))] px-4 py-16 md:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Milestone workflow</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-on-surface md:text-4xl">
+              From profile readiness to audit-backed payout.
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-on-surface-variant">
+              Facilitators should be able to understand the next required action at every point in the delivery cycle. This is the workflow the app is being shaped around.
+            </p>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-secondary/20 bg-surface shadow-sm">
+            <div className="h-1 bg-gradient-to-r from-secondary via-primary to-tertiary" />
+            {DELIVERY_FLOW.map((item, index) => (
+              <div key={item.step} className="grid gap-4 border-b border-outline-variant/25 px-5 py-5 last:border-b-0 sm:grid-cols-[70px_1fr]">
+                <div className="font-mono text-xl font-black text-primary/80">{item.step}</div>
+                <div>
+                  <h3 className="font-black tracking-tight text-on-surface">{item.title}</h3>
+                  <p className="mt-1 text-sm leading-6 text-on-surface-variant">{item.desc}</p>
+                  {index < DELIVERY_FLOW.length - 1 ? (
+                    <div className="mt-4 h-px w-16 bg-outline-variant/40 sm:hidden" />
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -112,86 +168,49 @@ export default function BuildPage() {
         </div>
       </section>
 
-      {/* ─── Earnings Calculator ── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Earnings Calculator</p>
-            <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
-              See how much more you <span className="text-primary">keep</span>
+      <section className="px-4 py-16 md:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Facilitator economics</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-on-surface md:text-4xl">
+              0% facilitator fee, with buyer pricing shown before checkout.
             </h2>
-            <p className="text-on-surface-variant mt-3 max-w-lg mx-auto">
-              Adjust your rate and hours to compare your annual take-home across platforms.
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-on-surface-variant">
+              The calculator still uses hourly inputs for comparison because the market thinks that way, but Untether’s operating model is milestone-based. Your proposal should translate effort into outcomes, deliverables, and acceptance criteria.
             </p>
           </div>
+          <div className="rounded-lg border border-outline-variant/35 bg-surface p-5">
+            <ul className="space-y-3">
+              {PROFILE_REQUIREMENTS.map((requirement) => (
+                <li key={requirement} className="flex gap-3 text-sm leading-6 text-on-surface-variant">
+                  <span className="material-symbols-outlined mt-0.5 text-[17px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    check_circle
+                  </span>
+                  <span>{requirement}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="mx-auto mt-12 max-w-5xl">
           <EarningsCalculator />
         </div>
       </section>
 
-      {/* ─── How It Works ── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="absolute inset-0 bg-surface-container-low/30" />
-        <div className="max-w-4xl mx-auto relative z-10">
-          <div className="text-center mb-14">
-            <p className="text-[10px] font-black uppercase tracking-widest text-secondary mb-3">How it works</p>
-            <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter">
-              From signup to <span className="text-primary">first payout</span>
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {HOW_IT_WORKS.map((s) => (
-              <div key={s.step} className="bg-surface/50 backdrop-blur-xl border border-outline-variant/20 rounded-2xl p-6 hover:border-outline-variant/40 transition-all">
-                <span className="text-3xl font-black text-primary/20 font-mono tracking-tighter">{s.step}</span>
-                <h3 className="text-sm font-black text-on-surface mt-2 mb-1.5">{s.title}</h3>
-                <p className="text-xs text-on-surface-variant leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Vetting Criteria ── */}
-      <section className="relative py-20 md:py-28 px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-surface/50 backdrop-blur-xl border border-secondary/20 rounded-3xl p-10 md:p-14 relative overflow-hidden shadow-[0_0_60px_rgba(var(--color-secondary),0.04)]">
-            <div className="absolute bottom-0 left-0 w-60 h-60 bg-secondary/5 blur-3xl rounded-full pointer-events-none" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="material-symbols-outlined text-secondary text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                <h2 className="text-xl font-black font-headline tracking-tight">Facilitator Vetting Criteria</h2>
-              </div>
-              <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">
-                To maintain platform quality, all facilitators must complete these requirements before submitting their first bid:
-              </p>
-              <ul className="space-y-3">
-                {VETTING_CRITERIA.map((c, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-[#059669] text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    <span className="text-sm text-on-surface font-medium">{c}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Final CTA ── */}
-      <section className="relative py-24 md:py-32 px-4 text-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-secondary/3 to-transparent pointer-events-none" />
-        <div className="max-w-2xl mx-auto relative z-10">
-          <h2 className="text-3xl md:text-4xl font-black font-headline tracking-tighter mb-5">
-            Ready to keep <span className="text-primary">100%</span> of your rate?
+      <section className="border-t border-outline-variant/30 bg-surface-container-low/40 px-4 py-16 text-center md:py-20">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="text-3xl font-black tracking-tight text-on-surface md:text-4xl">
+            Ready to build with clearer scope, funded milestones, and audit-backed reputation?
           </h2>
-          <p className="text-on-surface-variant mb-8">
-            Join the marketplace where AI is your edge, not your secret. Free to join, instant payouts on delivery.
+          <p className="mt-4 text-sm leading-7 text-on-surface-variant">
+            Create your facilitator profile, connect payout readiness, and start competing for outcome-based software projects.
           </p>
           <Link
             href="/register?role=FACILITATOR"
-            className="inline-flex items-center gap-2.5 px-10 py-4 bg-primary text-on-primary font-black uppercase tracking-widest text-xs rounded-xl shadow-[0_20px_40px_rgba(var(--color-primary),0.3)] hover:-translate-y-1 transition-all active:scale-95"
+            className="mt-8 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-xs font-black uppercase tracking-widest text-on-primary transition hover:bg-primary/90"
           >
-            Apply as a Facilitator
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            Apply as a facilitator
+            <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
           </Link>
         </div>
       </section>

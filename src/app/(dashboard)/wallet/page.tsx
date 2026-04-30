@@ -2,6 +2,12 @@ import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { buyerProjectListWhere } from "@/lib/project-access";
+import {
+  getLatestLedgerPaymentRecord,
+  sumSucceededClientFundingFeesCents,
+  sumSucceededFacilitatorPayoutCents,
+} from "@/lib/wallet-ledger";
 
 const FACILITATOR_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   APPROVED_AND_PAID:    { label: "Paid Out",       color: "text-tertiary",           bg: "bg-tertiary/10 border-tertiary/20",    icon: "check_circle" },
@@ -22,6 +28,154 @@ const CLIENT_STATUS_CONFIG: Record<string, { label: string; color: string; bg: s
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
 
+const centsToCurrency = (cents: number) => formatCurrency(cents / 100);
+
+type LedgerPaymentRecord = {
+  id: string;
+  kind: string;
+  status: string;
+  gross_amount_cents: number;
+  platform_fee_cents: number;
+  facilitator_payout_cents: number;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_transfer_id: string | null;
+  created_at: Date;
+};
+
+type LedgerMilestone = {
+  id: string;
+  project_id: string;
+  title: string;
+  amount: unknown;
+  status: string;
+  paid_at?: Date | null;
+  project: {
+    id: string;
+    title: string;
+    status: string;
+  };
+  payment_records?: LedgerPaymentRecord[];
+};
+
+function TrustMetric({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: string;
+}) {
+  return (
+    <div className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">{label}</p>
+        <span className="material-symbols-outlined text-primary text-[16px]">{icon}</span>
+      </div>
+      <p className="text-3xl font-black text-on-surface tracking-tighter">{value}</p>
+      <p className="text-[10px] text-on-surface-variant font-medium mt-3 leading-relaxed">{detail}</p>
+    </div>
+  );
+}
+
+function PaymentExplainer({ role }: { role: "CLIENT" | "FACILITATOR" }) {
+  return (
+    <section className="relative z-10 px-4 lg:px-0 mb-6">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface p-5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Milestone escrow</p>
+          <p className="mt-2 text-sm font-bold text-on-surface">
+            {role === "CLIENT" ? "Funds are locked before delivery work starts." : "Funded milestones are visible before submission."}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface p-5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Fee clarity</p>
+          <p className="mt-2 text-sm font-bold text-on-surface">
+            {role === "CLIENT" ? "Client fee is shown separately before checkout." : "Facilitator fee is 0%; payout equals approved milestone amount."}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-outline-variant/20 bg-surface p-5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Release control</p>
+          <p className="mt-2 text-sm font-bold text-on-surface">
+            {role === "CLIENT" ? "Release happens after review and approval." : "Payout occurs after client approval and Stripe processing."}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PaymentActionQueue({
+  role,
+  milestones,
+}: {
+  role: "CLIENT" | "FACILITATOR";
+  milestones: LedgerMilestone[];
+}) {
+  const actionItems = milestones
+    .filter(milestone => {
+      if (role === "CLIENT") return ["PENDING", "SUBMITTED_FOR_REVIEW", "DISPUTED"].includes(milestone.status);
+      return ["FUNDED_IN_ESCROW", "SUBMITTED_FOR_REVIEW", "DISPUTED"].includes(milestone.status);
+    })
+    .slice(0, 4);
+
+  return (
+    <section className="relative z-10 px-4 lg:px-0 mb-6">
+      <div className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
+          <span className="material-symbols-outlined text-[18px] text-on-surface-variant">task_alt</span>
+          <div>
+            <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Payment Action Queue</h2>
+            <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
+              {role === "CLIENT" ? "Milestones that need funding, review, or dispute attention." : "Funded or review-stage milestones that affect payout timing."}
+            </p>
+          </div>
+        </div>
+
+        {actionItems.length === 0 ? (
+          <div className="p-5">
+            <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 px-4 py-3 text-sm font-bold text-tertiary">
+              No immediate payment actions.
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-outline-variant/10">
+            {actionItems.map(milestone => {
+              const label =
+                role === "CLIENT" && milestone.status === "PENDING"
+                  ? "Fund milestone"
+                  : role === "CLIENT" && milestone.status === "SUBMITTED_FOR_REVIEW"
+                  ? "Review submitted work"
+                  : milestone.status === "DISPUTED"
+                  ? "Resolve dispute"
+                  : role === "FACILITATOR" && milestone.status === "FUNDED_IN_ESCROW"
+                  ? "Submit delivery evidence"
+                  : "Awaiting client review";
+              return (
+                <Link
+                  key={milestone.id}
+                  href={`/command-center/${milestone.project_id}`}
+                  className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-container-low"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-primary">arrow_right_alt</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-on-surface">{label}</p>
+                    <p className="truncate text-xs font-medium text-on-surface-variant">{milestone.project.title} - {milestone.title}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-black text-on-surface">{formatCurrency(Number(milestone.amount))}</p>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default async function WalletPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -30,7 +184,10 @@ export default async function WalletPage() {
   if (user.role === "FACILITATOR") {
     const milestones = await prisma.milestone.findMany({
       where: { facilitator_id: user.id },
-      include: { project: true },
+      include: {
+        project: { select: { id: true, title: true, status: true } },
+        payment_records: { orderBy: { created_at: "desc" } },
+      },
       orderBy: { id: "desc" },
     });
 
@@ -40,6 +197,8 @@ export default async function WalletPage() {
     const totalEarned   = paid.reduce((s, m) => s + Number(m.amount), 0);
     const pendingEscrow = inEscrow.reduce((s, m) => s + Number(m.amount), 0);
     const totalVolume   = totalEarned + pendingEscrow;
+    const paymentRecords = milestones.flatMap(m => m.payment_records);
+    const totalPayoutCents = sumSucceededFacilitatorPayoutCents(paymentRecords);
     const isStripeConnected = !!user.stripe_account_id;
 
     return (
@@ -74,7 +233,7 @@ export default async function WalletPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-6">
             <div className="sm:col-span-1 bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5 relative overflow-hidden">
               <div className="absolute bottom-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
               <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Earned</p>
@@ -102,37 +261,50 @@ export default async function WalletPage() {
               </div>
             </div>
 
-            <div className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">Held in Escrow</p>
-                <span className="material-symbols-outlined text-primary text-[16px]">lock</span>
-              </div>
-              <p className="text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(pendingEscrow)}</p>
-              <p className="text-[10px] text-on-surface-variant font-medium mt-3 leading-relaxed">
-                Released to your wallet when each milestone is approved by the client.
-              </p>
-            </div>
+            <TrustMetric
+              label="Held in Escrow"
+              value={formatCurrency(pendingEscrow)}
+              detail="Released to your wallet when each milestone is approved by the client."
+              icon="lock"
+            />
 
-            <div className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Lifetime Volume</p>
-              <p className="text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(totalVolume)}</p>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[13px] text-on-surface-variant">info</span>
-                <p className="text-[10px] text-on-surface-variant font-medium">Earned + pending combined</p>
-              </div>
-            </div>
+            <TrustMetric
+              label="Payout Records"
+              value={totalPayoutCents > 0 ? centsToCurrency(totalPayoutCents) : "$0"}
+              detail="Confirmed payout ledger total from release records."
+              icon="receipt_long"
+            />
+
+            <TrustMetric
+              label="Lifetime Volume"
+              value={formatCurrency(totalVolume)}
+              detail="Earned + pending combined."
+              icon="monitoring"
+            />
           </div>
         </header>
 
-        <LedgerSection milestones={milestones} statusConfig={FACILITATOR_STATUS_CONFIG} />
+        <PaymentExplainer role="FACILITATOR" />
+        <PaymentActionQueue role="FACILITATOR" milestones={milestones} />
+        <LedgerSection milestones={milestones} statusConfig={FACILITATOR_STATUS_CONFIG} role="FACILITATOR" />
       </main>
     );
   }
 
   // ── CLIENT VIEW ─────────────────────────────────────────────────────────────
   const projects = await prisma.project.findMany({
-    where: { client_id: user.id },
-    include: { milestones: true },
+    where: buyerProjectListWhere(user.id),
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      created_at: true,
+      milestones: {
+        include: {
+          payment_records: { orderBy: { created_at: "desc" } },
+        },
+      },
+    },
     orderBy: { created_at: "desc" },
   });
 
@@ -144,7 +316,10 @@ export default async function WalletPage() {
   const inEscrow = allMilestones.filter(m => m.status === "FUNDED_IN_ESCROW" || m.status === "SUBMITTED_FOR_REVIEW");
   const totalDeployed = released.reduce((s, m) => s + Number(m.amount), 0);
   const lockedInEscrow = inEscrow.reduce((s, m) => s + Number(m.amount), 0);
-  const totalCommitted = totalDeployed + lockedInEscrow;
+  const paymentRecords = allMilestones.flatMap(m => m.payment_records);
+  const totalFeesCents = sumSucceededClientFundingFeesCents(paymentRecords);
+  const pendingFunding = allMilestones.filter(m => m.status === "PENDING").length;
+  const reviewCount = allMilestones.filter(m => m.status === "SUBMITTED_FOR_REVIEW").length;
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
@@ -168,36 +343,37 @@ export default async function WalletPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-          <div className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Deployed</p>
-            <p className="text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(totalDeployed)}</p>
-            <p className="text-[10px] text-on-surface-variant font-medium mt-3">Paid out to experts across all projects.</p>
-          </div>
-
-          <div className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">Locked in Escrow</p>
-              <span className="material-symbols-outlined text-primary text-[16px]">lock</span>
-            </div>
-            <p className="text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(lockedInEscrow)}</p>
-            <p className="text-[10px] text-on-surface-variant font-medium mt-3 leading-relaxed">
-              Held securely until each milestone is approved.
-            </p>
-          </div>
-
-          <div className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-5">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Committed</p>
-            <p className="text-3xl font-black text-on-surface tracking-tighter">{formatCurrency(totalCommitted)}</p>
-            <div className="mt-3 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[13px] text-on-surface-variant">info</span>
-              <p className="text-[10px] text-on-surface-variant font-medium">Released + in escrow combined</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-6">
+          <TrustMetric
+            label="Total Deployed"
+            value={formatCurrency(totalDeployed)}
+            detail="Paid out to experts across all projects."
+            icon="paid"
+          />
+          <TrustMetric
+            label="Locked in Escrow"
+            value={formatCurrency(lockedInEscrow)}
+            detail="Held securely until each milestone is approved."
+            icon="lock"
+          />
+          <TrustMetric
+            label="Client Fees"
+            value={totalFeesCents > 0 ? centsToCurrency(totalFeesCents) : "$0"}
+            detail="Platform fees recorded separately from facilitator payout."
+            icon="receipt_long"
+          />
+          <TrustMetric
+            label="Action Items"
+            value={String(pendingFunding + reviewCount)}
+            detail={`${pendingFunding} awaiting funding, ${reviewCount} ready for review.`}
+            icon="task_alt"
+          />
         </div>
       </header>
 
-      <LedgerSection milestones={allMilestones} statusConfig={CLIENT_STATUS_CONFIG} />
+      <PaymentExplainer role="CLIENT" />
+      <PaymentActionQueue role="CLIENT" milestones={allMilestones} />
+      <LedgerSection milestones={allMilestones} statusConfig={CLIENT_STATUS_CONFIG} role="CLIENT" />
     </main>
   );
 }
@@ -206,9 +382,11 @@ export default async function WalletPage() {
 function LedgerSection({
   milestones,
   statusConfig,
+  role,
 }: {
-  milestones: Array<any>;
+  milestones: LedgerMilestone[];
   statusConfig: Record<string, { label: string; color: string; bg: string; icon: string }>;
+  role: "CLIENT" | "FACILITATOR";
 }) {
   return (
     <section className="relative z-10 px-4 lg:px-0">
@@ -232,9 +410,15 @@ function LedgerSection({
         <div className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden">
           {milestones.map((milestone, idx) => {
             const cfg = statusConfig[milestone.status] ?? statusConfig.PENDING;
+            const latestFunding = getLatestLedgerPaymentRecord(milestone.payment_records, "MILESTONE_FUNDING");
+            const latestRelease = getLatestLedgerPaymentRecord(milestone.payment_records, "ESCROW_RELEASE");
+            const relevantPayment = latestRelease ?? latestFunding;
+            const href = `/command-center/${milestone.project_id}`;
+
             return (
-              <div
+              <Link
                 key={milestone.id}
+                href={href}
                 className={`flex items-center gap-4 px-5 py-4 hover:bg-surface-container-low/40 transition-colors ${idx !== 0 ? "border-t border-outline-variant/10" : ""}`}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${cfg.bg}`}>
@@ -248,16 +432,30 @@ function LedgerSection({
                   <p className="text-[10px] text-on-surface-variant font-medium truncate mt-0.5">
                     {milestone.project.title} · #{milestone.id.slice(0, 8)}
                   </p>
+                  {relevantPayment && (
+                    <p className="text-[10px] text-on-surface-variant font-medium truncate mt-1">
+                      {role === "CLIENT"
+                        ? `Fee ${centsToCurrency(relevantPayment.platform_fee_cents)} · payout ${centsToCurrency(relevantPayment.facilitator_payout_cents)}`
+                        : `Payout ${centsToCurrency(relevantPayment.facilitator_payout_cents)} · fee $0`}
+                    </p>
+                  )}
                 </div>
 
-                <span className={`hidden sm:block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${cfg.bg} ${cfg.color}`}>
-                  {cfg.label}
-                </span>
+                <div className="hidden sm:flex flex-col items-end gap-1">
+                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${cfg.bg} ${cfg.color}`}>
+                    {cfg.label}
+                  </span>
+                  {relevantPayment && (
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                      {relevantPayment.status.toLowerCase()}
+                    </span>
+                  )}
+                </div>
 
                 <p className="text-base font-black text-on-surface shrink-0">
                   {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(milestone.amount))}
                 </p>
-              </div>
+              </Link>
             );
           })}
         </div>

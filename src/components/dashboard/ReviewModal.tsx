@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { sendSystemNotification } from "@/app/actions/notifications";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -10,7 +9,6 @@ interface ReviewModalProps {
   onSubmit: (data: { rating: number; review: string }) => Promise<void>;
   facilitatorName: string;
   facilitatorAvatar?: string;
-  facilitatorId?: string;
 }
 
 export default function ReviewModal({
@@ -19,7 +17,6 @@ export default function ReviewModal({
   onSubmit,
   facilitatorName,
   facilitatorAvatar,
-  facilitatorId,
 }: ReviewModalProps) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -64,11 +61,6 @@ export default function ReviewModal({
     
     setIsSubmitting(true);
     try {
-      // Send notification to facilitator
-      if (facilitatorId) {
-        await sendSystemNotification(facilitatorId, `You received a ${rating}-star review from a client${review ? `: "${review.slice(0, 50)}${review.length > 50 ? '...' : ''}"` : ''}`, "MILESTONE");
-      }
-
       await onSubmit({ rating, review });
       setShowSuccess(true);
     } catch (error) {
@@ -76,7 +68,7 @@ export default function ReviewModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [rating, review, facilitatorId, onSubmit]);
+  }, [rating, review, onSubmit]);
 
   const handleSkip = () => {
     onClose();

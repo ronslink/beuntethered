@@ -51,7 +51,7 @@ export default function TermsOfServicePage() {
         <h3>4.2 Client Orchestration Premium</h3>
         <p>
           Clients pay an <strong>8% Orchestration &amp; Escrow Premium</strong> on each milestone
-          funded through the Platform. This fee covers AI-generated scoping, Stripe Escrow
+          funded through the Platform. This fee covers AI-assisted scoping, Stripe Escrow
           infrastructure, and dispute resolution services. For projects brought via the BYOC
           (Bring Your Own Client) program, the premium is reduced to 5%. Discovery milestone
           engagements carry a 25% platform fee reflecting the AI-assisted deliverable generation.
@@ -85,13 +85,13 @@ export default function TermsOfServicePage() {
           the dispute in favor of either party, resulting in escrow release or refund.
         </p>
 
-        <h2>7. AI-Generated Content Disclaimer</h2>
+        <h2>7. AI-Assisted Content Disclaimer</h2>
         <p>
           The Platform uses artificial intelligence to generate Statements of Work, bid scorecards,
-          squad match recommendations, and dispute fact-finding reports. <strong>AI-generated content
+          squad match recommendations, and dispute fact-finding reports. <strong>AI-assisted content
           is provided as a draft and advisory tool only.</strong> It does not constitute legal advice,
           a binding contract, or a guaranteed outcome. Users are responsible for reviewing, editing,
-          and approving all AI-generated content before it becomes part of any agreement.
+          and approving all AI-assisted content before it becomes part of any agreement.
         </p>
 
         <h2>8. Intellectual Property</h2>

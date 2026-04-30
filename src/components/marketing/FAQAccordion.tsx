@@ -9,11 +9,11 @@ const FAQS = [
   },
   {
     q: "What is a Facilitator?",
-    a: "A Facilitator is our term for the modern developer who orchestrates AI agents alongside their own human expertise to deliver software. They don't just write code — they architect solutions, deploy AI coding agents, and manage delivery from scope to launch.",
+    a: "A Facilitator is the accountable software expert leading the project. They use AI tools to accelerate scoping, coding, review, documentation, and evidence collection, but the human facilitator owns judgment, communication, quality, and handoff.",
   },
   {
     q: "How does Escrow work?",
-    a: "When a client approves a bid, each milestone is funded into Stripe Escrow before the facilitator starts work. Once the facilitator submits the deliverable and the client approves it, escrow releases instantly to the facilitator's connected Stripe account. If there's a dispute, our AI-powered arbitration system reviews the evidence.",
+    a: "When a client approves a bid, each milestone is funded into Stripe Escrow before the facilitator starts work. Once the facilitator submits the deliverable and the client approves it, escrow releases to the facilitator's connected Stripe account. If there's a dispute, AI-assisted fact finding organizes the evidence for human review.",
   },
   {
     q: "Is my code safe?",
@@ -28,8 +28,8 @@ const FAQS = [
     a: "You can flag a deliverable for dispute. Our AI fact-finding system reviews the milestone requirements, acceptance criteria, and submitted work to generate an impartial report. Both parties can present evidence before resolution. Escrow stays locked throughout the process.",
   },
   {
-    q: "How is the AI-generated scope created?",
-    a: "You describe your project in plain English. Our AI analyses the description, identifies technical components, generates phased milestones with acceptance criteria, estimates complexity and cost, and produces a full Statement of Work. Facilitators then review and refine this scope in their proposals.",
+    q: "How is the AI-assisted scope created?",
+    a: "You describe your project in plain English. AI-assisted scoping analyzes the description, identifies technical components, drafts verifiable milestones with acceptance criteria, estimates complexity and cost, and produces a Statement of Work that clients and facilitators can review before anything is agreed.",
   },
   {
     q: "Do I need to be in the US to use Untether?",

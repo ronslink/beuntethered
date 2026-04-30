@@ -1,8 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { inviteFacilitatorToProject } from "@/app/actions/project-invites";
 
 type PlatformTier = "STANDARD" | "PRO" | "ELITE";
+type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED";
+type VerificationType = "IDENTITY" | "STRIPE" | "PORTFOLIO" | "BUSINESS";
+type InviteStatus = "SENT" | "VIEWED" | "ACCEPTED" | "DECLINED";
 
 export interface Facilitator {
   id: string;
@@ -16,8 +21,24 @@ export interface Facilitator {
   average_ai_audit_score: number;
   hourly_rate: number;
   preferred_llm: string | null;
-  emailVerified: Date | null;
+  emailVerified: Date | string | null;
+  bio?: string | null;
+  skills?: string[];
+  ai_agent_stack?: string[];
+  portfolio_url?: string | null;
+  availability?: string | null;
+  years_experience?: number | null;
+  preferred_project_size?: string | null;
+  verifications?: { type: VerificationType; status: VerificationStatus }[];
+  dispute_count?: number;
+  bid_count?: number;
 }
+
+const VERIFICATION_TYPES: { type: VerificationType; label: string; icon: string }[] = [
+  { type: "IDENTITY", label: "Identity", icon: "badge" },
+  { type: "STRIPE", label: "Stripe", icon: "account_balance" },
+  { type: "PORTFOLIO", label: "Portfolio", icon: "work_history" },
+];
 
 function getInitials(name: string | null): string {
   if (!name) return "?";
@@ -29,110 +50,113 @@ function getInitials(name: string | null): string {
     .slice(0, 2);
 }
 
-function getAvatarGradient(id: string): string {
-  const colors = [
-    "from-primary to-primary-container",
-    "from-tertiary to-tertiary-container",
-    "from-secondary to-secondary-container",
-  ];
-  const idx = parseInt(id, 10) % colors.length;
-  return colors[idx];
-}
-
-function formatDate(date: Date): string {
+function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
-    month: "long",
+    month: "short",
     day: "numeric",
-  }).format(date);
+  }).format(new Date(date));
 }
 
-function tierColor(tier: PlatformTier): {
-  bg: string;
-  text: string;
-  border: string;
-  glow: string;
-} {
-  switch (tier) {
-    case "ELITE":
-      return {
-        bg: "bg-primary/20",
-        text: "text-primary",
-        border: "border-primary/50",
-        glow: "shadow-[0_0_20px_rgba(var(--color-primary),0.3)]",
-      };
-    case "PRO":
-      return {
-        bg: "bg-tertiary/20",
-        text: "text-tertiary",
-        border: "border-tertiary/50",
-        glow: "shadow-[0_0_20px_rgba(var(--color-tertiary),0.3)]",
-      };
-    default:
-      return {
-        bg: "bg-outline/20",
-        text: "text-on-surface-variant",
-        border: "border-outline/50",
-        glow: "",
-      };
-  }
+function tierClasses(tier: PlatformTier): string {
+  if (tier === "ELITE") return "bg-primary/10 text-primary border-primary/30";
+  if (tier === "PRO") return "bg-tertiary/10 text-tertiary border-tertiary/30";
+  return "bg-surface-container-high text-on-surface-variant border-outline-variant/30";
+}
+
+function availabilityLabel(value?: string | null): string {
+  if (value === "AVAILABLE") return "Available now";
+  if (value === "SOON") return "Available soon";
+  if (value === "LIMITED") return "Limited capacity";
+  if (value === "READY_THIS_WEEK") return "Ready this week";
+  return value ? value.replace(/_/g, " ").toLowerCase() : "Availability unknown";
+}
+
+function verificationStatus(
+  verifications: Facilitator["verifications"] | undefined,
+  type: VerificationType
+) {
+  return verifications?.find((verification) => verification.type === type)?.status ?? "PENDING";
+}
+
+function inviteStatusLabel(status: InviteStatus | null): string | null {
+  if (status === "SENT") return "Invited";
+  if (status === "VIEWED") return "Viewed";
+  if (status === "ACCEPTED") return "Accepted";
+  if (status === "DECLINED") return "Declined";
+  return null;
+}
+
+function StatusBadge({ status }: { status: VerificationStatus }) {
+  const cls =
+    status === "VERIFIED"
+      ? "bg-[#059669]/10 text-[#059669] border-[#059669]/30"
+      : status === "REJECTED"
+      ? "bg-error/10 text-error border-error/30"
+      : "bg-surface-container-high text-on-surface-variant border-outline-variant/30";
+
+  return (
+    <span className={`rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${cls}`}>
+      {status.toLowerCase()}
+    </span>
+  );
 }
 
 function TrustScoreBar({ score }: { score: number }) {
   const pct = Math.min(100, Math.max(0, score));
-  const color =
-    score >= 90
-      ? "bg-primary"
-      : score >= 70
-      ? "bg-tertiary"
-      : "bg-secondary";
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">
           Trust Score
         </span>
-        <span className="font-black font-headline text-sm text-on-surface">
+        <span className="font-black text-sm text-on-surface">
           {score.toFixed(1)}
           <span className="text-xs font-bold text-on-surface-variant">/100</span>
         </span>
       </div>
-      <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-700 ${color}`}
-          style={{ width: `${pct}%` }}
-        />
+      <div className="h-2 bg-surface-container-high rounded-md overflow-hidden">
+        <div className="h-full rounded-md bg-primary transition-all duration-700" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
 }
 
-export default function FacilitatorProfileClient({ facilitator }: { facilitator: Facilitator | null }) {
+export default function FacilitatorProfileClient({
+  facilitator,
+  canInvite,
+  openProjects,
+  inviteStatus: initialInviteStatus,
+}: {
+  facilitator: Facilitator | null;
+  canInvite: boolean;
+  openProjects: { id: string; title: string }[];
+  inviteStatus: InviteStatus | null;
+}) {
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteProjectId, setInviteProjectId] = useState(openProjects[0]?.id ?? "");
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [currentInviteStatus, setCurrentInviteStatus] = useState<InviteStatus | null>(initialInviteStatus);
+
   if (!facilitator) {
     return (
-      <main className="min-h-screen bg-[#07090F] relative overflow-hidden selection:bg-tertiary/30">
-        <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-tertiary/5 rounded-full blur-[150px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px] pointer-events-none" />
-        <div className="max-w-xl mx-auto px-4 pt-32">
-          <div className="bg-surface/40 backdrop-blur-3xl border border-outline-variant/30 rounded-2xl p-16 text-center shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
-            <span className="material-symbols-outlined text-outline-variant text-6xl mb-4 block">
-              person_off
-            </span>
-            <h3 className="text-xl font-black font-headline uppercase tracking-tight text-on-surface mb-2">
-              Facilitator Not Found
-            </h3>
-            <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-8">
-              This facilitator profile doesn&apos;t exist or is no longer available.
-            </p>
-            <Link
-              href="/talent"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-on-primary font-bold font-headline uppercase tracking-widest text-xs hover:bg-primary-container hover:text-on-primary-container transition-colors"
-            >
-              <span className="material-symbols-outlined text-sm">arrow_back</span>
-              Back to Talent
-            </Link>
-          </div>
+      <main className="min-h-full px-4 py-10">
+        <div className="max-w-xl mx-auto bg-surface border border-outline-variant/30 rounded-lg p-10 text-center">
+          <span className="material-symbols-outlined text-outline-variant text-4xl mb-4 block">person_off</span>
+          <h3 className="text-xl font-black font-headline uppercase tracking-tight text-on-surface mb-2">
+            Facilitator Not Found
+          </h3>
+          <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-8">
+            This facilitator profile does not exist or is no longer available.
+          </p>
+          <Link
+            href="/talent"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-on-primary font-bold uppercase tracking-widest text-xs hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            Back to Talent
+          </Link>
         </div>
       </main>
     );
@@ -140,20 +164,43 @@ export default function FacilitatorProfileClient({ facilitator }: { facilitator:
 
   const name = facilitator.name || "Unnamed Facilitator";
   const initials = getInitials(facilitator.name);
-  const avatarGradient = getAvatarGradient(facilitator.id);
-  const tier = facilitator.platform_tier;
-  const tierStyle = tierColor(tier);
-  const memberSince = facilitator.emailVerified
+  const skills = facilitator.skills ?? [];
+  const agentStack = facilitator.ai_agent_stack ?? [];
+  const disputes = facilitator.dispute_count ?? 0;
+  const verifiedCount = VERIFICATION_TYPES.filter(
+    ({ type }) => verificationStatus(facilitator.verifications, type) === "VERIFIED"
+  ).length;
+  const profileComplete = Boolean(facilitator.bio && skills.length > 0 && facilitator.portfolio_url);
+  const stripeVerified = verificationStatus(facilitator.verifications, "STRIPE") === "VERIFIED";
+  const identityVerified = verificationStatus(facilitator.verifications, "IDENTITY") === "VERIFIED";
+
+  const inviteLabel = inviteStatusLabel(currentInviteStatus);
+  const canSendInvite = canInvite && openProjects.length > 0 && (!currentInviteStatus || currentInviteStatus === "DECLINED");
+
+  const sendInvite = async () => {
+    if (!inviteProjectId) return;
+    setInviteMessage("Sending invite...");
+    const res = await inviteFacilitatorToProject({
+      projectId: inviteProjectId,
+      facilitatorId: facilitator.id,
+      message: "We think your delivery profile is a strong fit for this project.",
+    });
+    setInviteMessage(
+      res.success
+        ? res.alreadyInvited
+          ? "Invite already active."
+          : "Invite sent."
+        : res.error || "Invite failed."
+    );
+    if (res.success) {
+      setCurrentInviteStatus(res.status ?? "SENT");
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-[#07090F] relative overflow-hidden selection:bg-tertiary/30">
-      {/* Ambient glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-tertiary/5 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[150px] pointer-events-none" />
-
-      <div className="max-w-3xl mx-auto px-4 relative z-10">
-        {/* Back nav */}
-        <div className="pt-8 pb-6">
+    <main className="min-h-full bg-background px-4 py-6 pb-16 lg:px-6">
+      <div className="mx-auto max-w-[1400px]">
+        <div className="mb-6">
           <Link
             href="/talent"
             className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors"
@@ -163,177 +210,258 @@ export default function FacilitatorProfileClient({ facilitator }: { facilitator:
           </Link>
         </div>
 
-        {/* Profile Card */}
-        <div className="bg-surface/50 backdrop-blur-3xl border border-outline-variant/20 rounded-2xl p-8 md:p-10 shadow-[0_8px_40px_rgb(0,0,0,0.4)] relative overflow-hidden mb-6">
-          {/* Glow accent */}
-          <div
-            className={`absolute -top-20 -right-20 w-48 h-48 rounded-full blur-3xl opacity-10 ${
-              tier === "ELITE" ? "bg-primary" : tier === "PRO" ? "bg-tertiary" : "bg-outline"
-            }`}
-          />
-
-          <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
-            {/* Avatar */}
-            <div
-              className={`w-28 h-28 rounded-2xl flex items-center justify-center bg-gradient-to-br ${avatarGradient} border-2 border-outline-variant/40 shadow-xl flex-shrink-0`}
-            >
+        <section className="mb-6 rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm md:p-8">
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
+            <div className="flex items-start gap-5">
               {facilitator.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={facilitator.image}
                   alt={name}
-                  className="w-full h-full object-cover rounded-2xl"
+                  className="h-20 w-20 shrink-0 rounded-2xl border border-outline-variant/30 object-cover"
                 />
               ) : (
-                <span className="font-black font-headline text-4xl text-on-surface">
-                  {initials}
-                </span>
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-outline-variant/30 bg-surface-container-high">
+                  <span className="font-headline text-2xl font-black text-on-surface-variant">{initials}</span>
+                </div>
               )}
-            </div>
 
-            {/* Info */}
-            <div className="flex-1 space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl md:text-4xl font-black font-headline uppercase tracking-tight text-on-surface">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-widest ${tierClasses(facilitator.platform_tier)}`}>
+                    {facilitator.platform_tier}
+                  </span>
+                  <span className="rounded-full border border-tertiary/20 bg-tertiary/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                    {availabilityLabel(facilitator.availability)}
+                  </span>
+                </div>
+                <h1 className="font-headline text-3xl font-black tracking-tight text-on-surface md:text-4xl">
                   {name}
                 </h1>
-                <span
-                  className={`px-3 py-1 rounded-full font-black font-headline uppercase tracking-widest text-[9px] shadow-lg border ${tierStyle.bg} ${tierStyle.text} ${tierStyle.border}`}
+                <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-on-surface-variant">
+                  {facilitator.bio || "Human-led, AI-assisted software delivery facilitator."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row lg:w-64 lg:flex-col">
+              {canSendInvite ? (
+                <button
+                  onClick={() => {
+                    setInviteOpen(true);
+                    setInviteProjectId(openProjects[0]?.id ?? "");
+                    setInviteMessage("");
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-xs font-black uppercase tracking-widest text-on-primary transition-opacity hover:opacity-90"
                 >
-                  {tier}
+                  {currentInviteStatus === "DECLINED" ? "Reinvite to Bid" : "Invite to Bid"}
+                  <span className="material-symbols-outlined text-[14px]">outgoing_mail</span>
+                </button>
+              ) : inviteLabel ? (
+                <span className="inline-flex items-center justify-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container-low px-5 py-3 text-xs font-black uppercase tracking-widest text-on-surface-variant">
+                  {inviteLabel}
+                  <span className="material-symbols-outlined text-[14px]">
+                    {currentInviteStatus === "ACCEPTED" ? "check_circle" : currentInviteStatus === "DECLINED" ? "block" : "mark_email_read"}
+                  </span>
                 </span>
-              </div>
+              ) : (
+                <Link
+                  href="/projects/new"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-xs font-black uppercase tracking-widest text-on-primary transition-opacity hover:opacity-90"
+                >
+                  Post Project
+                  <span className="material-symbols-outlined text-[14px]">add</span>
+                </Link>
+              )}
+              {facilitator.portfolio_url && (
+                <a
+                  href={facilitator.portfolio_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-outline-variant/30 px-5 py-3 text-xs font-black uppercase tracking-widest text-on-surface-variant transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  Portfolio
+                  <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
 
-              <p className="text-on-surface-variant font-bold text-[10px] uppercase tracking-widest">
-                Project Facilitator
-              </p>
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {[
+            { label: "Trust Score", value: Math.round(facilitator.trust_score) },
+            { label: "Completed Milestones", value: facilitator.total_sprints_completed },
+            { label: "Average Audit", value: facilitator.average_ai_audit_score > 0 ? `${facilitator.average_ai_audit_score.toFixed(1)}%` : "-" },
+            { label: "Disputes", value: disputes },
+            { label: "Verifications", value: `${verifiedCount}/${VERIFICATION_TYPES.length}` },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-outline-variant/20 bg-surface p-4">
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">{stat.label}</p>
+              <p className="text-xl font-black text-on-surface">{stat.value}</p>
+            </div>
+          ))}
+        </div>
 
-              <p className="text-on-surface-variant text-sm">
-                {facilitator.email}
-              </p>
-
-              <div className="flex flex-wrap gap-4 pt-2">
-                {facilitator.hourly_rate > 0 && (
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-black font-headline text-2xl text-primary">
-                      ${Number(facilitator.hourly_rate).toFixed(0)}
-                    </span>
-                    <span className="text-xs font-bold text-on-surface-variant">
-                      /hr
-                    </span>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <section className="lg:col-span-8 space-y-6">
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface p-6">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-on-surface">
+                Skills And AI Tools
+              </h2>
+              <div className="space-y-5">
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Skills</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(skills.length > 0 ? skills : ["No skills listed"]).map((skill) => (
+                      <span key={skill} className="rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-1.5 text-xs font-bold text-on-surface-variant">
+                        {skill}
+                      </span>
+                    ))}
                   </div>
-                )}
-                {facilitator.preferred_llm && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high/60 border border-outline-variant/30 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    <span className="material-symbols-outlined text-xs">psychology</span>
-                    {facilitator.preferred_llm}
-                  </span>
-                )}
-                {memberSince && (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    <span className="material-symbols-outlined text-xs">calendar_today</span>
-                    Member since {formatDate(memberSince)}
-                  </span>
-                )}
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">AI Tool Stack</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(agentStack.length > 0 ? agentStack : [facilitator.preferred_llm || "Not specified"]).map((agent) => (
+                      <span key={agent} className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-bold text-primary">
+                        {agent}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-surface/40 backdrop-blur-3xl border border-outline-variant/20 rounded-2xl p-5 text-center shadow-[0_4px_20px_rgb(0,0,0,0.2)]">
-            <div className="flex items-center justify-center gap-1.5 mb-2">
-              <span className="material-symbols-outlined text-primary text-lg">
-                verified
-              </span>
-              <span className="font-black font-headline text-2xl text-on-surface">
-                {facilitator.trust_score.toFixed(0)}
-              </span>
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface p-6">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-on-surface">
+                Buyer Confidence Signals
+              </h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                <EvidenceCard label="Stripe payout verified" active={stripeVerified} body="Facilitator can receive marketplace payouts through Stripe Connect." />
+                <EvidenceCard label="Identity verified" active={identityVerified} body="Profile has identity review evidence recorded in Untether." />
+                <EvidenceCard label="Profile complete" active={profileComplete} body="Bio, skills, AI tool workflow, and portfolio are ready for buyer review." />
+                <EvidenceCard label="Dispute history" active={disputes === 0} body={disputes === 0 ? "No disputes recorded for this facilitator." : `${disputes} dispute record(s) require review.`} />
+              </div>
             </div>
-            <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">
-              Trust Score
-            </p>
-          </div>
+          </section>
 
-          <div className="bg-surface/40 backdrop-blur-3xl border border-outline-variant/20 rounded-2xl p-5 text-center shadow-[0_4px_20px_rgb(0,0,0,0.2)]">
-            <div className="flex items-center justify-center gap-1.5 mb-2">
-              <span className="material-symbols-outlined text-tertiary text-lg">
-                Rocket
-              </span>
-              <span className="font-black font-headline text-2xl text-on-surface">
-                {facilitator.total_sprints_completed}
-              </span>
+          <aside className="lg:col-span-4 space-y-6">
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface p-6">
+              <TrustScoreBar score={facilitator.trust_score} />
             </div>
-            <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">
-              Projects Done
-            </p>
-          </div>
 
-          <div className="bg-surface/40 backdrop-blur-3xl border border-outline-variant/20 rounded-2xl p-5 text-center shadow-[0_4px_20px_rgb(0,0,0,0.2)]">
-            <div className="flex items-center justify-center gap-1.5 mb-2">
-              <span className="material-symbols-outlined text-secondary text-lg">
-                star
-              </span>
-              <span className="font-black font-headline text-2xl text-on-surface">
-                {facilitator.average_ai_audit_score > 0
-                  ? facilitator.average_ai_audit_score.toFixed(1)
-                  : "—"}
-              </span>
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface p-6">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-on-surface">
+                Verification Evidence
+              </h2>
+              <div className="space-y-3">
+                {VERIFICATION_TYPES.map(({ type, label, icon }) => (
+                  <div key={type} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{icon}</span>
+                      <span className="text-sm font-bold text-on-surface truncate">{label}</span>
+                    </div>
+                    <StatusBadge status={verificationStatus(facilitator.verifications, type)} />
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">
-              Avg Rating
-            </p>
-          </div>
-        </div>
 
-        {/* Trust Score Detail */}
-        <div className="bg-surface/40 backdrop-blur-3xl border border-outline-variant/20 rounded-2xl p-6 shadow-[0_4px_20px_rgb(0,0,0,0.2)] mb-6">
-          <TrustScoreBar score={facilitator.trust_score} />
-        </div>
-
-        {/* Why Work With This Facilitator */}
-        <div className="bg-surface/40 backdrop-blur-3xl border border-outline-variant/20 rounded-2xl p-6 shadow-[0_4px_20px_rgb(0,0,0,0.2)] mb-6">
-          <h2 className="text-lg font-black font-headline uppercase tracking-tight text-on-surface mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-tertiary text-xl">
-              lightbulb
-            </span>
-            Why Work With This Facilitator
-          </h2>
-          <ul className="space-y-3">
-            {[
-              "Pre-vetted by beuntethered — passed our technical and professionalism bar",
-              "Zero-KPI accountability model — paid only on delivered outcomes",
-              "Escrow-protected payments — your funds are safe until milestones are approved",
-              "AI-audit scoring — every sprint is quality-checked by our AI systems",
-            ].map((point, i) => (
-              <li key={i} className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-primary text-sm mt-0.5 flex-shrink-0">
-                  check_circle
-                </span>
-                <span className="text-sm text-on-surface-variant">{point}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Hire CTA */}
-        <div className="bg-gradient-to-br from-primary/10 to-tertiary/10 backdrop-blur-3xl border border-outline-variant/20 rounded-2xl p-8 text-center shadow-[0_4px_20px_rgb(0,0,0,0.2)] mb-16">
-          <h2 className="text-xl font-black font-headline uppercase tracking-tight text-on-surface mb-2">
-            Ready to Ship?
-          </h2>
-          <p className="text-sm text-on-surface-variant mb-6 max-w-md mx-auto">
-            Bring {name} on board for your next project. Zero upfront risk — milestones are protected by escrow.
-          </p>
-          <Link
-            href={`/byoc/new?facilitator_id=${facilitator.id}`}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary text-on-primary font-bold font-headline uppercase tracking-widest text-sm hover:bg-primary-container hover:text-on-primary-container hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20 transition-all"
-          >
-            Hire This Architect
-            <span className="material-symbols-outlined text-lg">arrow_forward</span>
-          </Link>
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface p-6">
+              <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-on-surface">
+                Commercial Readiness
+              </h2>
+              <dl className="space-y-3 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-on-surface-variant">Hourly reference</dt>
+                  <dd className="font-black text-on-surface">{facilitator.hourly_rate > 0 ? `$${facilitator.hourly_rate.toFixed(0)}/hr` : "Not listed"}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-on-surface-variant">Experience</dt>
+                  <dd className="font-black text-on-surface">{facilitator.years_experience ? `${facilitator.years_experience}y` : "Not listed"}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-on-surface-variant">Project size</dt>
+                  <dd className="font-black text-on-surface text-right">{facilitator.preferred_project_size || "Flexible"}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-on-surface-variant">Member since</dt>
+                  <dd className="font-black text-on-surface">{facilitator.emailVerified ? formatDate(facilitator.emailVerified) : "Unverified"}</dd>
+                </div>
+              </dl>
+            </div>
+          </aside>
         </div>
       </div>
+
+      {inviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button
+            aria-label="Close invite dialog"
+            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            onClick={() => setInviteOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Invite to bid</p>
+            <h3 className="mt-2 text-xl font-black text-on-surface">{name}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">
+              Send a direct project invite. This opportunity will be flagged in the facilitator marketplace feed.
+            </p>
+
+            <label className="mt-5 block text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+              Project
+            </label>
+            <select
+              value={inviteProjectId}
+              onChange={(event) => setInviteProjectId(event.target.value)}
+              className="mt-2 h-11 w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 text-sm font-medium text-on-surface outline-none focus:border-primary/50"
+            >
+              {openProjects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                </option>
+              ))}
+            </select>
+
+            {inviteMessage && (
+              <p className="mt-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant">
+                {inviteMessage}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setInviteOpen(false)}
+                className="rounded-xl border border-outline-variant/30 px-4 py-2 text-xs font-bold text-on-surface-variant"
+              >
+                Close
+              </button>
+              <button
+                onClick={sendInvite}
+                disabled={!inviteProjectId}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-black uppercase tracking-widest text-on-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Send invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function EvidenceCard({ label, active, body }: { label: string; active: boolean; body: string }) {
+  return (
+    <div className={`rounded-xl border p-4 ${active ? "border-tertiary/30 bg-tertiary/10" : "border-outline-variant/30 bg-surface-container-low"}`}>
+      <div className="flex items-center gap-2">
+        <span className={`material-symbols-outlined text-[18px] ${active ? "text-tertiary" : "text-outline"}`}>
+          {active ? "check_circle" : "radio_button_unchecked"}
+        </span>
+        <h3 className="text-sm font-black text-on-surface">{label}</h3>
+      </div>
+      <p className="mt-2 text-xs font-medium leading-relaxed text-on-surface-variant">{body}</p>
+    </div>
   );
 }

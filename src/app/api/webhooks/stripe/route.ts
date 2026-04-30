@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/auth";
 import { sendEscrowFundedAlert } from "@/lib/resend";
+import { shouldSendEmailForPreference } from "@/lib/email-preferences";
 import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123");
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+import { createStripeClient, getStripeWebhookSecret, isPaymentConfigurationError } from "@/lib/stripe";
+import {
+  markMilestoneFundingFailed,
+  reconcileChangeOrderFunding,
+  reconcileEscrowTransfer,
+  reconcileMilestoneFunding,
+} from "@/lib/payment-reconciliation";
+import {
+  getCheckoutPaymentIntentId,
+  getMilestoneIdFromPaymentIntent,
+  getMilestoneIdFromTransfer,
+} from "@/lib/stripe-webhook";
+import {
+  syncStripeConnectVerification,
+  syncStripeIdentityVerificationSession,
+} from "@/lib/facilitator-verification";
 
 export async function POST(req: Request) {
   try {
@@ -12,6 +25,8 @@ export async function POST(req: Request) {
     const payload = await req.text();
 
     let event: Stripe.Event;
+    const stripe = createStripeClient();
+    const webhookSecret = getStripeWebhookSecret();
 
     try {
       event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
@@ -27,53 +42,55 @@ export async function POST(req: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      const paymentIntentId =
-        typeof session.payment_intent === "string"
-          ? session.payment_intent
-          : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null;
-
+      const paymentIntentId = getCheckoutPaymentIntentId(session);
       const milestoneId = session.metadata?.milestone_id;
       const changeOrderId = session.metadata?.change_order_id;
 
       // ── Milestone Escrow Funding ──────────────────────────────────────────
       if (milestoneId) {
-        const milestone = await prisma.milestone.findUnique({
-          where: { id: milestoneId },
-          include: { project: true, facilitator: true },
+        const result = await reconcileMilestoneFunding({
+          milestoneId,
+          paymentIntentId,
+          checkoutSessionId: session.id,
+          source: "webhook_checkout",
         });
 
-        // Idempotency: skip if already processed with this payment intent
-        if (milestone && milestone.stripe_payment_intent_id === paymentIntentId) {
-          return NextResponse.json({ received: true });
-        }
-
-        if (milestone) {
-          await prisma.milestone.update({
-            where: { id: milestoneId },
-            data: {
-              status: "FUNDED_IN_ESCROW",
-              stripe_payment_intent_id: paymentIntentId,
-            },
-          });
-
-          // Notify the facilitator their escrow is now live
-          if (milestone.facilitator?.email) {
-            await sendEscrowFundedAlert(
-              milestone.facilitator.email,
-              milestone.project.title,
-              Number(milestone.amount)
-            ).catch((err) =>
-              console.error("[webhook] sendEscrowFundedAlert failed:", err)
-            );
-          }
+        if (
+          result.applied &&
+          result.milestone.facilitator?.email &&
+          shouldSendEmailForPreference("PAYMENT_UPDATE", result.milestone.facilitator)
+        ) {
+          void sendEscrowFundedAlert(
+            result.milestone.facilitator.email,
+            result.milestone.project.title,
+            Number(result.milestone.amount)
+          ).catch((err) =>
+            console.error("[webhook] sendEscrowFundedAlert failed:", err)
+          );
         }
       }
 
       // ── Change Order Top-Up ───────────────────────────────────────────────
       if (changeOrderId) {
-        await prisma.changeOrder.update({
-          where: { id: changeOrderId },
-          data: { status: "ACCEPTED_AND_FUNDED" },
+        await reconcileChangeOrderFunding({
+          changeOrderId,
+          paymentIntentId,
+          checkoutSessionId: session.id,
+          source: "webhook_checkout",
+        });
+      }
+    }
+
+    if (event.type === "checkout.session.expired") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const milestoneId = session.metadata?.milestone_id;
+      if (milestoneId) {
+        await markMilestoneFundingFailed({
+          milestoneId,
+          paymentIntentId: getCheckoutPaymentIntentId(session),
+          checkoutSessionId: session.id,
+          status: "CANCELLED",
+          source: "webhook_checkout_expired",
         });
       }
     }
@@ -83,11 +100,12 @@ export async function POST(req: Request) {
     // only if the release-escrow endpoint hasn't already done so.
     if (event.type === "transfer.created") {
       const transfer = event.data.object as Stripe.Transfer;
-      const milestoneId = transfer.metadata?.milestone_id;
+      const milestoneId = getMilestoneIdFromTransfer(transfer);
       if (milestoneId) {
-        await prisma.milestone.updateMany({
-          where: { id: milestoneId, status: { not: "APPROVED_AND_PAID" } },
-          data: { status: "APPROVED_AND_PAID" },
+        await reconcileEscrowTransfer({
+          milestoneId,
+          transferId: transfer.id,
+          source: "webhook_transfer",
         });
       }
     }
@@ -96,21 +114,44 @@ export async function POST(req: Request) {
     // Handles direct PaymentIntents (non-Checkout) — milestone_id lives on PI metadata.
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const milestoneId = paymentIntent.metadata?.milestone_id;
+      const milestoneId = getMilestoneIdFromPaymentIntent(paymentIntent);
 
       if (milestoneId) {
-        await prisma.milestone.update({
-          where: { id: milestoneId },
-          data: {
-            status: "FUNDED_IN_ESCROW",
-            stripe_payment_intent_id: paymentIntent.id,
-          },
+        await reconcileMilestoneFunding({
+          milestoneId,
+          paymentIntentId: paymentIntent.id,
+          source: "webhook_payment_intent",
         });
       }
     }
 
+    if (event.type === "payment_intent.payment_failed") {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const milestoneId = getMilestoneIdFromPaymentIntent(paymentIntent);
+
+      if (milestoneId) {
+        await markMilestoneFundingFailed({
+          milestoneId,
+          paymentIntentId: paymentIntent.id,
+          status: "FAILED",
+          source: "webhook_payment_failed",
+        });
+      }
+    }
+
+    if (event.type === "account.updated") {
+      await syncStripeConnectVerification(event.data.object as Stripe.Account);
+    }
+
+    if (event.type.startsWith("identity.verification_session.")) {
+      await syncStripeIdentityVerificationSession(event.data.object as Stripe.Identity.VerificationSession);
+    }
+
     return NextResponse.json({ received: true });
   } catch (error: any) {
+    if (isPaymentConfigurationError(error)) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 503 });
+    }
     console.error("[Stripe Webhook] Fault:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

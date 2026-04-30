@@ -1,32 +1,45 @@
 "use server";
 
 import { prisma } from "@/lib/auth";
-import { Resend } from "resend";
 import { randomBytes } from "crypto";
 import { hashPassword } from "@/lib/encryption";
+import { buildAppUrl } from "@/lib/app-url";
+import { sendTransactionalEmail } from "@/lib/resend";
+import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
+import { passwordResetInputSchema, passwordResetRequestInputSchema } from "@/lib/validators";
 
-const resend = new Resend(process.env.RESEND_API_KEY || "missing-key");
 const RESET_EXPIRY_HOURS = 1;
 
 function generateToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 /**
  * Request a password reset email.
  * Does NOT reveal whether the account exists — always returns success.
  */
-export async function requestPasswordReset(email: string) {
-  if (!isValidEmail(email)) {
+export async function requestPasswordReset(email: unknown) {
+  const parsed = passwordResetRequestInputSchema.safeParse({ email });
+  if (!parsed.success) {
     return { success: false, error: "Invalid email address" };
+  }
+  const normalizedEmail = parsed.data.email;
+
+  try {
+    await assertDurableRateLimit({
+      key: rateLimitKey("auth.password-reset.request", normalizedEmail),
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      return { success: false, error: error.message, code: error.code, retryAfterSeconds: error.retryAfterSeconds };
+    }
+    throw error;
   }
 
   // Always succeed to prevent email enumeration
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
   if (!user || !user.password_hash) {
     // Don't reveal account status — but still "succeed"
@@ -35,7 +48,7 @@ export async function requestPasswordReset(email: string) {
 
   // Invalidate any existing reset tokens for this email
   await prisma.passwordResetToken.updateMany({
-    where: { email, used_at: null },
+    where: { email: normalizedEmail, used_at: null },
     data: { used_at: new Date() },
   });
 
@@ -43,16 +56,16 @@ export async function requestPasswordReset(email: string) {
   const expires = new Date(Date.now() + RESET_EXPIRY_HOURS * 60 * 60 * 1000);
 
   await prisma.passwordResetToken.create({
-    data: { email, token, expires },
+    data: { email: normalizedEmail, token, expires },
   });
 
-  const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+  const resetUrl = buildAppUrl(`/reset-password?token=${token}`);
 
   if (process.env.RESEND_API_KEY) {
     try {
-      await resend.emails.send({
+      await sendTransactionalEmail({
         from: "beuntethered <noreply@beuntethered.com>",
-        to: email,
+        to: normalizedEmail,
         subject: "Reset your beuntethered password",
         html: `
           <p>You requested a password reset for your beuntethered account.</p>
@@ -66,7 +79,7 @@ export async function requestPasswordReset(email: string) {
     }
   } else {
     // Dev mode — log the token
-    console.log(`[DEV] Password reset token for ${email}: ${token}`);
+    console.log(`[DEV] Password reset token for ${normalizedEmail}: ${token}`);
     console.log(`[DEV] Reset URL: ${resetUrl}`);
   }
 
@@ -76,17 +89,29 @@ export async function requestPasswordReset(email: string) {
 /**
  * Reset the password using a valid token.
  */
-export async function resetPassword(token: string, newPassword: string) {
-  if (!token || !newPassword) {
-    return { success: false, error: "Token and new password are required" };
+export async function resetPassword(token: unknown, newPassword: unknown) {
+  const parsed = passwordResetInputSchema.safeParse({ token, newPassword });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Token and new password are required" };
   }
+  const resetToken = parsed.data.token;
+  const password = parsed.data.newPassword;
 
-  if (newPassword.length < 8) {
-    return { success: false, error: "Password must be at least 8 characters" };
+  try {
+    await assertDurableRateLimit({
+      key: rateLimitKey("auth.password-reset.submit", resetToken.slice(0, 16)),
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      return { success: false, error: error.message, code: error.code, retryAfterSeconds: error.retryAfterSeconds };
+    }
+    throw error;
   }
 
   const resetRecord = await prisma.passwordResetToken.findUnique({
-    where: { token },
+    where: { token: resetToken },
   });
 
   if (!resetRecord) {
@@ -103,12 +128,12 @@ export async function resetPassword(token: string, newPassword: string) {
 
   // Mark as used
   await prisma.passwordResetToken.update({
-    where: { token },
+    where: { token: resetToken },
     data: { used_at: new Date() },
   });
 
   // Update the user's password
-  const password_hash = await hashPassword(newPassword);
+  const password_hash = await hashPassword(password);
   await prisma.user.update({
     where: { email: resetRecord.email },
     data: { password_hash },

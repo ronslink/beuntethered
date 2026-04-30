@@ -7,6 +7,8 @@ import { generateObject, embed } from "ai";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getDynamicAIProvider } from "@/lib/ai-router";
+import { recordActivity } from "@/lib/activity";
+import { assertProjectBuyerManager, getProjectBuyerActivityMetadata } from "@/lib/project-access";
 
 
 export async function assembleSquad(projectId: string) {
@@ -98,7 +100,9 @@ export async function acceptSquadProposal(squadProposalId: string) {
          where: { id: squadProposalId },
          include: { members: true, project: true }
       });
-      if (!proposal || proposal.project.client_id !== user.id) throw new Error("Invalid constraints locking execution bindings.");
+      if (!proposal) throw new Error("Invalid constraints locking execution bindings.");
+      await assertProjectBuyerManager(proposal.project_id, user.id);
+      const buyerAudit = await getProjectBuyerActivityMetadata(proposal.project_id, user.id);
 
       await prisma.$transaction(async (tx) => {
          await tx.squadProposal.update({
@@ -117,6 +121,15 @@ export async function acceptSquadProposal(squadProposalId: string) {
                data: { facilitator_id: member.facilitator_id }
             });
          }
+      });
+
+      await recordActivity({
+         projectId: proposal.project_id,
+         actorId: user.id,
+         action: "SYSTEM_EVENT",
+         entityType: "SquadProposal",
+         entityId: squadProposalId,
+         metadata: { ...buyerAudit, operation: "SQUAD_ACCEPTED", member_count: proposal.members.length },
       });
 
       revalidatePath(`/projects/${proposal.project_id}`);

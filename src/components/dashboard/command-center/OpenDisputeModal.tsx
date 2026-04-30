@@ -1,26 +1,33 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { openDispute } from "@/app/actions/dispute";
+import { useState, useEffect, useCallback, useRef, ChangeEvent } from "react";
+import { openDisputeWithEvidence } from "@/app/actions/dispute";
+import type { DisputeEvidenceContext } from "@/lib/dispute-evidence";
 
 interface OpenDisputeModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId: string;
+  milestoneId?: string;
+  reviewContext?: DisputeEvidenceContext;
 }
 
 export default function OpenDisputeModal({
   isOpen,
   onClose,
   projectId,
+  milestoneId,
+  reviewContext,
 }: OpenDisputeModalProps) {
   const [codeDoesNotRun, setCodeDoesNotRun] = useState(false);
   const [reason, setReason] = useState("");
   const [appmapFile, setAppmapFile] = useState<File | null>(null);
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const evidenceInputRef = useRef<HTMLInputElement>(null);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -28,6 +35,7 @@ export default function OpenDisputeModal({
       setCodeDoesNotRun(false);
       setReason("");
       setAppmapFile(null);
+      setEvidenceFiles([]);
       setIsSubmitting(false);
       setShowSuccess(false);
       setError(null);
@@ -55,9 +63,13 @@ export default function OpenDisputeModal({
     }
   }, [showSuccess, onClose]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setAppmapFile(file);
+  };
+
+  const handleEvidenceChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setEvidenceFiles(Array.from(e.target.files || []).slice(0, 5));
   };
 
   const handleSubmit = useCallback(async () => {
@@ -70,18 +82,15 @@ export default function OpenDisputeModal({
     setError(null);
 
     try {
-      // Read appmap.log file content if provided
-      let appmapLogContent: string | undefined;
-      if (appmapFile) {
-        appmapLogContent = await appmapFile.text();
-      }
+      const formData = new FormData();
+      formData.append("projectId", projectId);
+      if (milestoneId) formData.append("milestoneId", milestoneId);
+      formData.append("reason", reason);
+      formData.append("codeDoesNotRun", String(codeDoesNotRun));
+      if (appmapFile) formData.append("appmapLog", appmapFile);
+      evidenceFiles.forEach((file) => formData.append("evidenceFiles", file));
 
-      const res = await openDispute({
-        projectId,
-        reason,
-        codeDoesNotRun,
-        appmapLogContent,
-      });
+      const res = await openDisputeWithEvidence(formData);
 
       if (res.success) {
         setShowSuccess(true);
@@ -94,7 +103,7 @@ export default function OpenDisputeModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [projectId, reason, codeDoesNotRun, appmapFile]);
+  }, [projectId, milestoneId, reason, codeDoesNotRun, appmapFile, evidenceFiles]);
 
   if (!isOpen) return null;
 
@@ -107,7 +116,7 @@ export default function OpenDisputeModal({
       />
 
       {/* Modal Card */}
-      <div className="bg-surface-container-high border border-outline-variant/30 rounded-3xl p-8 w-full max-w-lg relative z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-surface-container-high border border-outline-variant/30 rounded-3xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar relative z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
         {/* Decorative glow */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-error/10 blur-3xl rounded-full pointer-events-none" />
 
@@ -126,7 +135,7 @@ export default function OpenDisputeModal({
               Dispute Opened
             </h3>
             <p className="text-sm text-on-surface-variant mt-2 font-medium">
-              A facilitator has been notified and will review shortly.
+              The counterparty has been notified and the case is ready for arbitration review.
             </p>
           </div>
         ) : (
@@ -143,6 +152,7 @@ export default function OpenDisputeModal({
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close dispute modal"
                 className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
@@ -154,6 +164,75 @@ export default function OpenDisputeModal({
               <div className="mb-6 p-4 bg-error/10 border border-error/30 rounded-xl flex items-center gap-3">
                 <span className="material-symbols-outlined text-error text-xl">error</span>
                 <p className="text-sm text-error font-medium">{error}</p>
+              </div>
+            )}
+
+            {reviewContext && (
+              <div className="mb-6 rounded-2xl border border-primary/15 bg-primary/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[13px]">fact_check</span>
+                      Dispute Review Context
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-on-surface">
+                      {reviewContext.milestoneTitle}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-on-surface-variant">
+                      {reviewContext.proofPlan.summary} · Status {reviewContext.milestoneStatus.replaceAll("_", " ").toLowerCase()}
+                    </p>
+                  </div>
+                  {reviewContext.latestAudit ? (
+                    <div className="rounded-xl border border-outline-variant/20 bg-surface px-3 py-2 text-right">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Latest Audit</p>
+                      <p className={`text-lg font-black ${reviewContext.latestAudit.isPassing ? "text-tertiary" : "text-error"}`}>
+                        {reviewContext.latestAudit.score}%
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-outline-variant/20 bg-surface px-3 py-2 text-right">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Latest Audit</p>
+                      <p className="text-xs font-bold text-on-surface-variant">Pending</p>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {reviewContext.proofPlan.requiredArtifacts.map((artifact) => (
+                    <span
+                      key={artifact.key}
+                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${
+                        artifact.available
+                          ? "border-tertiary/20 bg-tertiary/10 text-tertiary"
+                          : "border-outline-variant/20 bg-surface text-on-surface-variant"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[11px]">
+                        {artifact.available ? "check_circle" : "radio_button_unchecked"}
+                      </span>
+                      {artifact.label}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-outline-variant/20 bg-surface px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Preview</p>
+                    <p className="mt-1 text-xs font-bold text-on-surface">
+                      {reviewContext.previewUrl ? "Submitted" : "Missing"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-outline-variant/20 bg-surface px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Package</p>
+                    <p className="mt-1 text-xs font-bold text-on-surface">
+                      {reviewContext.hasPayloadPackage ? "Submitted" : "Missing"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-outline-variant/20 bg-surface px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Evidence</p>
+                    <p className="mt-1 text-xs font-bold text-on-surface">
+                      {reviewContext.submittedEvidence.length} artifact{reviewContext.submittedEvidence.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -229,6 +308,50 @@ export default function OpenDisputeModal({
                   </span>
                 </button>
               </div>
+            </div>
+
+            {/* Evidence Uploads */}
+            <div className="mb-6">
+              <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant block mb-2">
+                Evidence Files (Optional)
+              </label>
+              <input
+                ref={evidenceInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.csv,.json,.zip,.log,application/pdf,image/*,text/*"
+                onChange={handleEvidenceChange}
+                className="sr-only"
+              />
+              <button
+                type="button"
+                onClick={() => evidenceInputRef.current?.click()}
+                className={`w-full px-4 py-3 bg-surface-container-low border ${
+                  evidenceFiles.length
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-outline-variant/30 border-dashed"
+                } rounded-xl text-sm font-medium flex items-center gap-3 hover:bg-surface-container transition-colors cursor-pointer`}
+              >
+                <span
+                  className={`material-symbols-outlined ${
+                    evidenceFiles.length ? "text-primary" : "text-outline-variant"
+                  }`}
+                >
+                  attach_file
+                </span>
+                <span className={evidenceFiles.length ? "text-on-surface" : "text-outline-variant"}>
+                  {evidenceFiles.length ? `${evidenceFiles.length} files attached` : "Attach screenshots, reports, or logs"}
+                </span>
+              </button>
+              {evidenceFiles.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {evidenceFiles.map((file) => (
+                    <span key={`${file.name}-${file.size}`} className="rounded-md border border-outline-variant/20 bg-surface-container px-2 py-1 text-[10px] font-bold text-on-surface-variant">
+                      {file.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Reason / Description */}

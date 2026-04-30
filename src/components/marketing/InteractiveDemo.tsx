@@ -6,9 +6,9 @@ const TABS = [
   {
     id: "scope",
     icon: "psychology",
-    label: "AI Scoping",
-    headline: "Describe it. We scope it.",
-    body: "Type your project idea in plain English. Our AI analyses complexity, identifies milestones, generates acceptance criteria, and produces a phased Statement of Work — complete with estimated costs — in under 60 seconds.",
+    label: "AI-Assisted Scoping",
+    headline: "Describe it. Review the scope.",
+    body: "Type your project idea in plain English. AI-assisted scoping analyzes complexity, drafts milestones, suggests acceptance criteria, and produces a phased Statement of Work for human review.",
     features: [
       "Natural-language project intake",
       "Auto-generated milestones & deliverables",
@@ -21,7 +21,7 @@ const TABS = [
     icon: "groups",
     label: "Smart Matching",
     headline: "We match. You choose.",
-    body: "Your scope is vectorised and matched against our facilitator pool using semantic similarity on skills, past delivery quality, AI tooling proficiency, and availability. You review trust scores, AI audit history, and proposed approaches before selecting.",
+    body: "Your scope is matched against our facilitator pool using semantic similarity on skills, past delivery quality, AI tooling proficiency, and availability. You review trust scores, audit history, and proposed approaches before selecting.",
     features: [
       "Embedding-based skill matching",
       "Trust scores & audit history",
@@ -46,12 +46,12 @@ const TABS = [
     id: "deliver",
     icon: "verified",
     label: "Verifiable Deliverables",
-    headline: "AI Verified. Escrow Released.",
-    body: "Every deliverable is evaluated by an autonomous AI Code Auditor against the exact Acceptance Criteria locked in the Statement of Work. You see the pass/fail result directly in your approval gateway, removing all technical ambiguity before releasing the Stripe escrow.",
+    headline: "Evidence reviewed. Escrow released.",
+    body: "Every deliverable is paired with proof against the acceptance criteria locked in the Statement of Work. AI-assisted audit reports organize the evidence, while the client approves release after review.",
     features: [
-      "Objective AI Code Audits",
+      "AI-assisted audit reports",
       "Live preview environments",
-      "Data-driven approval gateway",
+      "Evidence-based approval gateway",
     ],
     visual: "gavel",
   },

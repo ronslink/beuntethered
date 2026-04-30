@@ -3,9 +3,30 @@
 import { useState, useTransition } from "react";
 import { submitBid } from "@/app/actions/bids";
 import { useRouter } from "next/navigation";
+import { getMilestoneProofPlan, type MilestoneProofPlan } from "@/lib/milestone-proof";
 
 type Mode = "SELECTION" | "QUICK" | "FULL_1" | "FULL_2" | "FULL_3";
-type Milestone = { title: string; amount: number; days: number; description: string };
+type Milestone = {
+  title: string;
+  amount: number;
+  days: number;
+  description: string;
+  deliverables?: string[];
+  acceptance_criteria?: string[];
+};
+type OriginalMilestone = {
+  title: string;
+  amount: number;
+  estimated_duration_days?: number;
+  description?: string;
+  deliverables?: string[];
+  acceptance_criteria?: string[];
+};
+type AwardReadiness =
+  | { ok: true }
+  | { ok: false; code: string; message: string };
+
+const MIN_APPROACH_LENGTH = 20;
 
 const COMMON_STACKS = [
   "React", "Next.js", "Vue", "Angular", "TypeScript", "JavaScript",
@@ -15,21 +36,71 @@ const COMMON_STACKS = [
   "PyTorch", "TensorFlow", "Langchain",
 ];
 
+function ProofPlanPanel({ plans, compact = false }: { plans: MilestoneProofPlan[]; compact?: boolean }) {
+  if (plans.length === 0) return null;
+
+  const artifacts = Array.from(
+    new Map(plans.flatMap((plan) => plan.requiredArtifacts).map((artifact) => [artifact.label, artifact])).values()
+  ).slice(0, 4);
+  const checks = plans.flatMap((plan) => plan.reviewChecks).slice(0, compact ? 2 : 4);
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+      <div className="mb-3 flex items-start gap-2">
+        <span className="material-symbols-outlined text-[18px] text-primary">rule</span>
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-primary">Proof Contract</p>
+          <p className="mt-0.5 text-[11px] font-medium leading-4 text-on-surface-variant">
+            Your proposal should explain how you will satisfy these evidence requirements.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {artifacts.map((artifact) => (
+          <div key={artifact.key} className="rounded-lg border border-outline-variant/20 bg-surface px-3 py-2">
+            <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-on-surface">
+              <span className="material-symbols-outlined text-[12px] text-primary">task_alt</span>
+              {artifact.label}
+            </p>
+            {!compact && <p className="mt-1 text-[10px] font-medium leading-4 text-on-surface-variant">{artifact.detail}</p>}
+          </div>
+        ))}
+      </div>
+      {checks.length > 0 && (
+        <div className="mt-3 border-t border-primary/10 pt-3">
+          <p className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Buyer Checks</p>
+          <div className="space-y-1.5">
+            {checks.map((check) => (
+              <p key={check} className="flex items-start gap-1.5 text-[10px] font-medium leading-4 text-on-surface-variant">
+                <span className="material-symbols-outlined text-[12px] text-primary mt-0.5">check_circle</span>
+                {check}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BidModal({
   project,
   totalValue,
+  awardReadiness,
   originalMilestones,
   onClose,
 }: {
   project: any;
   totalValue: number;
-  originalMilestones?: { title: string; amount: number; estimated_duration_days?: number; description?: string }[];
+  awardReadiness: AwardReadiness;
+  originalMilestones?: OriginalMilestone[];
   onClose: () => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>("SELECTION");
   const [success, setSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Quick bid fields
   const [bidAmount, setBidAmount] = useState(totalValue);
@@ -48,12 +119,23 @@ export default function BidModal({
           amount: Number(m.amount),
           days: m.estimated_duration_days || 7,
           description: m.description || "",
+          deliverables: m.deliverables ?? [],
+          acceptance_criteria: m.acceptance_criteria ?? [],
         }))
       : [{ title: "Milestone 1", amount: totalValue, days: 14, description: "" }]
   );
 
   const proposedTotal = milestones.reduce((a, m) => a + m.amount, 0);
+  const originalProofPlans = (originalMilestones ?? []).map((milestone) => getMilestoneProofPlan(milestone));
   const budgetDiff = proposedTotal - totalValue;
+  const approachLength = approach.trim().length;
+  const approachReady = approachLength >= MIN_APPROACH_LENGTH;
+  const approachHelp =
+    approachLength === 0
+      ? "Add your technical approach before submitting."
+      : approachReady
+        ? "Enough detail for submission."
+        : `Add at least ${MIN_APPROACH_LENGTH - approachLength} more characters.`;
 
   const format = (v: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
@@ -70,6 +152,7 @@ export default function BidModal({
     const updated = [...milestones];
     updated[i] = { ...updated[i], [field]: value };
     setMilestones(updated);
+    setSubmitError(null);
   };
 
   const addMilestone = () =>
@@ -78,20 +161,49 @@ export default function BidModal({
   const removeMilestone = (i: number) => {
     if (milestones.length === 1) return;
     setMilestones(milestones.filter((_, idx) => idx !== i));
+    setSubmitError(null);
+  };
+
+  const handleApproachChange = (value: string) => {
+    setApproach(value);
+    setSubmitError(null);
+  };
+
+  const validateCoreProposal = () => {
+    if (!approachReady) return "Add a technical approach of at least 20 characters before submitting.";
+    if (bidAmount <= 0) return "Enter a proposal price greater than $0.";
+    if (days <= 0) return "Enter a delivery timeline of at least 1 day.";
+    return null;
+  };
+
+  const validateFullProposal = () => {
+    if (!approachReady) return "Add a technical approach of at least 20 characters before submitting.";
+    if (proposedTotal <= 0) return "Your milestone total must be greater than $0.";
+    if (milestones.some((m) => !m.title.trim())) return "Every milestone needs a title before submitting.";
+    if (milestones.some((m) => !Number.isInteger(m.days) || m.days <= 0)) return "Every milestone needs a timeline of at least 1 day.";
+    return null;
   };
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!approach.trim()) return;
+    const validationError = validateCoreProposal();
+    if (validationError) {
+      setSubmitError(validationError);
+      return;
+    }
     startTransition(async () => {
       const res = await submitBid({ projectId: project.id, proposedAmount: bidAmount, estimatedDays: days, technicalApproach: approach, requiredEscrowPct: escrowPct });
       if (res?.success) { setSuccess(true); setTimeout(() => router.push("/marketplace"), 1800); }
-      else alert(res?.error || "Failed to submit.");
+      else setSubmitError(res?.error || "Failed to submit proposal.");
     });
   };
 
   const handleFullSubmit = () => {
-    if (!approach.trim()) return;
+    const validationError = validateFullProposal();
+    if (validationError) {
+      setSubmitError(validationError);
+      return;
+    }
     startTransition(async () => {
       const res = await submitBid({
         projectId: project.id,
@@ -104,7 +216,7 @@ export default function BidModal({
         requiredEscrowPct: escrowPct,
       });
       if (res?.success) { setSuccess(true); setTimeout(() => router.push("/marketplace"), 1800); }
-      else alert(res?.error || "Failed to submit.");
+      else setSubmitError(res?.error || "Failed to submit proposal.");
     });
   };
 
@@ -112,7 +224,7 @@ export default function BidModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-background/80 backdrop-blur-xl" onClick={onClose} />
 
-      <div className="bg-surface border border-outline-variant/30 rounded-3xl w-full max-w-2xl relative z-10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 max-h-[92vh] flex flex-col">
+      <div className="bg-surface border border-outline-variant/30 rounded-lg w-full max-w-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in-95 duration-300 max-h-[92vh] flex flex-col">
 
         {/* ── Header ── */}
         <div className="flex items-start justify-between p-7 pb-4 shrink-0">
@@ -125,7 +237,7 @@ export default function BidModal({
             <p className="text-[10px] font-black uppercase tracking-widest text-primary">Submit Proposal</p>
             <h3 className="text-lg font-black font-headline text-on-surface mt-0.5 leading-tight">{project.title}</h3>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors shrink-0">
+          <button onClick={onClose} className="w-9 h-9 rounded-md bg-surface-container-high flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors shrink-0">
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
@@ -139,13 +251,37 @@ export default function BidModal({
             </div>
           </div>
         )}
+        {!awardReadiness.ok && (
+          <div className="px-7 pb-3 shrink-0">
+            <div className="rounded-xl border border-secondary/30 bg-secondary/10 p-3">
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-secondary text-[17px] mt-0.5">verified_user</span>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-secondary">
+                    Award readiness incomplete
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">
+                    {awardReadiness.message} Submit when ready, but complete verification before a buyer can award this proposal.
+                  </p>
+                  <a
+                    href="/settings"
+                    className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-secondary hover:underline"
+                  >
+                    Finish verification
+                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Scrollable body ── */}
         <div className="overflow-y-auto flex-1 custom-scrollbar">
           {success ? (
             <div className="p-16 flex flex-col items-center text-center">
               <div className="w-20 h-20 rounded-full bg-tertiary/10 border border-tertiary/30 flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-4xl text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                <span className="material-symbols-outlined text-3xl text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               </div>
               <h3 className="text-2xl font-black font-headline uppercase tracking-tight">Proposal Submitted</h3>
               <p className="text-sm text-on-surface-variant mt-2">AI analysis running in background. Returning to marketplace...</p>
@@ -156,9 +292,9 @@ export default function BidModal({
             <div className="p-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
                 onClick={() => setMode("QUICK")}
-                className="group text-left p-6 rounded-2xl border border-outline-variant/30 bg-surface-container-low hover:border-primary/50 hover:bg-primary/5 transition-all"
+                className="group text-left p-6 rounded-lg border border-outline-variant/30 bg-surface-container-low hover:border-primary/50 hover:bg-primary/5 transition-all"
               >
-                <div className="w-10 h-10 rounded-xl bg-on-surface/10 flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-on-surface/10 flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
                   <span className="material-symbols-outlined text-on-surface group-hover:text-primary transition-colors">bolt</span>
                 </div>
                 <h4 className="font-black text-base text-on-surface mb-1">Quick Bid</h4>
@@ -167,14 +303,14 @@ export default function BidModal({
 
               <button
                 onClick={() => setMode("FULL_1")}
-                className="group text-left p-6 rounded-2xl border border-outline-variant/30 bg-surface-container-low hover:border-tertiary/50 hover:bg-tertiary/5 transition-all"
+                className="group text-left p-6 rounded-lg border border-outline-variant/30 bg-surface-container-low hover:border-tertiary/50 hover:bg-tertiary/5 transition-all"
               >
-                <div className="w-10 h-10 rounded-xl bg-tertiary/10 flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center mb-4">
                   <span className="material-symbols-outlined text-tertiary">architecture</span>
                 </div>
                 <h4 className="font-black text-base text-on-surface mb-1">Full Proposal</h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">Propose your tech stack, build a custom milestone structure, and get AI analysis before you submit.</p>
-                <span className="inline-block mt-3 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20">Recommended</span>
+                <span className="inline-block mt-3 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-tertiary/10 text-tertiary border border-tertiary/20">Recommended</span>
               </button>
             </div>
 
@@ -196,12 +332,22 @@ export default function BidModal({
                     className="w-full bg-surface border border-outline-variant/30 rounded-xl px-4 py-3 text-lg font-black text-on-surface focus:border-primary outline-none transition-colors" />
                 </div>
               </div>
+              <ProofPlanPanel plans={originalProofPlans} compact />
               <div>
                 <label className="text-[9px] font-bold uppercase tracking-widest block text-on-surface-variant mb-2">Technical Approach</label>
-                <textarea required value={approach} onChange={(e) => setApproach(e.target.value)} rows={5}
+                <textarea required minLength={MIN_APPROACH_LENGTH} value={approach} onChange={(e) => handleApproachChange(e.target.value)} rows={5}
                   placeholder="Describe your approach, tools, and how you will build this..."
                   className="w-full bg-surface border border-outline-variant/30 rounded-xl p-4 text-sm font-medium text-on-surface focus:border-primary outline-none transition-colors resize-none" />
+                <div className="mt-1.5 flex items-center justify-between gap-3">
+                  <p className={`text-[10px] ${approachReady ? "text-on-surface-variant" : "text-error"}`}>{approachHelp}</p>
+                  <p className="text-[10px] font-bold text-on-surface-variant">{approachLength}/{MIN_APPROACH_LENGTH} min</p>
+                </div>
               </div>
+              {submitError && (
+                <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-xs font-bold text-error">
+                  {submitError}
+                </div>
+              )}
               {/* Escrow Funding Requirement */}
               <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
@@ -225,9 +371,9 @@ export default function BidModal({
                   </p>
                 )}
               </div>
-              <button type="submit" disabled={isPending || !approach.trim()}
+              <button type="submit" disabled={isPending || !approachReady}
                 className="w-full bg-on-surface text-surface font-black uppercase tracking-widest text-sm py-4 rounded-xl transition-all disabled:opacity-40 flex items-center justify-center gap-2 hover:-translate-y-0.5 active:scale-95">
-                {isPending ? <><span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> Submitting...</> : <>Submit Bid <span className="material-symbols-outlined text-[16px]">send</span></>}
+                {isPending ? <><span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> Submitting...</> : approachReady ? <>Submit Bid <span className="material-symbols-outlined text-[16px]">send</span></> : <>Add More Detail <span className="material-symbols-outlined text-[16px]">edit_note</span></>}
               </button>
             </form>
 
@@ -235,7 +381,7 @@ export default function BidModal({
             // ── Full Proposal Step 1: Tech Stack ──
             <div className="p-7 space-y-6">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Step 1 of 3 — Tech Stack Declaration</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Step 1 of 3 - Tech Stack Declaration</p>
                 <h4 className="text-base font-black text-on-surface">What technologies will you use?</h4>
                 <p className="text-xs text-on-surface-variant mt-1">If your stack differs from the client's SoW, explain why. This is your first competitive signal.</p>
               </div>
@@ -294,7 +440,7 @@ export default function BidModal({
             // ── Full Proposal Step 2: Milestone Builder ──
             <div className="p-7 space-y-5">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Step 2 of 3 — Milestone Structure</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Step 2 of 3 - Milestone Structure</p>
                 <h4 className="text-base font-black text-on-surface">How will you structure delivery?</h4>
                 <p className="text-xs text-on-surface-variant mt-1">Edit, split, or restructure the milestones. Each milestone is a separate Escrow payment.</p>
               </div>
@@ -305,9 +451,11 @@ export default function BidModal({
                 <span>{format(proposedTotal)} {budgetDiff !== 0 && <span className="opacity-70">({budgetDiff > 0 ? "+" : ""}{format(budgetDiff)} vs. client budget)</span>}</span>
               </div>
 
+              <ProofPlanPanel plans={originalProofPlans} />
+
               <div className="space-y-3">
                 {milestones.map((m, i) => (
-                  <div key={i} className="bg-surface-container-low border border-outline-variant/20 rounded-2xl p-4 space-y-3">
+                  <div key={i} className="bg-surface-container-low border border-outline-variant/20 rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Milestone {i + 1}</span>
                       <button type="button" onClick={() => removeMilestone(i)} disabled={milestones.length === 1}
@@ -351,7 +499,7 @@ export default function BidModal({
             // ── Full Proposal Step 3: Review & Submit ──
             <div className="p-7 space-y-5">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Step 3 of 3 — Review & Submit</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Step 3 of 3 - Review & Submit</p>
                 <h4 className="text-base font-black text-on-surface">Finalize your proposal</h4>
               </div>
 
@@ -366,6 +514,8 @@ export default function BidModal({
                   <p className="text-lg font-black text-on-surface">{milestones.reduce((a, m) => a + m.days, 0)}d</p>
                 </div>
               </div>
+
+              <ProofPlanPanel plans={originalProofPlans} compact />
 
               {/* Stack preview */}
               {techStack.length > 0 && (
@@ -395,10 +545,15 @@ export default function BidModal({
               {/* Technical approach */}
               <div>
                 <label className="text-[9px] font-bold uppercase tracking-widest block text-on-surface-variant mb-2">Technical Approach</label>
-                <textarea value={approach} onChange={(e) => setApproach(e.target.value)} rows={5}
+                <textarea minLength={MIN_APPROACH_LENGTH} value={approach} onChange={(e) => handleApproachChange(e.target.value)} rows={5}
                   placeholder="Describe your technical approach. How will you use your proposed stack to meet the SoW requirements? What are your key differentiators?"
                   className="w-full bg-surface border border-outline-variant/30 rounded-xl p-4 text-sm font-medium text-on-surface focus:border-primary outline-none transition-colors resize-none" />
-                <p className="text-[10px] text-on-surface-variant mt-1.5">💡 AI analysis will run automatically after submission and appear on the client's bid board.</p>
+                <div className="mt-1.5 flex items-center justify-between gap-3">
+                  <p className={`text-[10px] ${approachReady ? "text-on-surface-variant" : "text-error"}`}>
+                    {approachReady ? "AI analysis will run automatically after submission and appear on the client's bid board." : approachHelp}
+                  </p>
+                  <p className="text-[10px] font-bold text-on-surface-variant">{approachLength}/{MIN_APPROACH_LENGTH} min</p>
+                </div>
               </div>
 
               {/* Escrow Funding Requirement */}
@@ -425,9 +580,15 @@ export default function BidModal({
                 )}
               </div>
 
-              <button onClick={handleFullSubmit} disabled={isPending || !approach.trim()}
-                className="w-full bg-on-surface text-surface font-black uppercase tracking-widest text-sm py-4 rounded-xl transition-all disabled:opacity-40 flex items-center justify-center gap-2 hover:-translate-y-0.5 active:scale-95 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
-                {isPending ? <><span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> Submitting...</> : <>Submit Full Proposal <span className="material-symbols-outlined text-[16px]">rocket_launch</span></>}
+              {submitError && (
+                <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-xs font-bold text-error">
+                  {submitError}
+                </div>
+              )}
+
+              <button onClick={handleFullSubmit} disabled={isPending || !approachReady}
+                className="w-full bg-on-surface text-surface font-black uppercase tracking-widest text-sm py-4 rounded-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-on-surface/90 active:scale-95">
+                {isPending ? <><span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> Submitting...</> : approachReady ? <>Submit Full Proposal <span className="material-symbols-outlined text-[16px]">rocket_launch</span></> : <>Add More Detail <span className="material-symbols-outlined text-[16px]">edit_note</span></>}
               </button>
             </div>
           ) : null}

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { submitBid } from "@/app/actions/bids";
+import { markProjectInviteViewed, respondToProjectInvite } from "@/app/actions/project-invites";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getMilestoneProofPlan } from "@/lib/milestone-proof";
 
 function timeAgo(date: Date | string): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -30,6 +32,8 @@ export default function ProjectDetailPane({
   const [approach, setApproach] = useState<string>("");
   const [success, setSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<"brief" | "bid">("brief");
+  const [inviteStatus, setInviteStatus] = useState<string | null>(project.inviteStatus ?? null);
+  const [invitePending, startInviteTransition] = useTransition();
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
@@ -56,6 +60,32 @@ export default function ProjectDetailPane({
   };
 
   const isHighMatch = matchScore >= 90;
+  const inviteId = project.invites?.[0]?.id as string | undefined;
+  const fit = project.opportunityFit;
+
+  useEffect(() => {
+    if (!inviteId || inviteStatus !== "SENT") return;
+    let cancelled = false;
+    markProjectInviteViewed(inviteId).then((res) => {
+      if (!cancelled && res.success) setInviteStatus("VIEWED");
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteId, inviteStatus]);
+
+  const handleInviteResponse = (status: "ACCEPTED" | "DECLINED") => {
+    if (!inviteId) return;
+    startInviteTransition(async () => {
+      const res = await respondToProjectInvite(inviteId, status);
+      if (res.success) {
+        setInviteStatus(status);
+        router.refresh();
+      } else {
+        alert(res.error || "Could not update invite.");
+      }
+    });
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -81,9 +111,79 @@ export default function ProjectDetailPane({
               </span>
               <span className="text-[10px] text-on-surface-variant font-medium ml-auto">{timeAgo(project.created_at)}</span>
             </div>
+            {inviteStatus && (
+              <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Invited Opportunity</p>
+                    <p className="text-xs text-on-surface-variant font-medium mt-0.5">
+                      Status: <span className="text-on-surface font-bold">{inviteStatus.toLowerCase()}</span>
+                    </p>
+                  </div>
+                  {(inviteStatus === "SENT" || inviteStatus === "VIEWED") && (
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => handleInviteResponse("DECLINED")}
+                        disabled={invitePending}
+                        className="rounded-lg border border-outline-variant/30 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:border-error/40 hover:text-error"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        onClick={() => handleInviteResponse("ACCEPTED")}
+                        disabled={invitePending}
+                        className="rounded-lg bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary"
+                      >
+                        Accept
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <h2 className="text-xl font-black font-headline text-on-surface uppercase tracking-tight leading-tight">
               {project.title}
             </h2>
+            {project.organization?.name && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                <span className="inline-flex items-center gap-1 rounded-md border border-outline-variant/20 bg-surface-container-low px-2.5 py-1">
+                  <span className="material-symbols-outlined text-[12px]">domain</span>
+                  {project.organization.name}
+                </span>
+                {project.organization.type && (
+                  <span className="rounded-md border border-outline-variant/20 bg-surface-container-low px-2.5 py-1">
+                    {project.organization.type}
+                  </span>
+                )}
+                {project.organization.website && (
+                  <a
+                    href={project.organization.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-outline-variant/20 bg-surface-container-low px-2.5 py-1 hover:border-primary/40 hover:text-primary"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                    Website
+                  </a>
+                )}
+              </div>
+            )}
+            {fit?.reasons?.length > 0 && (
+              <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[15px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-primary">Why this fits your profile</p>
+                </div>
+                <div className="space-y-1">
+                  {fit.reasons.slice(0, 4).map((reason: string) => (
+                    <p key={reason} className="flex gap-2 text-xs font-medium leading-5 text-on-surface-variant">
+                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                      {reason}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="shrink-0 text-right">
             <p className="text-2xl font-black text-on-surface tracking-tighter">{formatCurrency(totalValue)}</p>
@@ -92,18 +192,19 @@ export default function ProjectDetailPane({
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex gap-1 bg-surface-container-low rounded-xl p-1 border border-outline-variant/20">
+        <div className="flex gap-1 bg-surface-container-low rounded-lg p-1 border border-outline-variant/20">
           {(["brief", "bid"] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
+              className={`flex-1 py-2 rounded-md text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === tab
                   ? "bg-surface text-on-surface shadow-sm"
                   : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
-              {tab === "brief" ? "📋 Project Brief" : "⚡ Submit Bid"}
+              <span className="material-symbols-outlined text-[14px]">{tab === "brief" ? "assignment" : "send"}</span>
+              {tab === "brief" ? "Project Brief" : "Submit Bid"}
             </button>
           ))}
         </div>
@@ -131,23 +232,63 @@ export default function ProjectDetailPane({
                   Milestone Breakdown
                 </p>
                 <div className="space-y-2">
-                  {project.milestones.map((m: any, idx: number) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl border border-outline-variant/20"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                        <span className="text-[11px] font-black text-primary">{idx + 1}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-on-surface truncate">{m.title}</p>
-                        {m.estimated_duration_days && (
-                          <p className="text-[10px] text-on-surface-variant font-medium">{m.estimated_duration_days} days est.</p>
+                  {project.milestones.map((m: any, idx: number) => {
+                    const proofPlan = getMilestoneProofPlan(m);
+                    return (
+                      <div
+                        key={m.id}
+                        className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/20"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                            <span className="text-[11px] font-black text-primary">{idx + 1}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-on-surface truncate">{m.title}</p>
+                            {m.estimated_duration_days && (
+                              <p className="text-[10px] text-on-surface-variant font-medium">{m.estimated_duration_days} days est. · {proofPlan.summary}</p>
+                            )}
+                          </div>
+                          <span className="text-sm font-black text-on-surface shrink-0">{formatCurrency(Number(m.amount))}</span>
+                        </div>
+
+                        {(proofPlan.deliverables.length > 0 || proofPlan.reviewChecks.length > 0) && (
+                          <div className="mt-3 grid grid-cols-1 gap-3 border-t border-outline-variant/10 pt-3">
+                            {proofPlan.deliverables.length > 0 && (
+                              <div>
+                                <p className="mb-1.5 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                                  <span className="material-symbols-outlined text-[12px]">inventory_2</span>
+                                  Outputs
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {proofPlan.deliverables.slice(0, 3).map((deliverable) => (
+                                    <span key={deliverable} className="rounded-md border border-outline-variant/20 bg-surface px-2 py-1 text-[10px] font-bold text-on-surface-variant">
+                                      {deliverable}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="rounded-lg border border-primary/15 bg-primary/5 p-3">
+                              <p className="mb-2 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-primary">
+                                <span className="material-symbols-outlined text-[12px]">rule</span>
+                                Proof Required
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                {proofPlan.requiredArtifacts.slice(0, 4).map((artifact) => (
+                                  <p key={artifact.key} className="flex items-start gap-1.5 text-[10px] font-medium leading-4 text-on-surface-variant">
+                                    <span className="material-symbols-outlined text-[12px] text-primary mt-0.5">task_alt</span>
+                                    {artifact.label}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <span className="text-sm font-black text-on-surface shrink-0">{formatCurrency(Number(m.amount))}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Total */}
@@ -235,7 +376,7 @@ export default function ProjectDetailPane({
                   className={`w-full font-black uppercase tracking-widest text-sm py-4 rounded-xl transition-all flex items-center justify-center gap-2 ${
                     isPending || !approach.trim()
                       ? "bg-surface-container-high text-on-surface-variant cursor-not-allowed"
-                      : "bg-on-surface text-surface hover:-translate-y-0.5 shadow-[0_8px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.3)] active:scale-95"
+                      : "bg-on-surface text-surface hover:bg-on-surface/90 active:scale-95"
                   }`}
                 >
                   {isPending ? (

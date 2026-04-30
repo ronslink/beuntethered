@@ -1,6 +1,8 @@
 import { Metadata } from "next";
 import { prisma } from "@/lib/auth";
 import FacilitatorProfileClient from "./FacilitatorProfileClient";
+import { getCurrentUser } from "@/lib/session";
+import { buyerProjectManagerListWhere } from "@/lib/project-access";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -43,8 +45,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function FacilitatorProfilePage({ params }: Props) {
   const { id } = await params;
+  const currentUser = await getCurrentUser();
 
   let facilitatorData: any = null;
+  let openProjects: { id: string; title: string }[] = [];
+  let inviteStatus: "SENT" | "VIEWED" | "ACCEPTED" | "DECLINED" | null = null;
   try {
     const user = await prisma.user.findUnique({
       where: { id },
@@ -61,21 +66,88 @@ export default async function FacilitatorProfilePage({ params }: Props) {
         hourly_rate: true,
         preferred_llm: true,
         emailVerified: true,
+        bio: true,
+        skills: true,
+        ai_agent_stack: true,
+        portfolio_url: true,
+        availability: true,
+        years_experience: true,
+        preferred_project_size: true,
+        verifications: {
+          select: {
+            type: true,
+            status: true,
+          },
+        },
+        _count: {
+          select: {
+            facilitator_disputes: true,
+            bids: true,
+          },
+        },
       },
     });
 
     if (user && user.role === "FACILITATOR") {
-      // Must convert decimal and date types for Next.js 14/15 server-to-client boundaries if needed,
-      // though App Router usually handles Date implicitly if we don't strict JSON it unless turbopack fails.
-      // But passing raw Decimal throws error. We convert hourly_rate.
       facilitatorData = {
-        ...user,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: user.role,
+        platform_tier: user.platform_tier,
+        trust_score: user.trust_score,
+        total_sprints_completed: user.total_sprints_completed,
+        average_ai_audit_score: user.average_ai_audit_score,
         hourly_rate: user.hourly_rate ? Number(user.hourly_rate) : 0,
+        preferred_llm: user.preferred_llm,
+        emailVerified: user.emailVerified?.toISOString() ?? null,
+        bio: user.bio,
+        skills: user.skills,
+        ai_agent_stack: user.ai_agent_stack,
+        portfolio_url: user.portfolio_url,
+        availability: user.availability,
+        years_experience: user.years_experience,
+        preferred_project_size: user.preferred_project_size,
+        verifications: user.verifications,
+        dispute_count: user._count.facilitator_disputes,
+        bid_count: user._count.bids,
       };
+    }
+
+    if (currentUser?.role === "CLIENT") {
+      openProjects = await prisma.project.findMany({
+        where: {
+          AND: [
+            buyerProjectManagerListWhere(currentUser.id),
+            { status: "OPEN_BIDDING" },
+          ],
+        },
+        select: { id: true, title: true },
+        orderBy: { created_at: "desc" },
+      });
+      if (openProjects.length > 0) {
+        const invite = await prisma.projectInvite.findFirst({
+          where: {
+            project_id: { in: openProjects.map((project) => project.id) },
+            facilitator_id: id,
+          },
+          select: { status: true },
+          orderBy: { created_at: "desc" },
+        });
+        inviteStatus = invite?.status ?? null;
+      }
     }
   } catch (error) {
     console.error("Failed to fetch facilitator:", error);
   }
 
-  return <FacilitatorProfileClient facilitator={facilitatorData} />;
+  return (
+    <FacilitatorProfileClient
+      facilitator={facilitatorData}
+      canInvite={currentUser?.role === "CLIENT"}
+      openProjects={openProjects}
+      inviteStatus={inviteStatus}
+    />
+  );
 }

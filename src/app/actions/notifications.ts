@@ -2,30 +2,55 @@
 
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/auth";
+import { buyerProjectListWhere } from "@/lib/project-access";
+import { buildActivityNotificationCopy, getProjectActivityHref } from "@/lib/activity-display";
+import { createSystemNotification } from "@/lib/notifications";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
+import {
+  notificationReadAllInputSchema,
+  notificationReadInputSchema,
+  systemNotificationInputSchema,
+} from "@/lib/validators";
 
 export interface NotificationItem {
   id: string;
   message: string;
-  type: "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE" | "BID";
+  type: "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE" | "BID" | "ALERT";
   read: boolean;
   createdAt: Date;
   href?: string;
+  detail?: string;
 }
 
-// Derive live notifications from DB state — no in-memory store needed.
-// For a CLIENT: pending bids on their open projects.
-// For a FACILITATOR: bid status changes on their submitted bids.
 export async function getUserNotifications(): Promise<{ success: boolean; notifications: NotificationItem[] }> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, notifications: [] };
 
-    const notifications: NotificationItem[] = [];
+    const persisted = await prisma.notification.findMany({
+      where: { user_id: user.id },
+      orderBy: { created_at: "desc" },
+      take: 20,
+    });
+
+    const notifications: NotificationItem[] = persisted.map((notification) => ({
+      id: notification.id,
+      message: notification.message,
+      type: notification.type,
+      read: Boolean(notification.read_at),
+      createdAt: notification.created_at,
+      href: notification.href ?? undefined,
+    }));
 
     if (user.role === "CLIENT") {
       // Fetch all open-bidding projects with pending bid counts
       const projects = await prisma.project.findMany({
-        where: { client_id: user.id, status: "OPEN_BIDDING" },
+        where: {
+          AND: [
+            buyerProjectListWhere(user.id),
+            { status: "OPEN_BIDDING" },
+          ],
+        },
         include: {
           bids: { where: { status: "PENDING" }, select: { id: true, created_at: true } },
         },
@@ -48,7 +73,7 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
       // Milestones in review
       const milestones = await prisma.milestone.findMany({
         where: {
-          project: { client_id: user.id },
+          project: buyerProjectListWhere(user.id),
           status: "SUBMITTED_FOR_REVIEW",
         },
         include: { project: { select: { id: true, title: true } } },
@@ -96,27 +121,100 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
       }
     }
 
+    const recentActivityLogs = await prisma.activityLog.findMany({
+      where:
+        user.role === "CLIENT"
+          ? { project: buyerProjectListWhere(user.id) }
+          : {
+              OR: [
+                { bid: { is: { developer_id: user.id } } },
+                { milestone: { is: { facilitator_id: user.id } } },
+                { project: { milestones: { some: { facilitator_id: user.id } } } },
+              ],
+            },
+      include: {
+        actor: { select: { name: true, email: true, role: true } },
+        project: { select: { id: true, title: true, status: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: 8,
+    });
+
+    for (const log of recentActivityLogs) {
+      const copy = buildActivityNotificationCopy({
+        action: log.action,
+        metadata: log.metadata,
+        projectTitle: log.project.title,
+        actorName: log.actor?.name || log.actor?.email,
+        actorRole: log.actor?.role,
+      });
+      notifications.push({
+        id: `activity-${log.id}`,
+        message: copy.message,
+        detail: copy.detail,
+        type: copy.isWorkspaceAdmin ? "ALERT" : "INFO",
+        read: true,
+        createdAt: log.created_at,
+        href: getProjectActivityHref(log.project),
+      });
+    }
+
     // Sort newest first
     notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    return { success: true, notifications };
+    return { success: true, notifications: notifications.slice(0, 30) };
   } catch (e) {
     console.error("Notification fetch error:", e);
     return { success: false, notifications: [] };
   }
 }
 
-// Legacy stubs — kept for backward compat, no-ops since notifications derive from DB
 export async function sendSystemNotification(
-  _userId?: string,
-  _message?: string,
-  _type?: string
+  userId?: unknown,
+  message?: unknown,
+  type?: unknown,
+  href?: unknown
 ) {
-  return { success: true, notificationId: "" };
+  const user = await getCurrentUser();
+  if (!user || !isPlatformAdminEmail(user.email)) {
+    return { success: false, notificationId: "" };
+  }
+
+  const parsed = systemNotificationInputSchema.safeParse({ userId, message, type, href });
+  if (!parsed.success) {
+    return { success: false, notificationId: "" };
+  }
+
+  const notification = await createSystemNotification(parsed.data);
+
+  return { success: true, notificationId: notification.id };
 }
-export async function markAllNotificationsAsRead(_userId?: string) {
+export async function markAllNotificationsAsRead(userId?: unknown) {
+  const user = await getCurrentUser();
+  if (!user) return { success: false };
+  const parsed = notificationReadAllInputSchema.safeParse({ userId });
+  if (!parsed.success) return { success: false };
+  const targetUserId = parsed.data.userId ?? user.id;
+  if (targetUserId !== user.id && !isPlatformAdminEmail(user.email)) {
+    return { success: false };
+  }
+
+  await prisma.notification.updateMany({
+    where: { user_id: targetUserId, read_at: null },
+    data: { read_at: new Date() },
+  });
+
   return { success: true };
 }
-export async function markNotificationAsRead(_notificationId?: string) {
+export async function markNotificationAsRead(notificationId?: unknown) {
+  const user = await getCurrentUser();
+  const parsed = notificationReadInputSchema.safeParse({ notificationId });
+  if (!user || !parsed.success) return { success: false };
+
+  await prisma.notification.updateMany({
+    where: { id: parsed.data.notificationId, user_id: user.id },
+    data: { read_at: new Date() },
+  });
+
   return { success: true };
 }

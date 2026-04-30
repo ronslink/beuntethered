@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: pgvector/pgvector:pg15
@@ -7,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: untether
+      POSTGRES_DB: beuntethered_local
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

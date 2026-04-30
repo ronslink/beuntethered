@@ -64,13 +64,13 @@ function RegisterPageInner() {
             <span className="text-on-surface-variant">with AI on your side.</span>
           </h1>
           <p className="text-on-surface-variant leading-relaxed mb-10 max-w-md">
-            Whether you&apos;re hiring facilitators or orchestrating AI agents to deliver outcomes,
-            Untether protects every milestone with Stripe Escrow and AI-powered scoping.
+            Whether you&apos;re hiring a facilitator or using AI to sharpen your delivery workflow,
+            Untether protects every milestone with Stripe Escrow and AI-assisted scoping.
           </p>
           <div className="flex items-center gap-8">
             {[
-              { value: "0%", label: "Developer Fees" },
-              { value: "AI", label: "Scope Generation" },
+              { value: "0%", label: "Facilitator Fees" },
+              { value: "AI", label: "Assisted Scoping" },
               { value: "100%", label: "Escrow Protected" },
             ].map((stat) => (
               <div key={stat.label}>
@@ -174,9 +174,9 @@ function RegisterPageInner() {
                         : "border-outline-variant/30 bg-surface-container-low hover:border-tertiary/30 opacity-70 hover:opacity-100"
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-xl block mb-1.5 ${role === "FACILITATOR" ? "text-tertiary" : "text-on-surface-variant"}`}>smart_toy</span>
+                    <span className={`material-symbols-outlined text-xl block mb-1.5 ${role === "FACILITATOR" ? "text-tertiary" : "text-on-surface-variant"}`}>engineering</span>
                     <p className={`font-black text-sm ${role === "FACILITATOR" ? "text-tertiary" : "text-on-surface"}`}>Facilitate Projects</p>
-                    <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">Orchestrate AI + expertise</p>
+                    <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">Lead delivery with AI support</p>
                   </button>
                 </div>
               </div>

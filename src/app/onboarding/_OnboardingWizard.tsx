@@ -156,7 +156,7 @@ export default function OnboardingWizard({
   const [projectSize, setProjectSize] = useState("ANY");
   const [hourlyRate, setHourlyRate] = useState(75);
   const [connectingStripe, setConnectingStripe] = useState(false);
-  const [stripeLinked, setStripeLinked] = useState(stripeConnected);
+  const stripeLinked = stripeConnected;
   const [openaiKey, setOpenaiKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [googleKey, setGoogleKey] = useState("");
@@ -298,8 +298,8 @@ export default function OnboardingWizard({
         <TagPicker label="Skills & Technologies" tags={skills} setTags={setSkills} suggestions={SKILL_SUGGESTIONS} placeholder="e.g. React, Python…" />
 
         <div>
-          <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">AI Agent Stack</label>
-          <p className="text-[10px] text-on-surface-variant mb-3">Which AI tools do you use in your workflow? Clients love transparency.</p>
+          <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">AI Tool Stack</label>
+          <p className="text-[10px] text-on-surface-variant mb-3">Which AI tools assist your delivery workflow? Clients value transparency and human accountability.</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {AI_AGENT_OPTIONS.map((ag) => {
               const selected = aiStack.includes(ag.id);
@@ -432,12 +432,15 @@ export default function OnboardingWizard({
         </div>
 
         <div>
-          <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Preferred Proposal Format</label>
+          <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Proposal Review Preference</label>
+          <p className="mb-3 text-xs font-medium text-on-surface-variant">
+            Choose the type of facilitator responses you prefer to receive on future projects.
+          </p>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { value: "QUICK", label: "Quick Bids", sub: "Fast, simple proposals", icon: "bolt" },
-              { value: "FULL", label: "Full Proposals", sub: "Detailed milestones & stack", icon: "article" },
-              { value: "BOTH", label: "Both", sub: "Let facilitators choose", icon: "shuffle" },
+              { value: "QUICK", label: "Streamlined Quotes", sub: "Amount, timeline, approach", icon: "bolt" },
+              { value: "FULL", label: "Detailed Delivery Plans", sub: "Milestones, stack, risks", icon: "article" },
+              { value: "BOTH", label: "Allow Both", sub: "Compare both formats", icon: "shuffle" },
             ].map(b => (
               <button key={b.value} type="button" onClick={() => setPreferredBidType(b.value)}
                 className={`text-center p-3 rounded-xl border transition-all ${preferredBidType === b.value ? "bg-primary/10 border-primary/40 text-primary" : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30"}`}>

@@ -4,6 +4,9 @@ import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 import { encryptApiKey } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
+import { syncPortfolioVerification } from "@/lib/facilitator-verification";
+import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
+import { onboardingStepInputSchema } from "@/lib/validators";
 
 // ─── Types ────────────────────────────────────────────
 export type OnboardingStepData =
@@ -15,11 +18,23 @@ export type OnboardingStepData =
 
 // ─── Partial step save (allows resuming) ─────────────
 export async function saveOnboardingStep(
-  data: OnboardingStepData
+  input: unknown
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: "Not authenticated." };
+
+    await assertDurableRateLimit({
+      key: rateLimitKey("onboarding.save", user.id),
+      limit: 60,
+      windowMs: 60 * 60 * 1000,
+    });
+
+    const parsed = onboardingStepInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0]?.message ?? "Enter valid onboarding details before continuing." };
+    }
+    const data = parsed.data;
 
     const update: Record<string, unknown> = {};
 
@@ -66,8 +81,24 @@ export async function saveOnboardingStep(
     }
 
     await prisma.user.update({ where: { id: user.id }, data: update });
+
+    if (data.step === "profile" && user.role === "FACILITATOR") {
+      await syncPortfolioVerification({
+        userId: user.id,
+        portfolioUrl: data.portfolioUrl || null,
+        bio: data.bio,
+        skills: data.skills,
+        aiToolStack: data.aiAgentStack,
+      });
+    }
+
+    revalidatePath("/settings");
+    revalidatePath("/talent");
     return { success: true };
   } catch (e: any) {
+    if (isRateLimitError(e)) {
+      return { success: false, error: e.message };
+    }
     console.error("saveOnboardingStep error:", e);
     return { success: false, error: e.message ?? "Failed to save." };
   }
@@ -75,7 +106,7 @@ export async function saveOnboardingStep(
 
 // ─── Complete onboarding (final step) ────────────────
 export async function completeOnboarding(
-  data: OnboardingStepData
+  data: unknown
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await getCurrentUser();
@@ -92,8 +123,12 @@ export async function completeOnboarding(
     });
 
     revalidatePath("/dashboard");
+    revalidatePath("/onboarding");
     return { success: true };
   } catch (e: any) {
+    if (isRateLimitError(e)) {
+      return { success: false, error: e.message };
+    }
     console.error("completeOnboarding error:", e);
     return { success: false, error: e.message ?? "Failed to complete onboarding." };
   }

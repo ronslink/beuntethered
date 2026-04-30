@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 
-export function SideNav({ role }: { role?: string }) {
+export function SideNav({ role, isAdmin = false }: { role?: string; isAdmin?: boolean }) {
   const pathname = usePathname();
 
   const isClient = role === "CLIENT";
@@ -24,18 +24,18 @@ export function SideNav({ role }: { role?: string }) {
       : "'FILL' 0";
 
   return (
-    <aside className="hidden md:flex flex-col py-8 px-5 h-screen w-64 fixed left-0 top-0 bg-surface/50 backdrop-blur-3xl z-40 border-r border-outline-variant/20 shadow-[4px_0_24px_rgba(0,0,0,0.01)]">
-      <div className="pt-20 flex flex-col h-full">
+    <aside className="hidden md:flex flex-col py-6 px-4 h-screen w-64 fixed left-0 top-0 bg-surface z-40 border-r border-outline-variant/30 shadow-sm">
+      <div className="pt-16 flex flex-col h-full">
 
         {/* Brand */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>all_inclusive</span>
           </div>
           <div>
             <h3 className="text-base font-black text-on-surface font-headline leading-tight">Untether</h3>
             <p className="uppercase tracking-widest text-[9px] text-on-surface-variant font-bold">
-              {isClient ? "Client Portal" : "Developer Hub"}
+              {isClient ? "Client Portal" : "Facilitator Hub"}
             </p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export function SideNav({ role }: { role?: string }) {
           {isFacilitator && (
             <Link href="/advisor" className={link("/advisor")}>
               <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/advisor") }}>psychology</span>
-              <span className="uppercase tracking-widest text-[10px] font-bold">AI Advisor</span>
+              <span className="uppercase tracking-widest text-[10px] font-bold">Proposal Advisor</span>
             </Link>
           )}
 
@@ -108,6 +108,30 @@ export function SideNav({ role }: { role?: string }) {
             <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/settings") }}>settings</span>
             <span className="uppercase tracking-widest text-[10px] font-bold">Settings</span>
           </Link>
+
+          {isAdmin && (
+            <div className="pt-4 mt-4 border-t border-outline-variant/10 space-y-0.5">
+              <p className="px-4 pb-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                Platform Admin
+              </p>
+              <Link href="/admin/verifications" className={link("/admin/verifications")}>
+                <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/admin/verifications") }}>verified_user</span>
+                <span className="uppercase tracking-widest text-[10px] font-bold">Verifications</span>
+              </Link>
+              <Link href="/admin/disputes" className={link("/admin/disputes")}>
+                <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/admin/disputes") }}>gavel</span>
+                <span className="uppercase tracking-widest text-[10px] font-bold">Disputes</span>
+              </Link>
+              <Link href="/admin/risk" className={link("/admin/risk")}>
+                <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/admin/risk") }}>policy</span>
+                <span className="uppercase tracking-widest text-[10px] font-bold">Risk Review</span>
+              </Link>
+              <Link href="/admin/readiness" className={link("/admin/readiness")}>
+                <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/admin/readiness") }}>health_and_safety</span>
+                <span className="uppercase tracking-widest text-[10px] font-bold">Readiness</span>
+              </Link>
+            </div>
+          )}
         </nav>
 
         {/* Role CTA */}
@@ -115,18 +139,18 @@ export function SideNav({ role }: { role?: string }) {
           {isClient ? (
             <Link
               href="/projects/new"
-              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:-translate-y-0.5 active:scale-95 transition-all"
+              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all"
             >
               <span className="material-symbols-outlined text-[15px]">add</span>
               Post Project
             </Link>
           ) : (
             <Link
-              href="/advisor"
-              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:-translate-y-0.5 active:scale-95 transition-all"
+              href="/marketplace"
+              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-primary text-on-primary font-black text-[10px] uppercase tracking-widest rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all"
             >
-              <span className="material-symbols-outlined text-[15px]">psychology</span>
-              Generate SoW
+              <span className="material-symbols-outlined text-[15px]">storefront</span>
+              Find Opportunities
             </Link>
           )}
         </div>

@@ -44,16 +44,16 @@ export default function PostProjectReviewClient({
     <div className="mt-8 flex justify-center">
       <button
         onClick={() => setIsOpen(true)}
+        disabled={isPending}
         className="px-8 py-3.5 rounded-full bg-gradient-to-r from-tertiary to-tertiary/90 text-on-tertiary font-black font-headline uppercase tracking-widest text-sm shadow-[0_8px_20px_rgba(var(--color-tertiary),0.3)] hover:shadow-tertiary/50 hover:scale-105 active:scale-95 transition-all w-full max-w-sm"
       >
-        Leave Final Review
+        {isPending ? "Submitting Review..." : "Leave Final Review"}
       </button>
 
       <ReviewModal
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         onSubmit={handleReviewSubmit}
-        facilitatorId={facilitatorId}
         facilitatorName={facilitatorName}
         facilitatorAvatar={facilitatorAvatar}
       />

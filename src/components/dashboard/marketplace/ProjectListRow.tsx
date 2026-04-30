@@ -30,13 +30,15 @@ export default function ProjectListRow({
 
   const isHighMatch = matchScore >= 90;
   const bidCount = project._count?.bids ?? 0;
+  const fit = project.opportunityFit;
+  const matchedTerms = fit?.matchedTerms ?? [];
 
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left group relative transition-all duration-200 rounded-2xl border px-5 py-4 flex gap-4 items-start ${
+      className={`w-full text-left group relative transition-all duration-200 rounded-lg border px-5 py-4 flex gap-4 items-start ${
         isSelected
-          ? "bg-primary/5 border-primary/50 shadow-sm shadow-primary/10"
+          ? "bg-primary/5 border-primary/50"
           : "bg-surface border-outline-variant/20 hover:border-outline-variant/50 hover:bg-surface-container-low/50"
       }`}
     >
@@ -67,6 +69,27 @@ export default function ProjectListRow({
             }`}>
               {project.title}
             </h3>
+            {project.invited && (
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-widest">
+                <span className="material-symbols-outlined text-[11px]">mail</span>
+                Invited
+              </span>
+            )}
+            {project.organization?.name && (
+              <span className="inline-flex items-center gap-1 mt-1 ml-1 px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant border border-outline-variant/20 text-[9px] font-black uppercase tracking-widest">
+                <span className="material-symbols-outlined text-[11px]">domain</span>
+                {project.organization.name}
+              </span>
+            )}
+            {matchedTerms.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {matchedTerms.slice(0, 3).map((term: string) => (
+                  <span key={`${project.id}-${term}`} className="rounded-md bg-primary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary">
+                    {term}
+                  </span>
+                ))}
+              </div>
+            )}
             <p className="text-on-surface-variant text-xs font-medium leading-relaxed mt-1 line-clamp-2 opacity-80">
               {project.ai_generated_sow?.slice(0, 120)}...
             </p>
@@ -97,6 +120,11 @@ export default function ProjectListRow({
               : "bg-surface-container-high text-on-surface-variant border-outline-variant/20"
           }`}>
             {project.billing_type === "HOURLY_RETAINER" ? "Hourly" : "Fixed"}
+          </span>
+
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+            <span className="material-symbols-outlined text-[12px]">rule</span>
+            {fit?.source === "profile-fallback" ? "Profile fit" : "Matched"}
           </span>
 
           <span className="text-[10px] text-on-surface-variant font-medium ml-auto">

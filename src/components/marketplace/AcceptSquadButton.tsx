@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { acceptSquadProposal } from "@/app/actions/squads";
 
-export default function AcceptSquadButton({ squadId, projectId }: { squadId: string, projectId: string }) {
+export default function AcceptSquadButton({ squadId }: { squadId: string, projectId: string }) {
   const [isPending, startTransition] = useTransition();
 
   const handleAccept = () => {
     startTransition(async () => {
        const res = await acceptSquadProposal(squadId);
-       if (!res?.success) alert(res?.error || "Execution Fault");
+       if (!res?.success) alert(res?.error || "Unable to accept squad proposal.");
     });
   };
 

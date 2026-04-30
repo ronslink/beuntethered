@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getUserNotifications, markAllNotificationsAsRead } from "@/app/actions/notifications";
+import { getUserNotifications, markAllNotificationsAsRead, markNotificationAsRead } from "@/app/actions/notifications";
 import Link from "next/link";
 
-type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE" | "BID";
+type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE" | "BID" | "ALERT";
 
 interface NotificationItem {
   id: string;
@@ -13,6 +13,7 @@ interface NotificationItem {
   read: boolean;
   createdAt: Date;
   href?: string;
+  detail?: string;
 }
 
 function getNotificationIcon(type: NotificationType): string {
@@ -23,6 +24,7 @@ function getNotificationIcon(type: NotificationType): string {
     case "ERROR":     return "error";
     case "MILESTONE": return "emoji_events";
     case "MESSAGE":   return "mail";
+    case "ALERT":     return "notifications_active";
     case "INFO":
     default:          return "info";
   }
@@ -36,6 +38,7 @@ function getNotificationColor(type: NotificationType): string {
     case "ERROR":     return "text-red-500";
     case "MILESTONE": return "text-primary";
     case "MESSAGE":   return "text-secondary";
+    case "ALERT":     return "text-primary";
     case "INFO":
     default:          return "text-on-surface-variant";
   }
@@ -106,6 +109,12 @@ export function NotificationBell() {
     }
   };
 
+  const handleNotificationClick = async (notificationId: string) => {
+    setIsOpen(false);
+    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
+    await markNotificationAsRead(notificationId);
+  };
+
   return (
     <div className="relative">
       <button
@@ -163,6 +172,11 @@ export function NotificationBell() {
                         <p className={`text-sm ${notification.read ? "text-on-surface-variant" : "text-on-surface font-medium"}`}>
                           {notification.message}
                         </p>
+                        {notification.detail && (
+                          <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
+                            {notification.detail}
+                          </p>
+                        )}
                         <p className="text-xs text-on-surface-variant/70 mt-1">
                           {formatTimestamp(notification.createdAt)}
                         </p>
@@ -175,12 +189,16 @@ export function NotificationBell() {
                   const liClass = `px-4 py-3 hover:bg-surface-container transition-colors ${!notification.read ? "bg-primary/5" : ""}`;
                   return notification.href ? (
                     <li key={notification.id}>
-                      <Link href={notification.href} onClick={() => setIsOpen(false)} className={`block ${liClass}`}>
+                      <Link href={notification.href} onClick={() => handleNotificationClick(notification.id)} className={`block ${liClass}`}>
                         {inner}
                       </Link>
                     </li>
                   ) : (
-                    <li key={notification.id} className={liClass}>{inner}</li>
+                    <li key={notification.id} className={liClass}>
+                      <button type="button" onClick={() => handleNotificationClick(notification.id)} className="block w-full text-left">
+                        {inner}
+                      </button>
+                    </li>
                   );
                 })}
               </ul>

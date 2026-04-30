@@ -35,12 +35,6 @@ export async function proxy(request: NextRequest) {
   // Not logged in — let NextAuth handle redirect
   if (!token) return NextResponse.next();
 
-  // Onboarding gate — only for authenticated users who haven't completed
-  const onboardingComplete = token.onboarding_complete as boolean | undefined;
-  if (onboardingComplete === false && !pathname.startsWith("/onboarding")) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
-  }
-
   return NextResponse.next();
 }
 

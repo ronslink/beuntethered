@@ -15,9 +15,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Untether — AI-Powered Freelance Marketplace with Escrow Protection",
+  title: "Untether - Human-Led, AI-Assisted Software Delivery",
   description:
-    "Post projects, get AI-generated scopes, and hire vetted architects with milestone-based Stripe Escrow. Elite developers keep 100% of their rate.",
+    "Post software projects, get AI-assisted milestone scopes, and hire verified facilitators with milestone-based Stripe Escrow. Facilitators keep 100% of their rate.",
 };
 
 export default function RootLayout({
@@ -27,9 +27,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-      </head>
       <body className={`${plusJakartaSans.variable} ${manrope.variable} antialiased min-h-screen bg-background text-on-surface`}>
         <ThemeProvider
           attribute="class"

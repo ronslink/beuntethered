@@ -2,10 +2,11 @@ import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/auth";
 import ArbitrationPanel from "@/components/dashboard/admin/ArbitrationPanel";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 
 export default async function AdminDisputesHub() {
   const user = await getCurrentUser();
-  if (!user || user.email !== (process.env.ADMIN_EMAIL || "admin@untether.network")) {
+  if (!user || !isPlatformAdminEmail(user.email)) {
      redirect("/command-center");
   }
 
@@ -16,7 +17,8 @@ export default async function AdminDisputesHub() {
         project: true,
         milestone: true,
         client: true,
-        facilitator: true
+        facilitator: true,
+        attachments: { orderBy: { created_at: "asc" } }
      }
   });
 
@@ -92,12 +94,12 @@ export default async function AdminDisputesHub() {
                                    <span className="material-symbols-outlined text-sm text-tertiary">code</span>
                                 </div>
                                 <div>
-                                   <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Expert Bound</p>
+                                   <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Facilitator</p>
                                    <p className="text-sm font-bold text-on-surface">{dispute.facilitator.name || dispute.facilitator.email}</p>
                                 </div>
                              </div>
                              <div className="bg-surface-container p-4 rounded-2xl border border-outline-variant/30 text-sm text-on-surface font-medium leading-relaxed italic text-on-surface-variant">
-                                Escrow payload delivery submitted via UI interface. Requesting release of ${dispute.milestone.amount.toString()} against contracted terms.
+                                The facilitator has submitted delivery evidence and is requesting release of ${dispute.milestone.amount.toString()} against the agreed milestone terms.
                              </div>
                           </div>
                        </div>
@@ -108,6 +110,12 @@ export default async function AdminDisputesHub() {
                              milestoneId={dispute.milestone_id}
                              appmapUrl={dispute.appmap_log_url}
                              aiReport={dispute.ai_fact_finding_report}
+                             evidence={dispute.attachments.map((attachment) => ({
+                                id: attachment.id,
+                                name: attachment.name,
+                                url: attachment.url,
+                                sizeBytes: attachment.size_bytes,
+                             }))}
                           />
                        )}
                    </div>

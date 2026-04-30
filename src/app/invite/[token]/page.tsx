@@ -1,17 +1,16 @@
 import { prisma } from "@/lib/auth";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/session";
+import { calculateBYOCInviteTotals } from "@/lib/byoc-sow";
 
 export default async function BYOCMagicLinkClaim(props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
-  const user = await getCurrentUser();
 
   const project = await prisma.project.findUnique({
     where: { invite_token: params.token },
     include: {
       creator: true,
-      milestones: { orderBy: { amount: 'desc' } }
+      milestones: { orderBy: { id: "asc" } }
     }
   });
 
@@ -20,10 +19,16 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
   }
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(val);
   };
 
   const totalValuation = project.milestones.reduce((acc, m) => acc + Number(m.amount), 0);
+  const totals = calculateBYOCInviteTotals(project.milestones.map((milestone) => ({ amount: Number(milestone.amount) })));
+  const facilitatorName = project.creator.name || "Your facilitator";
 
   // If they are already heavily onboarded and mapping correctly natively as a Client,
   // we bypass external friction logic
@@ -31,60 +36,188 @@ export default async function BYOCMagicLinkClaim(props: { params: Promise<{ toke
   const signInUrl = `/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
   return (
-    <main className="min-h-screen bg-background relative flex flex-col items-center pt-20 px-6 pb-20">
-      <div className="absolute top-[0%] left-[20%] w-[600px] h-[600px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none z-0"></div>
-
-      <div className="max-w-4xl w-full relative z-10">
-         <div className="text-center mb-12">
-            <div className="w-20 h-20 mx-auto rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/30 shadow-[0_0_20px_rgba(var(--color-secondary),0.15)] mb-6">
-                <span className="material-symbols-outlined text-4xl text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>handshake</span>
+    <main className="min-h-screen bg-surface px-4 py-8 text-on-surface sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+        <header className="rounded-lg border border-outline-variant/40 bg-surface-container-low/50 p-5 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                  <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                  Private BYOC Review
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-outline-variant/40 bg-surface px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  Outcome-based delivery
+                </span>
+              </div>
+              <h1 className="text-2xl font-black tracking-tight md:text-4xl">Review your verified delivery scope</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-on-surface-variant">
+                <span className="font-bold text-on-surface">{facilitatorName}</span> prepared a private
+                milestone-based project packet. Review the scope, evidence expectations, and escrow totals
+                before claiming the project.
+              </p>
             </div>
-            <h1 className="text-4xl md:text-6xl font-black font-headline tracking-tighter text-on-surface mb-4">
-              Private Delivery Proposal
-            </h1>
-            <p className="text-on-surface-variant text-lg">
-              <span className="font-bold text-on-surface">{project.creator.name}</span> has invited you to review a project scope. Create an account to view and accept the project.
-            </p>
-         </div>
 
-         <div className="bg-surface/50 backdrop-blur-3xl border border-outline-variant/30 rounded-3xl p-8 md:p-12 shadow-[0_20px_60px_rgb(0,0,0,0.05)]">
-            <h3 className="text-2xl font-black text-on-surface mb-8 font-headline border-b border-outline-variant/20 pb-4 tracking-tight uppercase">
-              {project.title}
-            </h3>
+            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[420px]">
+              <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Project value</p>
+                <p className="mt-1 text-xl font-black">{formatCurrency(totalValuation)}</p>
+              </div>
+              <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Platform fee</p>
+                <p className="mt-1 text-xl font-black">{formatCurrency(totals.platformFeeCents / 100)}</p>
+              </div>
+              <div className="rounded-lg border border-outline-variant/30 bg-surface p-4">
+                <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Escrow total</p>
+                <p className="mt-1 text-xl font-black">{formatCurrency(totals.clientTotalCents / 100)}</p>
+              </div>
+            </div>
+          </div>
+        </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-               <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Executive Pipeline Summary</label>
-                  <p className="text-sm leading-relaxed text-on-surface opacity-90">{project.ai_generated_sow}</p>
-               </div>
-               <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4 block">Project Overview</label>
-                  <div className="space-y-4">
-                     {project.milestones.map((m, idx) => (
-                        <div key={m.id} className="flex flex-col sm:flex-row justify-between bg-surface-container-low/50 border border-outline-variant/20 rounded-xl p-4">
-                           <div className="flex gap-4 items-start">
-                             <div className="shrink-0 w-6 h-6 rounded bg-secondary/10 text-secondary font-bold text-xs flex items-center justify-center border border-secondary/20">{idx + 1}</div>
-                             <div>
-                                <p className="font-bold text-sm text-on-surface">{m.title}</p>
-                             </div>
-                           </div>
-                           <p className="font-black text-on-surface md:mt-0 mt-2 shrink-0">{formatCurrency(Number(m.amount))}</p>
-                        </div>
-                     ))}
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="rounded-lg border border-outline-variant/40 bg-surface shadow-sm">
+            <div className="border-b border-outline-variant/30 p-5">
+              <p className="text-xs font-black uppercase tracking-widest text-primary">Locked Scope</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight">{project.title}</h2>
+            </div>
+
+            <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+              <section className="rounded-lg border border-outline-variant/30 bg-surface-container-low/35 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Scope Snapshot</p>
+                    <h3 className="mt-1 text-base font-black">What is included</h3>
                   </div>
-               </div>
+                  <span className="rounded-md bg-primary/10 p-2 text-primary">
+                    <span className="material-symbols-outlined text-[18px]">description</span>
+                  </span>
+                </div>
+                <p className="mt-4 max-h-[520px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-outline-variant/25 bg-surface p-4 text-sm leading-7 text-on-surface-variant custom-scrollbar">
+                  {project.ai_generated_sow}
+                </p>
+              </section>
+
+              <section>
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-primary">Verifiable Milestones</p>
+                    <h3 className="mt-1 text-base font-black">Funding and acceptance plan</h3>
+                  </div>
+                  <span className="rounded-md border border-outline-variant/35 bg-surface-container-low px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                    {project.milestones.length} milestones
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {project.milestones.map((m, idx) => (
+                    <article key={m.id} className="rounded-lg border border-outline-variant/35 bg-surface p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-black text-primary">
+                            {idx + 1}
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-black">{m.title}</h4>
+                            {m.description && <p className="mt-1 text-xs leading-5 text-on-surface-variant">{m.description}</p>}
+                          </div>
+                        </div>
+                        <p className="text-lg font-black">{formatCurrency(Number(m.amount))}</p>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-lg border border-outline-variant/25 bg-surface-container-low/40 p-3">
+                          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                            <span className="material-symbols-outlined text-[14px] text-primary">inventory_2</span>
+                            Deliverables
+                          </p>
+                          <div className="space-y-2">
+                            {m.deliverables.slice(0, 4).map((item) => (
+                              <p key={item} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
+                                <span className="material-symbols-outlined mt-0.5 text-[13px] text-primary">check_circle</span>
+                                {item}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-outline-variant/25 bg-surface-container-low/40 p-3">
+                          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                            <span className="material-symbols-outlined text-[14px] text-secondary">fact_check</span>
+                            Acceptance checks
+                          </p>
+                          <div className="space-y-2">
+                            {m.acceptance_criteria.slice(0, 4).map((item) => (
+                              <p key={item} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
+                                <span className="material-symbols-outlined mt-0.5 text-[13px] text-secondary">verified</span>
+                                {item}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <aside className="flex flex-col gap-4">
+            <div className="rounded-lg border border-outline-variant/40 bg-surface p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-primary">Trust Model</p>
+              <div className="mt-4 space-y-3">
+                {[
+                  ["payments", "Milestone escrow", "Fund each milestone before work release."],
+                  ["upload_file", "Evidence trail", "Delivery artifacts attach to the project record."],
+                  ["rule", "Acceptance checks", "Approve against objective milestone criteria."],
+                  ["gavel", "Dispute path", "Escalation keeps payment, audit, and evidence in one place."],
+                ].map(([icon, title, body]) => (
+                  <div key={title} className="flex gap-3 rounded-lg border border-outline-variant/25 bg-surface-container-low/35 p-3">
+                    <span className="mt-0.5 rounded-md bg-primary/10 p-1.5 text-primary">
+                      <span className="material-symbols-outlined text-[15px]">{icon}</span>
+                    </span>
+                    <div>
+                      <p className="text-sm font-black">{title}</p>
+                      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{body}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="border-t border-outline-variant/20 pt-8 flex items-center justify-between">
-               <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Validated Total Valuation</p>
-                  <p className="text-4xl font-black text-secondary tracking-tighter">{formatCurrency(totalValuation)}</p>
-               </div>
-               <Link href={signInUrl} className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-sm shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all hover:-translate-y-1">
-                  Create Account & Fund Project
-               </Link>
+            <div className="sticky top-6 rounded-lg border border-primary/25 bg-surface p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-primary">Claim Project</p>
+              <h3 className="mt-2 text-lg font-black">Create your client account to continue</h3>
+              <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                Claiming links this private scope to your workspace so you can fund milestones, review evidence,
+                and manage approvals.
+              </p>
+              <div className="mt-4 rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-4">
+                <div className="flex justify-between gap-4 text-sm">
+                  <span className="text-on-surface-variant">Project value</span>
+                  <span className="font-black">{formatCurrency(totalValuation)}</span>
+                </div>
+                <div className="mt-2 flex justify-between gap-4 text-sm">
+                  <span className="text-on-surface-variant">BYOC platform fee</span>
+                  <span className="font-black">{formatCurrency(totals.platformFeeCents / 100)}</span>
+                </div>
+                <div className="mt-3 border-t border-outline-variant/25 pt-3 flex justify-between gap-4 text-sm">
+                  <span className="font-bold">Estimated escrow total</span>
+                  <span className="font-black">{formatCurrency(totals.clientTotalCents / 100)}</span>
+                </div>
+              </div>
+              <Link
+                href={signInUrl}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-xs font-black uppercase tracking-widest text-on-primary shadow-sm transition hover:opacity-90"
+              >
+                <span className="material-symbols-outlined text-[16px]">login</span>
+                Create Account & Claim
+              </Link>
+              <p className="mt-3 text-center text-[11px] leading-5 text-on-surface-variant">
+                Funding happens after account setup and project claim.
+              </p>
             </div>
-         </div>
+          </aside>
+        </section>
       </div>
     </main>
   );

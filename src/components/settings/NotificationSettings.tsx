@@ -60,7 +60,7 @@ export default function NotificationSettings({ initial }: { initial: Prefs }) {
       ))}
       <p className="text-[10px] text-on-surface-variant/60 font-medium pt-2 border-t border-outline-variant/10 flex items-center gap-1.5">
         {isPending ? (
-          <><span className="material-symbols-outlined animate-spin text-[12px]">refresh</span> Saving…</>
+          <><span className="material-symbols-outlined animate-spin text-[12px]">refresh</span> Saving...</>
         ) : saved ? (
           <><span className="material-symbols-outlined text-[12px] text-[#059669]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Preferences saved</>
         ) : (

@@ -8,9 +8,10 @@ import { NotificationBell } from "@/components/dashboard/NotificationBell";
 interface TopNavProps {
   userName?: string | null;
   userImage?: string | null;
+  isAdmin?: boolean;
 }
 
-export function TopNav({ userName, userImage }: TopNavProps) {
+export function TopNav({ userName, userImage, isAdmin = false }: TopNavProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -18,19 +19,18 @@ export function TopNav({ userName, userImage }: TopNavProps) {
     setMounted(true);
   }, []);
 
-  const initials = userName
-    ? userName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "?";
-
   return (
-    <nav className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl flex justify-between items-center px-8 h-20 border-b border-outline-variant/30 shadow-[0_4px_30px_rgba(0,0,0,0.02)]">
+    <nav className="fixed top-0 w-full z-50 bg-surface/95 backdrop-blur-xl flex justify-between items-center px-8 h-16 border-b border-outline-variant/30 shadow-sm">
       <div className="flex items-center gap-8">
-        <span className="text-2xl font-black tracking-tighter bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent font-headline">Untether</span>
+        <span className="text-xl font-black tracking-tight text-on-surface font-headline">Untether</span>
         <div className="hidden md:flex gap-6 items-center">
-          <Link className="font-semibold tracking-tight text-on-surface-variant hover:text-primary transition-colors" href="/dashboard">Dashboard</Link>
-          <Link className="font-semibold tracking-tight text-on-surface-variant hover:text-primary transition-colors" href="/command-center">Projects</Link>
-          <Link className="font-medium tracking-tight text-on-surface-variant hover:text-primary transition-colors" href="/wallet">Earnings</Link>
-          <Link className="font-medium tracking-tight text-on-surface-variant hover:text-primary transition-colors" href="/insights">Insights</Link>
+          <Link className="text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors" href="/dashboard">Dashboard</Link>
+          <Link className="text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors" href="/command-center">Projects</Link>
+          <Link className="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="/wallet">Payments</Link>
+          <Link className="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="/insights">Insights</Link>
+          {isAdmin ? (
+            <Link className="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="/admin/verifications">Admin</Link>
+          ) : null}
         </div>
       </div>
       <div className="flex items-center gap-4">
@@ -49,12 +49,14 @@ export function TopNav({ userName, userImage }: TopNavProps) {
           title="Settings"
         >
           {userImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               alt={userName || "Profile"}
               className="w-10 h-10 rounded-full border-2 border-outline-variant/20 object-cover shadow-sm bg-surface-container group-hover:border-primary/40 transition-colors"
               src={userImage}
             />
           ) : (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               alt={userName || "Profile"}
               className="w-10 h-10 rounded-full border-2 border-outline-variant/20 object-cover shadow-sm bg-surface-container group-hover:border-primary/40 transition-colors"
