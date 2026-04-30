@@ -11,14 +11,15 @@ import {
 } from "@/lib/milestone-quality";
 import { getMilestoneVerificationPatternGuide } from "@/lib/milestone-proof";
 import {
-  executiveSummaryWithScopeConstraints,
   extractBudgetAmountConstraint,
   extractBudgetConstraint,
   extractCentralComponentConstraints,
   extractRegionConstraints,
+  ensureSowPreservesScopeConstraints,
   summarizeScopeConstraints,
   type ScopeConstraints,
 } from "@/lib/scope-constraints";
+import { assessScopeFeasibility, type ScopeFeasibilityAssessment } from "@/lib/scope-feasibility";
 import {
   createSowGenerationCacheKey,
   getCachedSowGeneration,
@@ -293,12 +294,24 @@ function buildSowPrompt(
   mode: string,
   desiredTimeline: string,
   scopeConstraints: ScopeConstraints,
+  marketAssessment: ScopeFeasibilityAssessment,
   conversationHistory = ""
 ) {
   const priceRange = PRICING[category] || PRICING.other_software;
   const tierPrice = priceRange[complexity as keyof typeof priceRange] || priceRange.medium;
   const examples = EXAMPLES[complexity as keyof typeof EXAMPLES] || EXAMPLES.medium;
   const scopeConstraintSummary = summarizeScopeConstraints(scopeConstraints);
+  const marketFitContext = marketAssessment.estimatedMarketBudget && marketAssessment.estimatedMarketDays
+    ? `
+MARKET FIT CONTEXT:
+- Planning band: ${marketAssessment.label}.
+- Rough marketplace estimate: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(marketAssessment.estimatedMarketBudget)} and about ${marketAssessment.estimatedMarketDays} days.
+- Client-entered budget and timeline are hard planning inputs, not suggestions. Do not silently increase them.
+- If the band is Aggressive constraints, keep the milestone set lean and call out what should be deferred.
+- If the band is Unrealistic constraints, draft a constrained first release or discovery-style path. Do not claim full launch-ready delivery for advanced, regulated, or multi-market scope inside impossible constraints.`
+    : `
+MARKET FIT CONTEXT:
+- Budget and timeline were not complete enough for market-fit estimation. Keep the generated scope conservative and ask for missing planning inputs through milestone assumptions.`;
   
   const timelineHint = desiredTimeline 
     ? `\nThe client wants this done within: "${desiredTimeline}". Fit your timeline to this.`
@@ -328,6 +341,7 @@ Return ONLY a JSON object. No markdown, no extra text.
 This is a $1,000 discovery/architecture session — single milestone only.
 The milestone must be meaningful, realistic, actionable, and verifiable. Acceptance criteria must be a short pass/fail checklist.
 ${preservedConstraints}
+${marketFitContext}
 ${revisionContext}
 
 ${MILESTONE_QUALITY_RUBRIC}
@@ -386,6 +400,7 @@ ${VERIFICATION_PATTERN_GUIDE}
 - Milestones should usually be 3-15 days; split anything too broad into smaller reviewable outcomes.
 - Price realistically for this category (${category.replace(/_/g, ' ')}).${timelineHint}
 ${preservedConstraints}
+${marketFitContext}
 ${revisionContext}
 
 Here are examples of the tone and structure I want:
@@ -451,6 +466,11 @@ export async function POST(req: Request) {
       budgetAmount: budgetAmount ?? extractBudgetAmountConstraint(prompt),
       timelineDays: requestedTimelineDays,
     };
+    const marketAssessment = assessScopeFeasibility({
+      prompt,
+      budgetAmount: scopeConstraints.budgetAmount,
+      timelineDays: requestedTimelineDays,
+    });
 
     // Build category+complexity routed prompt
     const sowPrompt = buildSowPrompt(
@@ -460,6 +480,7 @@ export async function POST(req: Request) {
       mode,
       desiredTimeline,
       scopeConstraints,
+      marketAssessment,
       conversationHistory
     );
 
@@ -510,10 +531,7 @@ export async function POST(req: Request) {
       ),
       scopeConstraints.budgetAmount
     );
-    const parsed = {
-      ...normalized,
-      executiveSummary: executiveSummaryWithScopeConstraints(normalized.executiveSummary, scopeConstraints),
-    };
+    const parsed = ensureSowPreservesScopeConstraints(normalized, scopeConstraints);
     setCachedSowGeneration(cacheKey, parsed);
     return NextResponse.json(parsed);
 

@@ -5,7 +5,7 @@ type SowGenerationCacheEntry = {
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 100;
-const CACHE_SCHEMA_VERSION = "scope-loop-v2";
+const CACHE_SCHEMA_VERSION = "scope-loop-v3";
 const cache = new Map<string, SowGenerationCacheEntry>();
 
 export type SowGenerationCacheInput = {

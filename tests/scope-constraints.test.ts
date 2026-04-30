@@ -6,6 +6,7 @@ import {
   extractBudgetAmountConstraint,
   extractCentralComponentConstraints,
   extractRegionConstraints,
+  ensureSowPreservesScopeConstraints,
   summarizeScopeConstraints,
 } from "../src/lib/scope-constraints.ts";
 
@@ -77,11 +78,60 @@ test("appends missing regions to executive summaries", () => {
   const result = executiveSummaryWithScopeConstraints("Build a payroll app.", {
     regions: ["North America", "Asia", "Middle East"],
     components: ["automated tax calculations"],
-    budget: null,
-    budgetAmount: null,
-    timelineDays: null,
+    budget: "$15,000",
+    budgetAmount: 15000,
+    timelineDays: 30,
   });
 
   assert.match(result, /North America, Asia, Middle East/);
   assert.match(result, /automated tax calculations/);
+  assert.match(result, /\$15,000/);
+  assert.match(result, /30 days/);
+});
+
+test("removes unsupported country substitutions from constrained summaries", () => {
+  const result = executiveSummaryWithScopeConstraints(
+    "Multi-country payroll application covering US, Canada, UAE, and Philippines with compliance features.",
+    {
+      regions: ["North America", "Middle East", "Asia"],
+      components: ["automated tax calculations", "payslip generation", "AI chatbot for employee inquiries"],
+      budget: "$15,000",
+      budgetAmount: 15000,
+      timelineDays: 30,
+    }
+  );
+
+  assert.doesNotMatch(result, /\bUS\b|Canada|UAE|Philippines/);
+  assert.match(result, /North America, Middle East, Asia/);
+  assert.match(result, /automated tax calculations/);
+});
+
+test("adds missing required components to verifiable milestone evidence", () => {
+  const sow = ensureSowPreservesScopeConstraints(
+    {
+      executiveSummary: "Build the payroll application.",
+      milestones: [
+        {
+          title: "Payroll Foundation",
+          description: "Create the payroll foundation for buyer review.",
+          deliverables: ["Payroll account setup flow"],
+          acceptance_criteria: "Client can review the payroll account setup flow in a working preview.",
+          estimated_duration_days: 10,
+          amount: 5000,
+        },
+      ],
+    },
+    {
+      regions: ["North America", "Middle East", "Asia"],
+      components: ["automated tax calculations", "payslip generation"],
+      budget: "$15,000",
+      budgetAmount: 15000,
+      timelineDays: 30,
+    }
+  );
+
+  const serializedMilestones = JSON.stringify(sow.milestones);
+  assert.match(serializedMilestones, /automated tax calculations/);
+  assert.match(serializedMilestones, /payslip generation/);
+  assert.match(serializedMilestones, /evidence package|handoff artifact/);
 });

@@ -99,20 +99,121 @@ export function buildRegionCoverageSentence(regions: string[]) {
   return `The scope must support operations across ${regions.join(", ")}.`;
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsTerm(text: string, term: string) {
+  return new RegExp(escapeRegExp(term).replace(/\s+/g, "\\s+"), "i").test(text);
+}
+
+function unsupportedMarketEntries(text: string, allowedRegions: string[]) {
+  const allowed = new Set(allowedRegions.map((region) => region.toLowerCase()));
+  return MARKET_PATTERNS.filter((entry) => !allowed.has(entry.label.toLowerCase()) && entry.pattern.test(text));
+}
+
+function removeUnsupportedMarketSentences(text: string, allowedRegions: string[]) {
+  if (!text || allowedRegions.length === 0) return text;
+
+  const unsupported = unsupportedMarketEntries(text, allowedRegions);
+  if (unsupported.length === 0) return text;
+
+  const sentences = text.match(/[^.!?]+[.!?]?/g) ?? [text];
+  const safeSentences = sentences
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .filter((sentence) => !unsupported.some((entry) => entry.pattern.test(sentence)));
+
+  return safeSentences.join(" ").trim() || "This scope defines a milestone-based delivery plan for the requested software application.";
+}
+
+function normalizeCriteria(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value !== "string") return [];
+
+  return value
+    .split(/\n|;|(?<=\.)\s+/g)
+    .map((item) => item.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function componentCoverageCriterion(component: string) {
+  return `Client can verify ${component} in a preview, evidence package, report, or handoff artifact.`;
+}
+
 export function executiveSummaryWithScopeConstraints(summary: unknown, constraints: ScopeConstraints) {
-  const text = typeof summary === "string" ? summary.trim() : "";
+  const rawText = typeof summary === "string" ? summary.trim() : "";
+  const text = removeUnsupportedMarketSentences(rawText, constraints.regions);
   const missingRegions = constraints.regions.filter(
-    (region) => !new RegExp(`\\b${region.replace(/\s+/g, "\\s+")}\\b`, "i").test(text)
+    (region) => !containsTerm(text, region)
   );
   const missingComponents = constraints.components.filter(
-    (component) => !new RegExp(component.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(text)
+    (component) => !containsTerm(text, component)
   );
   const regionSentence = buildRegionCoverageSentence(missingRegions);
   const componentSentence = missingComponents.length > 0
     ? `The scope must include ${missingComponents.join(", ")}.`
     : "";
+  const budgetSentence = constraints.budget && !containsTerm(text, constraints.budget)
+    ? `Target budget is ${constraints.budget}.`
+    : "";
+  const timelineSentence = constraints.timelineDays && !containsTerm(text, `${constraints.timelineDays} days`)
+    ? `Target timeline is ${constraints.timelineDays} days.`
+    : "";
 
-  const additions = [regionSentence, componentSentence].filter(Boolean).join(" ");
+  const additions = [regionSentence, componentSentence, budgetSentence, timelineSentence].filter(Boolean).join(" ");
   if (!additions) return text;
   return text ? `${text} ${additions}` : additions;
+}
+
+export function ensureSowPreservesScopeConstraints<T extends { executiveSummary?: unknown; milestones?: unknown; [key: string]: unknown }>(
+  sow: T,
+  constraints: ScopeConstraints
+): T {
+  const guarded = {
+    ...sow,
+    executiveSummary: executiveSummaryWithScopeConstraints(sow.executiveSummary, constraints),
+  };
+
+  if (!Array.isArray(guarded.milestones) || constraints.components.length === 0) {
+    return guarded;
+  }
+
+  const milestoneText = JSON.stringify(guarded.milestones);
+  const missingComponents = constraints.components.filter((component) => !containsTerm(milestoneText, component));
+  if (missingComponents.length === 0) return guarded;
+
+  const milestones = guarded.milestones.map((milestone) => (
+    milestone && typeof milestone === "object" ? { ...(milestone as Record<string, unknown>) } : milestone
+  ));
+
+  missingComponents.forEach((component, index) => {
+    const targetIndex = index % milestones.length;
+    const milestone = milestones[targetIndex];
+    if (!milestone || typeof milestone !== "object") return;
+
+    const target = milestone as Record<string, unknown>;
+    const deliverables = Array.isArray(target.deliverables)
+      ? target.deliverables.map((item) => String(item).trim()).filter(Boolean)
+      : [];
+    if (!deliverables.some((item) => containsTerm(item, component)) && deliverables.length < 4) {
+      deliverables.push(component);
+      target.deliverables = deliverables;
+    }
+
+    const criteria = normalizeCriteria(target.acceptance_criteria);
+    const criterion = componentCoverageCriterion(component);
+    if (!criteria.some((item) => containsTerm(item, component))) {
+      criteria.push(criterion);
+      target.acceptance_criteria = criteria.join("\n");
+    }
+  });
+
+  return {
+    ...guarded,
+    milestones,
+  };
 }
