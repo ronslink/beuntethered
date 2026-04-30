@@ -292,7 +292,8 @@ function buildSowPrompt(
   prompt: string,
   mode: string,
   desiredTimeline: string,
-  scopeConstraints: ScopeConstraints
+  scopeConstraints: ScopeConstraints,
+  conversationHistory = ""
 ) {
   const priceRange = PRICING[category] || PRICING.other_software;
   const tierPrice = priceRange[complexity as keyof typeof priceRange] || priceRange.medium;
@@ -308,6 +309,13 @@ CLIENT-PROVIDED CONSTRAINTS TO PRESERVE EXACTLY:
 ${scopeConstraintSummary.map((item) => `- ${item}`).join("\n")}
 Do not omit, merge, reinterpret, or summarize away named regions, central components, budget, or timeline constraints. If the client names North America, Asia, and Middle East, all three must appear in the executiveSummary and relevant milestone descriptions. If the client names explicit components, every component must appear in at least one milestone deliverable or acceptance criterion.${scopeConstraints.budget ? ` The sum of all milestone amount fields and totalAmount must equal exactly ${scopeConstraints.budget}.` : ""}`
     : "";
+  const revisionContext = conversationHistory.trim()
+    ? `
+SCOPE REVISION CONTEXT:
+${conversationHistory.trim()}
+
+Use the full conversation context above. Preserve client-supplied constraints, incorporate the latest user revision, and return one coherent updated SOW. Do not ignore earlier budget, timeline, markets, or required components unless the latest user message explicitly changes them.`
+    : "";
 
   const isDiscovery = mode === 'DISCOVERY';
 
@@ -320,6 +328,7 @@ Return ONLY a JSON object. No markdown, no extra text.
 This is a $1,000 discovery/architecture session — single milestone only.
 The milestone must be meaningful, realistic, actionable, and verifiable. Acceptance criteria must be a short pass/fail checklist.
 ${preservedConstraints}
+${revisionContext}
 
 ${MILESTONE_QUALITY_RUBRIC}
 UNTETHER VERIFICATION PATTERNS:
@@ -377,6 +386,7 @@ ${VERIFICATION_PATTERN_GUIDE}
 - Milestones should usually be 3-15 days; split anything too broad into smaller reviewable outcomes.
 - Price realistically for this category (${category.replace(/_/g, ' ')}).${timelineHint}
 ${preservedConstraints}
+${revisionContext}
 
 Here are examples of the tone and structure I want:
 ${examples}
@@ -414,7 +424,7 @@ export async function POST(req: Request) {
       windowMs: 60 * 60 * 1000,
     });
 
-    const { prompt, mode, desiredTimeline, category, complexity } = parsedInput.data;
+    const { prompt, mode, desiredTimeline, category, complexity, conversationHistory } = parsedInput.data;
     const dynamicModel = await getDynamicAIProvider(user.id);
     const cacheKey = createSowGenerationCacheKey({
       userId: user.id,
@@ -423,6 +433,7 @@ export async function POST(req: Request) {
       desiredTimeline,
       category,
       complexity,
+      conversationHistory,
     });
     const cached = getCachedSowGeneration(cacheKey);
     if (cached) {
@@ -438,7 +449,15 @@ export async function POST(req: Request) {
     };
 
     // Build category+complexity routed prompt
-    const sowPrompt = buildSowPrompt(category, complexity, prompt, mode, desiredTimeline, scopeConstraints);
+    const sowPrompt = buildSowPrompt(
+      category,
+      complexity,
+      prompt,
+      mode,
+      desiredTimeline,
+      scopeConstraints,
+      conversationHistory
+    );
 
     // Single-pass generation
     const { text: rawOutput } = await generateText({

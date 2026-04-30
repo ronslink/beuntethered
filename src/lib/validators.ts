@@ -35,6 +35,7 @@ export const sowGenerationInputSchema = z.object({
   desiredTimeline: trimmed.max(200, "Keep the timeline note under 200 characters.").default(""),
   category: z.enum(projectCategoryOptions).default("other_software"),
   complexity: z.enum(projectComplexityOptions).default("medium"),
+  conversationHistory: trimmed.max(12000, "Keep the scope revision history under 12,000 characters.").optional().default(""),
 });
 
 const textListInput = z.union([

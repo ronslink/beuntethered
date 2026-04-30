@@ -14,6 +14,7 @@ test("normalizes equivalent SOW generation requests to the same cache key", () =
     desiredTimeline: " 30 days ",
     category: "software_mvp",
     complexity: "complex",
+    conversationHistory: "",
   });
   const second = createSowGenerationCacheKey({
     userId: "user_1",
@@ -22,9 +23,32 @@ test("normalizes equivalent SOW generation requests to the same cache key", () =
     desiredTimeline: "30 days",
     category: "software_mvp",
     complexity: "complex",
+    conversationHistory: "",
   });
 
   assert.equal(first, second);
+});
+
+test("uses revision history in the SOW cache key", () => {
+  const base = createSowGenerationCacheKey({
+    userId: "user_1",
+    prompt: "Build payroll",
+    mode: "EXECUTION",
+    desiredTimeline: "30 days",
+    category: "software_mvp",
+    complexity: "complex",
+  });
+  const revised = createSowGenerationCacheKey({
+    userId: "user_1",
+    prompt: "Build payroll",
+    mode: "EXECUTION",
+    desiredTimeline: "30 days",
+    category: "software_mvp",
+    complexity: "complex",
+    conversationHistory: "Client revision instruction: make compliance its own milestone",
+  });
+
+  assert.notEqual(base, revised);
 });
 
 test("returns the exact cached SOW object for repeated generation requests", () => {

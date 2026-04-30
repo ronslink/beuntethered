@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { postProjectToMarketplace } from "@/app/actions/marketplace";
 import { fetchRecommendedSquad } from "@/app/actions/concierge";
 import {
+  alignMilestoneAmountsToBudget,
   alignMilestoneDurationsToTimeline,
   assessMilestoneQuality,
   extractRequestedTimelineDays,
@@ -31,6 +32,8 @@ export default function ProjectCreationWizard() {
   const [loadingStatus, setLoadingStatus] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<any>(null);
+  const [scopeConversation, setScopeConversation] = useState<string[]>([]);
+  const [scopeRevisionNote, setScopeRevisionNote] = useState("");
 
   // Triage state
   const [triageResult, setTriageResult] = useState<any>(null);
@@ -109,7 +112,12 @@ export default function ProjectCreationWizard() {
       ...editableSoW,
       milestones: newMilestones,
     };
-    setEditableSoW(alignMilestoneDurationsToTimeline(nextSow, requestedTimelineDays));
+    setEditableSoW(
+      alignMilestoneAmountsToBudget(
+        alignMilestoneDurationsToTimeline(nextSow, requestedTimelineDays),
+        extractBudgetAmountConstraint(prompt)
+      )
+    );
     setToastMessage("Applied safe scope fixes. Review anything still highlighted.");
     setTimeout(() => setToastMessage(""), 2400);
   };
@@ -229,9 +237,66 @@ export default function ProjectCreationWizard() {
       if (!response.ok) throw new Error(data.error);
 
       setSowData(data);
+      setScopeConversation([
+        `Client rough draft: ${prompt}`,
+        `AI first SOW draft: ${JSON.stringify(data)}`,
+      ]);
     } catch (err: any) {
       console.error(err);
       setRejectionMessage(err.message || "Something went wrong generating your scope. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRefineScope = async () => {
+    if (!editableSoW || !scopeRevisionNote.trim() || !triageResult) return;
+
+    setIsGenerating(true);
+    setLoadingStatus("Refining your scope with the full conversation...");
+
+    try {
+      const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+      const effectiveDesiredTimeline = desiredTimeline.trim() || (
+        requestedTimelineDays ? `${requestedTimelineDays} days` : ""
+      );
+      const revisionHistory = [
+        ...scopeConversation,
+        `Current editable SOW before revision: ${JSON.stringify(editableSoW)}`,
+        `Client revision instruction: ${scopeRevisionNote.trim()}`,
+      ].join("\n\n");
+
+      const response = await fetch("/api/ai/generate-sow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          mode,
+          desiredTimeline: effectiveDesiredTimeline,
+          category: triageResult.category,
+          complexity: triageResult.complexity,
+          conversationHistory: revisionHistory,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      const normalized = normalizeGeneratedSow(data);
+      setSowData(data);
+      setEditableSoW(normalized);
+      setScopeConversation([
+        ...scopeConversation,
+        `Client revision instruction: ${scopeRevisionNote.trim()}`,
+        `AI revised SOW draft: ${JSON.stringify(data)}`,
+      ]);
+      setScopeRevisionNote("");
+      setToastMessage("Scope refined with your latest instruction.");
+      setTimeout(() => setToastMessage(""), 2400);
+    } catch (err: any) {
+      console.error(err);
+      setToastMessage(err.message || "Unable to refine the scope right now.");
+      setTimeout(() => setToastMessage(""), 2400);
     } finally {
       setIsGenerating(false);
     }
@@ -306,11 +371,12 @@ export default function ProjectCreationWizard() {
   const allMilestonesReady = milestoneQualityAssessments.length > 0 && milestoneQualityAssessments.every((assessment) => assessment.passes);
   const milestoneIssueCount = milestoneQualityAssessments.reduce((sum: number, assessment) => sum + assessment.blockingIssues.length, 0);
   const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+  const capturedBudgetAmount = extractBudgetAmountConstraint(prompt);
   const capturedScopeConstraints = summarizeScopeConstraints({
     regions: extractRegionConstraints(prompt),
     components: extractCentralComponentConstraints(prompt),
     budget: extractBudgetConstraint(prompt),
-    budgetAmount: extractBudgetAmountConstraint(prompt),
+    budgetAmount: capturedBudgetAmount,
     timelineDays: requestedTimelineDays,
   });
   const intakeAssessment = assessScopeIntake(prompt);
@@ -582,6 +648,40 @@ export default function ProjectCreationWizard() {
                      className="text-sm text-on-surface leading-relaxed w-full bg-transparent border border-transparent hover:border-outline-variant/20 focus:border-primary/30 rounded-lg p-2 text-center resize-none focus:outline-none focus:ring-0 transition-colors custom-scrollbar"
                     placeholder="Executive summary..."
                  />
+               </div>
+
+               <div className="max-w-4xl mx-auto rounded-lg border border-primary/20 bg-primary/5 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                     <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Scope revision loop</p>
+                        <h3 className="mt-1 text-sm font-black text-on-surface">Refine with the full interaction history</h3>
+                        <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                           Add what changed or what the AI missed. The next draft receives the rough prompt, previous SOW, current edits, and your latest instruction.
+                        </p>
+                     </div>
+                     <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
+                        {capturedBudgetAmount && <span className="rounded-md border border-primary/20 bg-surface px-2 py-1 text-primary">{formatCurrency(capturedBudgetAmount)} locked</span>}
+                        {requestedTimelineDays && <span className="rounded-md border border-primary/20 bg-surface px-2 py-1 text-primary">{requestedTimelineDays} days locked</span>}
+                     </div>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-3 md:flex-row">
+                     <textarea
+                        value={scopeRevisionNote}
+                        onChange={(e) => setScopeRevisionNote(e.target.value)}
+                        rows={3}
+                        className="min-h-24 flex-1 resize-none rounded-lg border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary/50"
+                        placeholder="Example: Keep the $15,000 budget and 30-day duration, but split compliance into its own milestone and make the chatbot a later checkpoint."
+                     />
+                     <button
+                        type="button"
+                        onClick={handleRefineScope}
+                        disabled={isGenerating || scopeRevisionNote.trim().length < 5}
+                        className={`inline-flex min-w-40 items-center justify-center gap-2 rounded-lg px-4 py-3 text-xs font-black uppercase tracking-widest transition-colors ${isGenerating || scopeRevisionNote.trim().length < 5 ? 'bg-surface-variant text-on-surface-variant opacity-70' : 'bg-primary text-on-primary hover:bg-primary/90'}`}
+                     >
+                        <span className="material-symbols-outlined text-[16px]">sync</span>
+                        Refine Scope
+                     </button>
+                  </div>
                </div>
 
                {activePhaseIndex === milestones.length ? (

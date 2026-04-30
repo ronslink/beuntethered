@@ -5,6 +5,7 @@ type SowGenerationCacheEntry = {
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 100;
+const CACHE_SCHEMA_VERSION = "scope-loop-v2";
 const cache = new Map<string, SowGenerationCacheEntry>();
 
 export type SowGenerationCacheInput = {
@@ -14,6 +15,7 @@ export type SowGenerationCacheInput = {
   desiredTimeline: string;
   category: string;
   complexity: string;
+  conversationHistory?: string;
 };
 
 function normalizePart(value: string) {
@@ -22,12 +24,14 @@ function normalizePart(value: string) {
 
 export function createSowGenerationCacheKey(input: SowGenerationCacheInput) {
   return [
+    CACHE_SCHEMA_VERSION,
     input.userId,
     normalizePart(input.mode),
     normalizePart(input.category),
     normalizePart(input.complexity),
     normalizePart(input.desiredTimeline),
     normalizePart(input.prompt),
+    normalizePart(input.conversationHistory ?? ""),
   ].join("::");
 }
 

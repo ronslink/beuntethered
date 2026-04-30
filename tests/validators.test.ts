@@ -144,8 +144,17 @@ test("validates AI project intake prompts", () => {
   });
   assert.equal(sow.mode, "EXECUTION");
   assert.equal(sow.desiredTimeline, "");
+  assert.equal(sow.conversationHistory, "");
   assert.equal(sow.category, "web_app");
   assert.equal(sow.complexity, "complex");
+
+  const revisedSow = sowGenerationInputSchema.parse({
+    prompt: "Build a billing portal with Stripe checkout, role-based access, and invoice history.",
+    category: "web_app",
+    complexity: "complex",
+    conversationHistory: "Client revision instruction: keep the budget but split billing into two milestones.",
+  });
+  assert.match(revisedSow.conversationHistory, /split billing/);
 
   assert.equal(sowGenerationInputSchema.safeParse({
     prompt: "Build a billing portal with Stripe checkout and invoice history.",
