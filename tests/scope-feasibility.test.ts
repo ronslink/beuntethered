@@ -35,8 +35,8 @@ test("flags complex scopes that are unrealistic against market budget or timelin
 test("allows aggressive scopes with warnings", () => {
   const assessment = assessScopeFeasibility({
     prompt: payrollPrompt,
-    budgetAmount: 30000,
-    timelineDays: 60,
+    budgetAmount: 35000,
+    timelineDays: 75,
   });
 
   assert.equal(assessment.status, "aggressive");
@@ -47,8 +47,8 @@ test("allows aggressive scopes with warnings", () => {
 test("accepts realistic budget and timeline ranges", () => {
   const assessment = assessScopeFeasibility({
     prompt: payrollPrompt,
-    budgetAmount: 35000,
-    timelineDays: 75,
+    budgetAmount: 45000,
+    timelineDays: 90,
   });
 
   assert.equal(assessment.status, "market_ready");

@@ -65,11 +65,32 @@ test("extracts common software delivery targets", () => {
   );
 });
 
+test("extracts broader marketplace project targets", () => {
+  assert.deepEqual(
+    extractProjectTargets("Create a SaaS MVP with a client portal, Stripe billing, an AI chatbot, and data migration from Airtable."),
+    ["SaaS MVP", "Portal", "Payment or billing system", "AI chatbot or agent", "Data migration", "No-code or low-code rebuild"]
+  );
+});
+
+test("extracts commerce and operations project targets", () => {
+  assert.deepEqual(
+    extractProjectTargets("Build an e-commerce store with inventory management, appointment booking, and a CMS blog."),
+    ["E-commerce store", "Inventory or order management", "Booking system", "CMS content site"]
+  );
+});
+
 test("estimates common targets as timeline and budget drivers", () => {
   const estimate = estimateProjectTargets(["PWA", "Admin dashboard"]);
 
   assert.ok(estimate.budget >= 15000);
   assert.ok(estimate.days >= 50);
+});
+
+test("estimates larger marketplace-style targets conservatively", () => {
+  const estimate = estimateProjectTargets(["Marketplace app", "Payment or billing system", "Security or compliance hardening"]);
+
+  assert.ok(estimate.budget >= 30000);
+  assert.ok(estimate.days >= 100);
 });
 
 test("summarizes captured scope constraints for buyer review", () => {
