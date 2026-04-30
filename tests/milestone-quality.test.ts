@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   alignMilestoneDurationsToTimeline,
+  alignMilestoneAmountsToBudget,
   assessMilestoneQuality,
   extractRequestedTimelineDays,
   normalizeGeneratedMilestone,
@@ -139,4 +140,25 @@ test("aligns generated milestone durations to the requested client timeline", ()
     aligned.milestones.reduce((sum, milestone) => sum + Number(milestone.estimated_duration_days), 0),
     30
   );
+});
+
+test("aligns generated milestone amounts to the requested client budget", () => {
+  const aligned = alignMilestoneAmountsToBudget(
+    {
+      title: "Payroll",
+      milestones: [
+        { title: "Rules", amount: 2000 },
+        { title: "Payslips", amount: 3000 },
+        { title: "Reports", amount: 5000 },
+      ],
+      totalAmount: 10000,
+    },
+    15000
+  );
+
+  assert.equal(
+    aligned.milestones.reduce((sum, milestone) => sum + Number(milestone.amount), 0),
+    15000
+  );
+  assert.equal(aligned.totalAmount, 15000);
 });

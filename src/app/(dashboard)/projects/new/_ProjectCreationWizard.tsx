@@ -12,7 +12,9 @@ import {
   type MilestoneQualityAssessment,
 } from "@/lib/milestone-quality";
 import {
+  extractBudgetAmountConstraint,
   extractBudgetConstraint,
+  extractCentralComponentConstraints,
   extractRegionConstraints,
   summarizeScopeConstraints,
 } from "@/lib/scope-constraints";
@@ -306,7 +308,9 @@ export default function ProjectCreationWizard() {
   const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
   const capturedScopeConstraints = summarizeScopeConstraints({
     regions: extractRegionConstraints(prompt),
+    components: extractCentralComponentConstraints(prompt),
     budget: extractBudgetConstraint(prompt),
+    budgetAmount: extractBudgetAmountConstraint(prompt),
     timelineDays: requestedTimelineDays,
   });
   const intakeAssessment = assessScopeIntake(prompt);

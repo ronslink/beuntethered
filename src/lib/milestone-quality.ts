@@ -283,6 +283,46 @@ export function alignMilestoneDurationsToTimeline<T extends GeneratedSowLike>(
   };
 }
 
+export function alignMilestoneAmountsToBudget<T extends GeneratedSowLike>(
+  sowData: T,
+  requestedBudget: number | null
+): T {
+  if (!requestedBudget || !Array.isArray(sowData.milestones) || sowData.milestones.length === 0) {
+    return sowData;
+  }
+
+  const targetBudget = Math.max(1, Math.round(requestedBudget));
+  const normalizedMilestones = sowData.milestones.map((milestone) => {
+    const draft = milestone as MilestoneDraft;
+    return {
+      ...draft,
+      amount: normalizeAmount(draft.amount),
+    };
+  });
+  const currentTotal = normalizedMilestones.reduce((sum, milestone) => sum + normalizeAmount(milestone.amount), 0);
+  const equalShare = Math.floor(targetBudget / normalizedMilestones.length);
+  const ratio = currentTotal > 0 ? targetBudget / currentTotal : 1;
+  let assignedAmount = 0;
+
+  const milestones = normalizedMilestones.map((milestone, index) => {
+    const isLast = index === normalizedMilestones.length - 1;
+    const nextAmount = isLast
+      ? Math.max(1, targetBudget - assignedAmount)
+      : Math.max(1, Math.round(currentTotal > 0 ? normalizeAmount(milestone.amount) * ratio : equalShare));
+    assignedAmount += nextAmount;
+    return {
+      ...milestone,
+      amount: nextAmount,
+    };
+  });
+
+  return {
+    ...sowData,
+    milestones,
+    totalAmount: targetBudget,
+  };
+}
+
 function normalizeAmount(value: unknown) {
   const amount = Number(value);
   if (Number.isFinite(amount) && amount > 0) return amount;

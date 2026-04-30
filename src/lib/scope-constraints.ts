@@ -15,7 +15,9 @@ const MARKET_PATTERNS: { label: string; pattern: RegExp }[] = [
 
 export type ScopeConstraints = {
   regions: string[];
+  components: string[];
   budget: string | null;
+  budgetAmount: number | null;
   timelineDays: number | null;
 };
 
@@ -24,14 +26,19 @@ function unique(items: string[]) {
 }
 
 function formatCurrencyAmount(raw: string) {
-  const compact = raw.replace(/[,$\s]/g, "");
-  const value = Number(compact);
-  if (!Number.isFinite(value)) return raw.trim();
+  const value = parseBudgetAmount(raw);
+  if (value === null || !Number.isFinite(value)) return raw.trim();
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+export function parseBudgetAmount(raw: string) {
+  const compact = raw.replace(/[,$\s]/g, "");
+  const value = Number(compact);
+  return Number.isFinite(value) ? value : null;
 }
 
 export function extractRegionConstraints(text: string) {
@@ -44,20 +51,44 @@ export function extractRegionConstraints(text: string) {
 }
 
 export function extractBudgetConstraint(text: string) {
+  const amount = extractBudgetAmountConstraint(text);
+  return amount ? formatCurrencyAmount(String(amount)) : null;
+}
+
+export function extractBudgetAmountConstraint(text: string) {
   const match =
     text.match(/\b(?:budget|cost|price|spend|for)\s*(?:is|of|around|about|up to|under|:)?\s*\$?\s*([0-9][0-9,\s]{2,})(?:\s*(?:usd|dollars?))?\b/i) ||
     text.match(/\$\s*([0-9][0-9,\s]{2,})\b/);
 
-  return match ? formatCurrencyAmount(match[1]) : null;
+  return match ? parseBudgetAmount(match[1]) : null;
+}
+
+export function extractCentralComponentConstraints(text: string) {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  const match =
+    normalized.match(/\b(?:with|including|includes|needs)\s+(.+?)(?:\.\s*(?:built|target|budget|timeline|duration|deadline)\b|\.?$)/i) ||
+    normalized.match(/\bcovering\s+(.+?)(?:\.\s*(?:built|target|budget|timeline|duration|deadline)\b|\.?$)/i);
+  if (!match) return [];
+
+  return unique(
+    match[1]
+      .replace(/\b(core|basic|launch-ready|launch readiness)\b/gi, "")
+      .split(/\s*,\s*|\s+and\s+/i)
+      .map((item) => item.replace(/^(?:and|or)\s+/i, "").trim())
+      .filter((item) => item.length >= 4)
+      .slice(0, 8)
+  );
 }
 
 export function summarizeScopeConstraints({
   regions,
+  components,
   budget,
   timelineDays,
 }: ScopeConstraints) {
   const parts: string[] = [];
   if (regions.length > 0) parts.push(`Markets: ${regions.join(", ")}`);
+  if (components.length > 0) parts.push(`Components: ${components.join(", ")}`);
   if (budget) parts.push(`Budget: ${budget}`);
   if (timelineDays) parts.push(`Timeline: ${timelineDays} days`);
   return parts;
@@ -73,8 +104,15 @@ export function executiveSummaryWithScopeConstraints(summary: unknown, constrain
   const missingRegions = constraints.regions.filter(
     (region) => !new RegExp(`\\b${region.replace(/\s+/g, "\\s+")}\\b`, "i").test(text)
   );
+  const missingComponents = constraints.components.filter(
+    (component) => !new RegExp(component.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(text)
+  );
   const regionSentence = buildRegionCoverageSentence(missingRegions);
+  const componentSentence = missingComponents.length > 0
+    ? `The scope must include ${missingComponents.join(", ")}.`
+    : "";
 
-  if (!regionSentence) return text;
-  return text ? `${text} ${regionSentence}` : regionSentence;
+  const additions = [regionSentence, componentSentence].filter(Boolean).join(" ");
+  if (!additions) return text;
+  return text ? `${text} ${additions}` : additions;
 }

@@ -3,11 +3,18 @@ import { generateText } from "ai";
 import { getCurrentUser } from "@/lib/session";
 import { getDynamicAIProvider } from "@/lib/ai-router";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
-import { alignMilestoneDurationsToTimeline, extractRequestedTimelineDays, normalizeGeneratedSow } from "@/lib/milestone-quality";
+import {
+  alignMilestoneAmountsToBudget,
+  alignMilestoneDurationsToTimeline,
+  extractRequestedTimelineDays,
+  normalizeGeneratedSow,
+} from "@/lib/milestone-quality";
 import { getMilestoneVerificationPatternGuide } from "@/lib/milestone-proof";
 import {
   executiveSummaryWithScopeConstraints,
+  extractBudgetAmountConstraint,
   extractBudgetConstraint,
+  extractCentralComponentConstraints,
   extractRegionConstraints,
   summarizeScopeConstraints,
   type ScopeConstraints,
@@ -299,7 +306,7 @@ function buildSowPrompt(
     ? `
 CLIENT-PROVIDED CONSTRAINTS TO PRESERVE EXACTLY:
 ${scopeConstraintSummary.map((item) => `- ${item}`).join("\n")}
-Do not omit, merge, reinterpret, or summarize away named regions, budget, or timeline constraints. If the client names North America, Asia, and Middle East, all three must appear in the executiveSummary and relevant milestone descriptions.`
+Do not omit, merge, reinterpret, or summarize away named regions, central components, budget, or timeline constraints. If the client names North America, Asia, and Middle East, all three must appear in the executiveSummary and relevant milestone descriptions. If the client names explicit components, every component must appear in at least one milestone deliverable or acceptance criterion.${scopeConstraints.budget ? ` The sum of all milestone amount fields and totalAmount must equal exactly ${scopeConstraints.budget}.` : ""}`
     : "";
 
   const isDiscovery = mode === 'DISCOVERY';
@@ -424,7 +431,9 @@ export async function POST(req: Request) {
     const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
     const scopeConstraints = {
       regions: extractRegionConstraints(prompt),
+      components: extractCentralComponentConstraints(prompt),
       budget: extractBudgetConstraint(prompt),
+      budgetAmount: extractBudgetAmountConstraint(prompt),
       timelineDays: requestedTimelineDays,
     };
 
@@ -471,9 +480,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const normalized = alignMilestoneDurationsToTimeline(
-      normalizeSowDeliverables(parsedJson),
-      requestedTimelineDays
+    const normalized = alignMilestoneAmountsToBudget(
+      alignMilestoneDurationsToTimeline(
+        normalizeSowDeliverables(parsedJson),
+        requestedTimelineDays
+      ),
+      scopeConstraints.budgetAmount
     );
     const parsed = {
       ...normalized,
