@@ -1,10 +1,32 @@
 -- Baseline migration: live Supabase DB state as of 2026-04-12
-CREATE EXTENSION IF NOT EXISTS pg_graphql;
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS supabase_vault;
-CREATE EXTENSION IF NOT EXISTS uuid_ossp;
-CREATE EXTENSION IF NOT EXISTS vector;
+DO $$
+DECLARE
+  extension_name text;
+BEGIN
+  FOREACH extension_name IN ARRAY ARRAY[
+    'pg_graphql',
+    'pg_stat_statements',
+    'pgcrypto',
+    'supabase_vault',
+    'uuid-ossp',
+    'vector'
+  ]
+  LOOP
+    IF EXISTS (
+      SELECT 1
+      FROM pg_available_extensions
+      WHERE name = extension_name
+    ) THEN
+      BEGIN
+        EXECUTE format('CREATE EXTENSION IF NOT EXISTS %I', extension_name);
+      EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'Skipping optional extension %: %', extension_name, SQLERRM;
+      END;
+    ELSE
+      RAISE NOTICE 'Skipping optional extension % because it is not installed on this PostgreSQL server.', extension_name;
+    END IF;
+  END LOOP;
+END $$;
 CREATE TYPE "Role" AS ENUM ('CLIENT', 'FACILITATOR');
 CREATE TYPE "ProjectStatus" AS ENUM ('OPEN', 'ACTIVE', 'COMPLETED', 'DISPUTED', 'CANCELLED');
 CREATE TYPE "BillingType" AS ENUM ('FIXED_PRICE', 'HOURLY_RETAINER', 'HOURLY_NO_RETAINER');
