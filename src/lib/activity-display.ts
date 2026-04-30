@@ -59,6 +59,83 @@ export function isWorkspaceAdminActivity(metadata: ActivityMetadata) {
   return metadata.workspace_admin_action === true;
 }
 
+function formatCents(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value / 100);
+}
+
+function formatMetadataValue(value: unknown) {
+  if (typeof value !== "string") return null;
+  return value.replace(/_/g, " ").toLowerCase();
+}
+
+export type ActivityEvidenceDetail = {
+  label: string;
+  value: string;
+  tone: "neutral" | "positive" | "attention";
+};
+
+export function getActivityEvidenceDetails(metadata: ActivityMetadata): ActivityEvidenceDetail[] {
+  const operation = typeof metadata.operation === "string" ? metadata.operation : null;
+
+  if (operation === "BYOC_INVITE_CREATED") {
+    const clientTotal = formatCents(metadata.client_total_cents);
+    const facilitatorPayout = formatCents(metadata.facilitator_payout_cents);
+    const details: Array<ActivityEvidenceDetail | null> = [
+      typeof metadata.milestone_count === "number"
+        ? { label: "Milestones", value: String(metadata.milestone_count), tone: "neutral" }
+        : null,
+      clientTotal ? { label: "Client total", value: clientTotal, tone: "neutral" } : null,
+      facilitatorPayout ? { label: "Facilitator payout", value: facilitatorPayout, tone: "positive" } : null,
+      metadata.invited_client_email
+        ? { label: "Client email", value: String(metadata.invited_client_email), tone: "neutral" }
+        : null,
+    ];
+    return details.filter((detail): detail is ActivityEvidenceDetail => Boolean(detail));
+  }
+
+  if (operation === "BYOC_INVITE_DELIVERY_RECORDED") {
+    return [
+      metadata.email_delivery_sent === true
+        ? { label: "Email", value: "sent", tone: "positive" as const }
+        : { label: "Email", value: formatMetadataValue(metadata.email_delivery_skipped) ?? "not sent", tone: "attention" as const },
+      {
+        label: "Buyer account",
+        value: metadata.existing_client_account === true ? "existing" : "not matched",
+        tone: metadata.existing_client_account === true ? "positive" : "neutral",
+      },
+      {
+        label: "In-app action",
+        value: metadata.in_app_notification_sent === true ? "created" : "not created",
+        tone: metadata.in_app_notification_sent === true ? "positive" : "attention",
+      },
+    ];
+  }
+
+  if (operation === "BYOC_INVITE_CLAIMED") {
+    const firstMilestoneAmount = formatCents(metadata.first_milestone_amount_cents);
+    const details: Array<ActivityEvidenceDetail | null> = [
+      metadata.transition_mode
+        ? { label: "Transition", value: String(metadata.transition_mode), tone: "neutral" }
+        : null,
+      metadata.first_milestone_title
+        ? { label: "First milestone", value: String(metadata.first_milestone_title), tone: "neutral" }
+        : null,
+      firstMilestoneAmount ? { label: "Funding target", value: firstMilestoneAmount, tone: "neutral" } : null,
+      metadata.next_action
+        ? { label: "Next action", value: formatMetadataValue(metadata.next_action) ?? String(metadata.next_action), tone: "attention" }
+        : null,
+    ];
+    return details.filter((detail): detail is ActivityEvidenceDetail => Boolean(detail));
+  }
+
+  return [];
+}
+
 export function getProjectActivityHref(project: ActivityProjectLink) {
   return project.status === "OPEN_BIDDING" || project.status === "DRAFT" || project.status === "CANCELLED"
     ? `/projects/${project.id}`

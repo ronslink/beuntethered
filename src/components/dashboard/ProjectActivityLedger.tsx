@@ -3,6 +3,7 @@ import {
   getActivityLabel,
   getActivityMetadata,
   getActorScopeLabel,
+  getActivityEvidenceDetails,
   getProjectActivityHref,
   isWorkspaceAdminActivity,
 } from "@/lib/activity-display";
@@ -84,6 +85,7 @@ export default function ProjectActivityLedger({
             const metadata = getActivityMetadata(log.metadata);
             const actorName = log.actor?.name || log.actor?.email || "System";
             const scopeLabel = getActorScopeLabel(metadata, log.actor?.role);
+            const evidenceDetails = getActivityEvidenceDetails(metadata);
             const isAdminAction = isWorkspaceAdminActivity(metadata);
             const href = log.href ?? (log.project ? getProjectActivityHref(log.project) : null);
             const content = (
@@ -100,6 +102,24 @@ export default function ProjectActivityLedger({
                       <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/80">
                         {log.project.title}
                       </p>
+                    )}
+                    {evidenceDetails.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {evidenceDetails.slice(0, 4).map((detail) => (
+                          <span
+                            key={`${detail.label}-${detail.value}`}
+                            className={`rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${
+                              detail.tone === "positive"
+                                ? "border-tertiary/20 bg-tertiary/10 text-tertiary"
+                                : detail.tone === "attention"
+                                  ? "border-secondary/20 bg-secondary/10 text-secondary"
+                                  : "border-outline-variant/25 bg-surface text-on-surface-variant"
+                            }`}
+                          >
+                            {detail.label}: {detail.value}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   {isAdminAction && (

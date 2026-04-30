@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildActivityNotificationCopy,
+  getActivityEvidenceDetails,
   getActivityLabel,
   getActorScopeLabel,
   getProjectActivityHref,
@@ -58,4 +59,37 @@ test("activity notification copy includes project and actor context", () => {
 test("activity hrefs route open bidding projects to proposal review", () => {
   assert.equal(getProjectActivityHref({ id: "project_1", status: "OPEN_BIDDING" }), "/projects/project_1");
   assert.equal(getProjectActivityHref({ id: "project_2", status: "ACTIVE" }), "/command-center/project_2");
+});
+
+test("activity evidence details make BYOC delivery and claim events readable", () => {
+  assert.deepEqual(
+    getActivityEvidenceDetails({
+      operation: "BYOC_INVITE_DELIVERY_RECORDED",
+      existing_client_account: true,
+      email_delivery_sent: false,
+      email_delivery_skipped: "RESEND_API_KEY_MISSING",
+      in_app_notification_sent: true,
+    }),
+    [
+      { label: "Email", value: "resend api key missing", tone: "attention" },
+      { label: "Buyer account", value: "existing", tone: "positive" },
+      { label: "In-app action", value: "created", tone: "positive" },
+    ],
+  );
+
+  assert.deepEqual(
+    getActivityEvidenceDetails({
+      operation: "BYOC_INVITE_CLAIMED",
+      transition_mode: "running project",
+      first_milestone_title: "Operations repair handoff",
+      first_milestone_amount_cents: 280000,
+      next_action: "FUND_FIRST_MILESTONE",
+    }),
+    [
+      { label: "Transition", value: "running project", tone: "neutral" },
+      { label: "First milestone", value: "Operations repair handoff", tone: "neutral" },
+      { label: "Funding target", value: "$2,800", tone: "neutral" },
+      { label: "Next action", value: "fund first milestone", tone: "attention" },
+    ],
+  );
 });
