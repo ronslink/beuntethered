@@ -30,10 +30,14 @@ test("flags complex scopes that are unrealistic against market budget or timelin
   assert.equal(assessment.canPostExecution, false);
   assert.ok(assessment.estimatedMarketBudget && assessment.estimatedMarketBudget > 3000);
   assert.ok(assessment.estimatedMarketDays && assessment.estimatedMarketDays > 7);
+  assert.ok(assessment.estimateBreakdown.some((driver) => driver.label === "Delivery wrapper"));
+  assert.ok(assessment.estimateBreakdown.some((driver) => /Markets\/regions/.test(driver.label)));
+  assert.ok(assessment.estimateBreakdown.some((driver) => driver.label === "AI-assisted feature"));
   assert.ok(assessment.recommendedBudget && assessment.recommendedBudget >= assessment.estimatedMarketBudget);
   assert.ok(assessment.recommendedTimelineDays && assessment.recommendedTimelineDays >= assessment.estimatedMarketDays);
   assert.ok(assessment.phasedScopePrompt?.includes("phased first release"));
   assert.ok(assessment.nextSteps.some((step) => /Raise the budget|Extend the timeline/.test(step)));
+  assert.ok(assessment.leanScopeOptions.some((option) => /Launch one region first/.test(option)));
 });
 
 test("allows aggressive scopes with warnings", () => {
@@ -78,4 +82,15 @@ test("adds target complexity to market timeline when major deliverables are requ
   assert.ok(withDashboard.estimatedMarketDays > basic.estimatedMarketDays);
   assert.ok(withDashboard.estimatedMarketBudget && basic.estimatedMarketBudget);
   assert.ok(withDashboard.estimatedMarketBudget > basic.estimatedMarketBudget);
+});
+
+test("shows database migration as a market estimate driver", () => {
+  const assessment = assessScopeFeasibility({
+    prompt: "We need a database migration from MySQL to Postgres with source mapping, rollback plan, validation report, and cutover checklist.",
+    budgetAmount: 15000,
+    timelineDays: 45,
+  });
+
+  assert.ok(assessment.estimateBreakdown.some((driver) => driver.label === "Database migration"));
+  assert.ok(assessment.leanScopeOptions.some((option) => /buyer-visible workflow|discovery milestone|Start with/.test(option)));
 });

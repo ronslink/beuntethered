@@ -190,6 +190,12 @@ const PROJECT_TARGET_PATTERNS: { label: string; pattern: RegExp; budget: number;
   },
 ];
 
+export type ProjectTargetEstimate = {
+  label: string;
+  budget: number;
+  days: number;
+};
+
 export type ScopeConstraints = {
   regions: string[];
   targets?: string[];
@@ -246,18 +252,24 @@ export function extractProjectTargets(text: string) {
 }
 
 export function estimateProjectTargets(targets: string[]) {
-  return targets.reduce(
+  return estimateProjectTargetBreakdown(targets).reduce(
     (estimate, target) => {
-      const match = PROJECT_TARGET_PATTERNS.find((entry) => entry.label === target);
-      if (!match) return estimate;
-
       return {
-        budget: estimate.budget + match.budget,
-        days: estimate.days + match.days,
+        budget: estimate.budget + target.budget,
+        days: estimate.days + target.days,
       };
     },
     { budget: 0, days: 0 }
   );
+}
+
+export function estimateProjectTargetBreakdown(targets: string[]): ProjectTargetEstimate[] {
+  return targets
+    .map((target) => {
+      const match = PROJECT_TARGET_PATTERNS.find((entry) => entry.label === target);
+      return match ? { label: match.label, budget: match.budget, days: match.days } : null;
+    })
+    .filter((entry): entry is ProjectTargetEstimate => entry !== null);
 }
 
 export function extractBudgetConstraint(text: string) {

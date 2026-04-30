@@ -964,6 +964,32 @@ export default function ProjectCreationWizard() {
                                     </div>
                                  )}
                               </div>
+                              {feasibilityAssessment.estimateBreakdown.length > 0 && (
+                                 <div className="mt-4 rounded-lg border border-outline-variant/20 bg-surface p-3">
+                                    <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                                       <div>
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Estimate drivers</p>
+                                          <p className="mt-1 text-xs leading-5 text-on-surface-variant">These are the factors currently increasing price or timeline.</p>
+                                       </div>
+                                    </div>
+                                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                       {feasibilityAssessment.estimateBreakdown.map((driver) => (
+                                          <div key={`${driver.label}-${driver.budget}-${driver.days}`} className="rounded-md border border-outline-variant/15 bg-surface-container-low/40 p-3">
+                                             <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                   <p className="text-xs font-black text-on-surface">{driver.label}</p>
+                                                   {driver.detail && <p className="mt-1 text-[11px] leading-5 text-on-surface-variant">{driver.detail}</p>}
+                                                </div>
+                                                <div className="shrink-0 text-right">
+                                                   <p className="text-[10px] font-black text-on-surface">{formatCurrency(driver.budget)}</p>
+                                                   <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{driver.days}d</p>
+                                                </div>
+                                             </div>
+                                          </div>
+                                       ))}
+                                    </div>
+                                 </div>
+                              )}
                               <div className="mt-3 flex flex-wrap gap-2">
                                  {feasibilityAssessment.hints.map((hint) => (
                                     <span key={hint} className="rounded-md border border-outline-variant/15 bg-surface px-3 py-2 text-xs font-bold text-on-surface">
@@ -982,6 +1008,19 @@ export default function ProjectCreationWizard() {
                                                 <p key={stepText} className="text-xs leading-5 text-on-surface-variant">{stepText}</p>
                                              ))}
                                           </div>
+                                          {feasibilityAssessment.leanScopeOptions.length > 0 && (
+                                             <div className="mt-3 rounded-md border border-outline-variant/15 bg-surface-container-low/50 p-3">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Lean scope options</p>
+                                                <div className="mt-2 space-y-1.5">
+                                                   {feasibilityAssessment.leanScopeOptions.map((option) => (
+                                                      <p key={option} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
+                                                         <span className="material-symbols-outlined mt-0.5 text-[14px] text-primary">arrow_right_alt</span>
+                                                         <span>{option}</span>
+                                                      </p>
+                                                   ))}
+                                                </div>
+                                             </div>
+                                          )}
                                        </div>
                                        <div className="grid min-w-56 gap-2">
                                           {feasibilityAssessment.recommendedBudget && feasibilityAssessment.recommendedTimelineDays && (

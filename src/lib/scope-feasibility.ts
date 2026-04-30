@@ -1,9 +1,16 @@
 import {
-  estimateProjectTargets,
+  estimateProjectTargetBreakdown,
   extractCentralComponentConstraints,
   extractProjectTargets,
   extractRegionConstraints,
 } from "./scope-constraints.ts";
+
+export type ScopeFeasibilityEstimateDriver = {
+  label: string;
+  budget: number;
+  days: number;
+  detail?: string;
+};
 
 export type ScopeFeasibilityAssessment = {
   status: "missing" | "market_ready" | "aggressive" | "unrealistic";
@@ -11,6 +18,7 @@ export type ScopeFeasibilityAssessment = {
   canPostExecution: boolean;
   estimatedMarketBudget: number | null;
   estimatedMarketDays: number | null;
+  estimateBreakdown: ScopeFeasibilityEstimateDriver[];
   recommendedBudget: number | null;
   recommendedTimelineDays: number | null;
   phasedScopePrompt: string | null;
@@ -19,6 +27,7 @@ export type ScopeFeasibilityAssessment = {
   reasons: string[];
   hints: string[];
   nextSteps: string[];
+  leanScopeOptions: string[];
 };
 
 const BASE_PROJECT_COST = 4000;
@@ -71,6 +80,109 @@ function buildPhasedScopePrompt(prompt: string, targets: string[], components: s
   return `Create a phased first release${marketsText} focused on ${firstReleaseText}. Keep the first scope milestone-based, buyer-verifiable, and launch-ready within the stated budget and timeline.${deferredText}`;
 }
 
+function buildEstimateBreakdown({
+  targetBreakdown,
+  components,
+  markets,
+  includesCompliance,
+  includesAI,
+}: {
+  targetBreakdown: ScopeFeasibilityEstimateDriver[];
+  components: string[];
+  markets: string[];
+  includesCompliance: boolean;
+  includesAI: boolean;
+}) {
+  const breakdown: Array<ScopeFeasibilityEstimateDriver | null> = [
+    {
+      label: "Delivery wrapper",
+      budget: BASE_PROJECT_COST,
+      days: BASE_PROJECT_DAYS,
+      detail: "Setup, project coordination, review checkpoints, QA evidence, and handoff.",
+    },
+    ...targetBreakdown.map((target) => ({
+      ...target,
+      detail: "Detected project archetype.",
+    })),
+    components.length > 0
+      ? {
+          label: `Named components (${components.length})`,
+          budget: components.length * COMPONENT_COST,
+          days: components.length * COMPONENT_DAYS,
+          detail: components.join(", "),
+        }
+      : null,
+    markets.length > 0
+      ? {
+          label: `Markets/regions (${markets.length})`,
+          budget: markets.length * MARKET_COST,
+          days: markets.length * MARKET_DAYS,
+          detail: markets.join(", "),
+        }
+      : null,
+    includesCompliance
+      ? {
+          label: "Compliance sensitivity",
+          budget: COMPLIANCE_COST,
+          days: COMPLIANCE_DAYS,
+          detail: "Tax, payroll, privacy, security, or regulated workflow language was detected.",
+        }
+      : null,
+    includesAI
+      ? {
+          label: "AI-assisted feature",
+          budget: AI_COMPONENT_COST,
+          days: AI_COMPONENT_DAYS,
+          detail: "AI chatbot, agent, model, or assistant behavior needs prompt, guardrail, and evaluation evidence.",
+        }
+      : null,
+  ];
+
+  return breakdown.filter((entry): entry is ScopeFeasibilityEstimateDriver => entry !== null);
+}
+
+function buildLeanScopeOptions({
+  targets,
+  components,
+  markets,
+  includesCompliance,
+  includesAI,
+}: {
+  targets: string[];
+  components: string[];
+  markets: string[];
+  includesCompliance: boolean;
+  includesAI: boolean;
+}) {
+  const options: string[] = [];
+
+  if (targets.length > 1) {
+    options.push(`Keep ${targets[0]} in the first release and move ${targets.slice(1).join(", ")} to follow-on milestones.`);
+  }
+
+  if (components.length > 3) {
+    options.push(`Start with ${components.slice(0, 3).join(", ")} and make ${components.slice(3).join(", ")} explicit later-phase work.`);
+  }
+
+  if (markets.length > 1) {
+    options.push(`Launch one region first, then add ${markets.slice(1).join(", ")} after the workflow and compliance evidence are verified.`);
+  }
+
+  if (includesCompliance) {
+    options.push("Run a short discovery milestone first if tax, payroll, privacy, or regulated workflows are not already documented.");
+  }
+
+  if (includesAI) {
+    options.push("Ship the AI feature as a bounded assistant with test prompts and fallback rules before expanding agent automation.");
+  }
+
+  if (options.length === 0) {
+    options.push("Keep the first release to one buyer-visible workflow with proof artifacts before adding secondary enhancements.");
+  }
+
+  return options.slice(0, 4);
+}
+
 export function assessScopeFeasibility({
   prompt,
   budgetAmount,
@@ -87,6 +199,7 @@ export function assessScopeFeasibility({
       canPostExecution: false,
       estimatedMarketBudget: null,
       estimatedMarketDays: null,
+      estimateBreakdown: [],
       recommendedBudget: null,
       recommendedTimelineDays: null,
       phasedScopePrompt: null,
@@ -99,15 +212,34 @@ export function assessScopeFeasibility({
         "Enter the latest acceptable launch or review date as a number of days.",
         "Describe the smallest useful first release if the full idea is flexible.",
       ],
+      leanScopeOptions: [
+        "Start with the smallest buyer-visible workflow if the full budget or launch date is still uncertain.",
+      ],
     };
   }
 
   const components = extractCentralComponentConstraints(prompt);
   const markets = extractRegionConstraints(prompt);
   const targets = extractProjectTargets(prompt);
-  const targetEstimate = estimateProjectTargets(targets);
-  const complianceMultiplier = hasComplianceLanguage(prompt) ? 1 : 0;
-  const aiMultiplier = hasAIComponent(prompt) ? 1 : 0;
+  const targetBreakdown = estimateProjectTargetBreakdown(targets);
+  const targetEstimate = targetBreakdown.reduce(
+    (estimate, target) => ({
+      budget: estimate.budget + target.budget,
+      days: estimate.days + target.days,
+    }),
+    { budget: 0, days: 0 }
+  );
+  const includesCompliance = hasComplianceLanguage(prompt);
+  const includesAI = hasAIComponent(prompt);
+  const estimateBreakdown = buildEstimateBreakdown({
+    targetBreakdown,
+    components,
+    markets,
+    includesCompliance,
+    includesAI,
+  });
+  const complianceMultiplier = includesCompliance ? 1 : 0;
+  const aiMultiplier = includesAI ? 1 : 0;
   const estimatedMarketBudget = roundTo(
     BASE_PROJECT_COST +
       targetEstimate.budget +
@@ -133,6 +265,13 @@ export function assessScopeFeasibility({
   const recommendedBudget = roundTo(estimatedMarketBudget, 500);
   const recommendedTimelineDays = Math.max(7, Math.ceil(estimatedMarketDays / 7) * 7);
   const phasedScopePrompt = buildPhasedScopePrompt(prompt, targets, components, markets);
+  const leanScopeOptions = buildLeanScopeOptions({
+    targets,
+    components,
+    markets,
+    includesCompliance,
+    includesAI,
+  });
   const reasons: string[] = [];
   const hints: string[] = [];
   const nextSteps: string[] = [];
@@ -179,6 +318,7 @@ export function assessScopeFeasibility({
     canPostExecution: status !== "unrealistic",
     estimatedMarketBudget,
     estimatedMarketDays,
+    estimateBreakdown,
     recommendedBudget,
     recommendedTimelineDays,
     phasedScopePrompt,
@@ -187,5 +327,6 @@ export function assessScopeFeasibility({
     reasons,
     hints,
     nextSteps,
+    leanScopeOptions,
   };
 }
