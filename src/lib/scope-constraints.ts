@@ -1,4 +1,4 @@
-const REGION_PATTERNS: { label: string; pattern: RegExp }[] = [
+const MARKET_PATTERNS: { label: string; pattern: RegExp }[] = [
   { label: "North America", pattern: /\bnorth\s+america\b/i },
   { label: "Latin America", pattern: /\blatin\s+america\b/i },
   { label: "South America", pattern: /\bsouth\s+america\b/i },
@@ -7,6 +7,10 @@ const REGION_PATTERNS: { label: string; pattern: RegExp }[] = [
   { label: "Europe", pattern: /\beurope\b|\beu\b|\bemea\b/i },
   { label: "Africa", pattern: /\bafrica\b/i },
   { label: "Australia", pattern: /\baustralia\b|\boceania\b/i },
+  { label: "US", pattern: /\b(?:US|U\.S\.|USA|United States|united states)\b/ },
+  { label: "Canada", pattern: /\bcanada\b/i },
+  { label: "UAE", pattern: /\buae\b|\bunited\s+arab\s+emirates\b/i },
+  { label: "Philippines", pattern: /\bphilippines\b/i },
 ];
 
 export type ScopeConstraints = {
@@ -32,7 +36,7 @@ function formatCurrencyAmount(raw: string) {
 
 export function extractRegionConstraints(text: string) {
   return unique(
-    REGION_PATTERNS.map((entry) => ({ label: entry.label, index: text.search(entry.pattern) }))
+    MARKET_PATTERNS.map((entry) => ({ label: entry.label, index: text.search(entry.pattern) }))
       .filter((entry) => entry.index >= 0)
       .sort((a, b) => a.index - b.index)
       .map((entry) => entry.label)
@@ -53,7 +57,7 @@ export function summarizeScopeConstraints({
   timelineDays,
 }: ScopeConstraints) {
   const parts: string[] = [];
-  if (regions.length > 0) parts.push(`Regions: ${regions.join(", ")}`);
+  if (regions.length > 0) parts.push(`Markets: ${regions.join(", ")}`);
   if (budget) parts.push(`Budget: ${budget}`);
   if (timelineDays) parts.push(`Timeline: ${timelineDays} days`);
   return parts;

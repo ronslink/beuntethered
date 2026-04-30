@@ -14,6 +14,20 @@ test("extracts named market regions in client input order", () => {
   );
 });
 
+test("extracts named country markets in client input order", () => {
+  assert.deepEqual(
+    extractRegionConstraints("Payroll application covering US, Canada, UAE, and Philippines."),
+    ["US", "Canada", "UAE", "Philippines"]
+  );
+});
+
+test("does not treat lowercase us as a market", () => {
+  assert.deepEqual(
+    extractRegionConstraints("Build us a payroll application for Canada."),
+    ["Canada"]
+  );
+});
+
 test("extracts compact budget constraints", () => {
   assert.equal(
     extractBudgetConstraint("I have a budget of 15000 to build this."),
@@ -28,7 +42,7 @@ test("summarizes captured scope constraints for buyer review", () => {
       budget: "$15,000",
       timelineDays: 21,
     }),
-    ["Regions: North America, Asia, Middle East", "Budget: $15,000", "Timeline: 21 days"]
+    ["Markets: North America, Asia, Middle East", "Budget: $15,000", "Timeline: 21 days"]
   );
 });
 
