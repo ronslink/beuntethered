@@ -141,10 +141,14 @@ test("validates AI project intake prompts", () => {
     prompt: "Build a billing portal with Stripe checkout, role-based access, and invoice history.",
     category: "web_app",
     complexity: "complex",
+    budgetAmount: 15000,
+    timelineDays: 30,
   });
   assert.equal(sow.mode, "EXECUTION");
   assert.equal(sow.desiredTimeline, "");
   assert.equal(sow.conversationHistory, "");
+  assert.equal(sow.budgetAmount, 15000);
+  assert.equal(sow.timelineDays, 30);
   assert.equal(sow.category, "web_app");
   assert.equal(sow.complexity, "complex");
 
@@ -152,6 +156,8 @@ test("validates AI project intake prompts", () => {
     prompt: "Build a billing portal with Stripe checkout, role-based access, and invoice history.",
     category: "web_app",
     complexity: "complex",
+    budgetAmount: 15000,
+    timelineDays: 30,
     conversationHistory: "Client revision instruction: keep the budget but split billing into two milestones.",
   });
   assert.match(revisedSow.conversationHistory, /split billing/);

@@ -424,13 +424,15 @@ export async function POST(req: Request) {
       windowMs: 60 * 60 * 1000,
     });
 
-    const { prompt, mode, desiredTimeline, category, complexity, conversationHistory } = parsedInput.data;
+    const { prompt, mode, desiredTimeline, budgetAmount, timelineDays, category, complexity, conversationHistory } = parsedInput.data;
     const dynamicModel = await getDynamicAIProvider(user.id);
     const cacheKey = createSowGenerationCacheKey({
       userId: user.id,
       prompt,
       mode,
       desiredTimeline,
+      budgetAmount,
+      timelineDays,
       category,
       complexity,
       conversationHistory,
@@ -439,12 +441,14 @@ export async function POST(req: Request) {
     if (cached) {
       return NextResponse.json(cached);
     }
-    const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+    const requestedTimelineDays = timelineDays ?? extractRequestedTimelineDays(desiredTimeline, prompt);
     const scopeConstraints = {
       regions: extractRegionConstraints(prompt),
       components: extractCentralComponentConstraints(prompt),
-      budget: extractBudgetConstraint(prompt),
-      budgetAmount: extractBudgetAmountConstraint(prompt),
+      budget: budgetAmount
+        ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(budgetAmount)
+        : extractBudgetConstraint(prompt),
+      budgetAmount: budgetAmount ?? extractBudgetAmountConstraint(prompt),
       timelineDays: requestedTimelineDays,
     };
 

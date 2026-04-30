@@ -19,6 +19,7 @@ import {
   extractRegionConstraints,
   summarizeScopeConstraints,
 } from "@/lib/scope-constraints";
+import { assessScopeFeasibility } from "@/lib/scope-feasibility";
 import { assessScopeIntake } from "@/lib/scope-intake-quality";
 
 export default function ProjectCreationWizard() {
@@ -29,6 +30,8 @@ export default function ProjectCreationWizard() {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<"EXECUTION" | "DISCOVERY">("EXECUTION");
   const [desiredTimeline, setDesiredTimeline] = useState("");
+  const [budgetInput, setBudgetInput] = useState("");
+  const [timelineInput, setTimelineInput] = useState("");
   const [loadingStatus, setLoadingStatus] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [sowData, setSowData] = useState<any>(null);
@@ -107,7 +110,7 @@ export default function ProjectCreationWizard() {
       ...assessment.normalized,
       amount: Number(newMilestones[index].amount) > 0 ? newMilestones[index].amount : assessment.normalized.amount,
     };
-    const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
+    const requestedTimelineDays = Number(timelineInput) || extractRequestedTimelineDays(desiredTimeline, prompt);
     const nextSow = {
       ...editableSoW,
       milestones: newMilestones,
@@ -115,7 +118,7 @@ export default function ProjectCreationWizard() {
     setEditableSoW(
       alignMilestoneAmountsToBudget(
         alignMilestoneDurationsToTimeline(nextSow, requestedTimelineDays),
-        extractBudgetAmountConstraint(prompt)
+        Number(budgetInput) || extractBudgetAmountConstraint(prompt)
       )
     );
     setToastMessage("Applied safe scope fixes. Review anything still highlighted.");
@@ -187,6 +190,15 @@ export default function ProjectCreationWizard() {
     setRejectionMessage("");
 
     try {
+      const requiredBudgetAmount = Number(budgetInput);
+      const requiredTimelineDays = Number(timelineInput);
+      if (!Number.isFinite(requiredBudgetAmount) || requiredBudgetAmount <= 0 || !Number.isFinite(requiredTimelineDays) || requiredTimelineDays <= 0) {
+        setToastMessage("Enter a required budget and timeline before generating scope.");
+        setTimeout(() => setToastMessage(""), 2400);
+        setIsGenerating(false);
+        return;
+      }
+
       const intakeAssessment = assessScopeIntake(prompt);
       if (intakeAssessment.status === "needs_detail") {
         setToastMessage("Add the missing scope details highlighted by the advisor.");
@@ -215,10 +227,7 @@ export default function ProjectCreationWizard() {
       setTriageResult(triage);
       setLoadingStatus(`Looks like ${triage.summary?.toLowerCase() || 'a project'}. Generating your scope now...`);
 
-      const promptTimelineDays = extractRequestedTimelineDays(prompt);
-      const effectiveDesiredTimeline = desiredTimeline.trim() || (
-        promptTimelineDays ? `${promptTimelineDays} days` : ""
-      );
+      const effectiveDesiredTimeline = `${requiredTimelineDays} days`;
 
       // Step 2: Generate SOW routed by category + complexity
       const response = await fetch("/api/ai/generate-sow", {
@@ -228,6 +237,8 @@ export default function ProjectCreationWizard() {
           prompt,
           mode,
           desiredTimeline: effectiveDesiredTimeline,
+          budgetAmount: requiredBudgetAmount,
+          timelineDays: requiredTimelineDays,
           category: triage.category,
           complexity: triage.complexity,
         }),
@@ -256,10 +267,9 @@ export default function ProjectCreationWizard() {
     setLoadingStatus("Refining your scope with the full conversation...");
 
     try {
-      const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
-      const effectiveDesiredTimeline = desiredTimeline.trim() || (
-        requestedTimelineDays ? `${requestedTimelineDays} days` : ""
-      );
+      const requiredBudgetAmount = Number(budgetInput);
+      const requestedTimelineDays = Number(timelineInput) || extractRequestedTimelineDays(desiredTimeline, prompt);
+      const effectiveDesiredTimeline = requestedTimelineDays ? `${requestedTimelineDays} days` : desiredTimeline.trim();
       const revisionHistory = [
         ...scopeConversation,
         `Current editable SOW before revision: ${JSON.stringify(editableSoW)}`,
@@ -273,6 +283,8 @@ export default function ProjectCreationWizard() {
           prompt,
           mode,
           desiredTimeline: effectiveDesiredTimeline,
+          budgetAmount: requiredBudgetAmount || undefined,
+          timelineDays: requestedTimelineDays || undefined,
           category: triageResult.category,
           complexity: triageResult.complexity,
           conversationHistory: revisionHistory,
@@ -370,19 +382,25 @@ export default function ProjectCreationWizard() {
     : null;
   const allMilestonesReady = milestoneQualityAssessments.length > 0 && milestoneQualityAssessments.every((assessment) => assessment.passes);
   const milestoneIssueCount = milestoneQualityAssessments.reduce((sum: number, assessment) => sum + assessment.blockingIssues.length, 0);
-  const requestedTimelineDays = extractRequestedTimelineDays(desiredTimeline, prompt);
-  const capturedBudgetAmount = extractBudgetAmountConstraint(prompt);
+  const requestedTimelineDays = Number(timelineInput) || extractRequestedTimelineDays(desiredTimeline, prompt);
+  const capturedBudgetAmount = Number(budgetInput) || extractBudgetAmountConstraint(prompt);
   const capturedScopeConstraints = summarizeScopeConstraints({
     regions: extractRegionConstraints(prompt),
     components: extractCentralComponentConstraints(prompt),
-    budget: extractBudgetConstraint(prompt),
+    budget: capturedBudgetAmount ? formatCurrency(capturedBudgetAmount) : extractBudgetConstraint(prompt),
     budgetAmount: capturedBudgetAmount,
     timelineDays: requestedTimelineDays,
   });
   const intakeAssessment = assessScopeIntake(prompt);
   const intakeBlockers = intakeAssessment.issues.filter((issue) => issue.severity === "blocker");
   const intakeWarnings = intakeAssessment.issues.filter((issue) => issue.severity === "warning");
-  const hasIntakeBlockers = prompt.trim().length >= 5 && intakeBlockers.length > 0;
+  const missingBudgetOrTimeline = !capturedBudgetAmount || !requestedTimelineDays;
+  const feasibilityAssessment = assessScopeFeasibility({
+    prompt,
+    budgetAmount: capturedBudgetAmount,
+    timelineDays: requestedTimelineDays,
+  });
+  const hasIntakeBlockers = prompt.trim().length >= 5 && (intakeBlockers.length > 0 || missingBudgetOrTimeline);
 
   return (
     <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-5rem)] flex flex-col relative overflow-hidden">
@@ -578,28 +596,93 @@ export default function ProjectCreationWizard() {
                            </div>
                         )}
 
-                        {/* Timeline / Deadline Input */}
-                        <div className="flex flex-col md:flex-row gap-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                            <div className="flex-1 relative">
                               <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">
-                                <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">schedule</span> Desired Timeline</span>
+                                <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">payments</span> Required Budget</span>
                               </label>
                               <input
-                                 type="text"
-                                 value={desiredTimeline}
-                                 onChange={(e) => setDesiredTimeline(e.target.value)}
-                                 placeholder="e.g. '2 weeks', '30 days', 'by June 15th'"
+                                 type="number"
+                                 min="1"
+                                 value={budgetInput}
+                                 onChange={(e) => setBudgetInput(e.target.value)}
+                                 placeholder="15000"
                                  className="w-full bg-surface border border-outline-variant/30 focus:border-primary/50 rounded-lg p-4 text-on-surface text-sm focus:ring-0 focus:outline-none relative z-10 placeholder:text-on-surface-variant/40"
                               />
                            </div>
+                           <div className="flex-1 relative">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">
+                                <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">schedule</span> Required Timeline</span>
+                              </label>
+                              <div className="flex items-center gap-2">
+                                 <input
+                                    type="number"
+                                    min="1"
+                                    max="365"
+                                    value={timelineInput}
+                                    onChange={(e) => {
+                                      setTimelineInput(e.target.value);
+                                      setDesiredTimeline(e.target.value ? `${e.target.value} days` : "");
+                                    }}
+                                    placeholder="30"
+                                    className="w-full bg-surface border border-outline-variant/30 focus:border-primary/50 rounded-lg p-4 text-on-surface text-sm focus:ring-0 focus:outline-none relative z-10 placeholder:text-on-surface-variant/40"
+                                 />
+                                 <span className="shrink-0 rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-4 text-xs font-black uppercase tracking-widest text-on-surface-variant">Days</span>
+                              </div>
+                           </div>
                            {mode === "DISCOVERY" && (
-                              <div className="flex-1 flex items-end">
+                              <div className="md:col-span-2 flex items-end">
                                  <div className="w-full bg-primary/5 border border-primary/20 rounded-lg p-4">
                                     <p className="text-xs text-primary font-bold">Discovery Mode locks to a 7-day architecture sprint at $1,000.</p>
                                  </div>
                               </div>
                            )}
                         </div>
+
+                        {prompt.trim().length >= 5 && (
+                           <div className={`rounded-lg border p-4 ${feasibilityAssessment.status === "underfunded" ? "border-error/25 bg-error/5" : feasibilityAssessment.status === "tight" ? "border-tertiary/25 bg-tertiary/5" : "border-secondary/20 bg-secondary/5"}`}>
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                 <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${feasibilityAssessment.status === "underfunded" ? "text-error" : feasibilityAssessment.status === "tight" ? "text-tertiary" : "text-secondary"}`}>
+                                      Market fit check
+                                    </p>
+                                    <h3 className="mt-1 text-sm font-black text-on-surface">
+                                      {feasibilityAssessment.status === "missing"
+                                        ? "Budget and timeline are required."
+                                        : feasibilityAssessment.status === "underfunded"
+                                          ? "This scope is likely underfunded or too compressed."
+                                          : feasibilityAssessment.status === "tight"
+                                            ? "This scope may work, but it is tight."
+                                            : "Budget and timeline look workable for a first scope."}
+                                    </h3>
+                                    <div className="mt-2 space-y-1">
+                                      {feasibilityAssessment.reasons.map((reason) => (
+                                        <p key={reason} className="text-xs leading-5 text-on-surface-variant">{reason}</p>
+                                      ))}
+                                    </div>
+                                 </div>
+                                 {feasibilityAssessment.estimatedMarketBudget && feasibilityAssessment.estimatedMarketDays && (
+                                    <div className="grid grid-cols-2 gap-2 text-right">
+                                      <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Budget</p>
+                                        <p className="text-sm font-black text-on-surface">{formatCurrency(feasibilityAssessment.estimatedMarketBudget)}</p>
+                                      </div>
+                                      <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Time</p>
+                                        <p className="text-sm font-black text-on-surface">{feasibilityAssessment.estimatedMarketDays} days</p>
+                                      </div>
+                                    </div>
+                                 )}
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                 {feasibilityAssessment.hints.map((hint) => (
+                                    <span key={hint} className="rounded-md border border-outline-variant/15 bg-surface px-3 py-2 text-xs font-bold text-on-surface">
+                                      {hint}
+                                    </span>
+                                 ))}
+                              </div>
+                           </div>
+                        )}
                         <div className="flex justify-end pt-4">
                            <button
                              type="submit"

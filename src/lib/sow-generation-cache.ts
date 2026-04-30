@@ -13,6 +13,8 @@ export type SowGenerationCacheInput = {
   prompt: string;
   mode: string;
   desiredTimeline: string;
+  budgetAmount?: number | null;
+  timelineDays?: number | null;
   category: string;
   complexity: string;
   conversationHistory?: string;
@@ -30,6 +32,8 @@ export function createSowGenerationCacheKey(input: SowGenerationCacheInput) {
     normalizePart(input.category),
     normalizePart(input.complexity),
     normalizePart(input.desiredTimeline),
+    String(input.budgetAmount ?? ""),
+    String(input.timelineDays ?? ""),
     normalizePart(input.prompt),
     normalizePart(input.conversationHistory ?? ""),
   ].join("::");

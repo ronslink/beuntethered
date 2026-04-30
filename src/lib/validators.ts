@@ -33,6 +33,8 @@ export const sowGenerationInputSchema = z.object({
     .max(6000, "Keep the project description under 6,000 characters."),
   mode: z.enum(["DISCOVERY", "EXECUTION"]).default("EXECUTION"),
   desiredTimeline: trimmed.max(200, "Keep the timeline note under 200 characters.").default(""),
+  budgetAmount: z.coerce.number().int().positive().max(5_000_000).optional(),
+  timelineDays: z.coerce.number().int().min(1).max(365).optional(),
   category: z.enum(projectCategoryOptions).default("other_software"),
   complexity: z.enum(projectComplexityOptions).default("medium"),
   conversationHistory: trimmed.max(12000, "Keep the scope revision history under 12,000 characters.").optional().default(""),
