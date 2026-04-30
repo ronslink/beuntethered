@@ -522,6 +522,18 @@ export default function ProjectCreationWizard() {
         : "Market-ready for a first scope.";
   const hasIntakeBlockers = prompt.trim().length >= 5 && (intakeBlockers.length > 0 || missingBudgetOrTimeline);
 
+  const resolveMilestoneIssues = () => {
+    const firstFailingIndex = milestoneQualityAssessments.findIndex((assessment) => !assessment.passes);
+
+    if (firstFailingIndex < 0) {
+      setStep(3);
+      return;
+    }
+
+    setActivePhaseIndex(firstFailingIndex);
+    applyMilestoneQualityFixes(firstFailingIndex);
+  };
+
   return (
     <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-5rem)] flex flex-col relative overflow-hidden">
       {toastMessage && (
@@ -1693,11 +1705,16 @@ export default function ProjectCreationWizard() {
                   )}
                   {step === 2 && activePhaseIndex === (editableSoW?.milestones?.length || 0) && (
                      <button
-                        onClick={() => setStep(3)}
-                        disabled={!allMilestonesReady}
-                        className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-3 transition-all ${allMilestonesReady ? 'bg-on-surface text-surface hover:bg-on-surface/90 active:scale-95' : 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-80'}`}
+                        onClick={() => {
+                           if (allMilestonesReady) {
+                              setStep(3);
+                           } else {
+                              resolveMilestoneIssues();
+                           }
+                        }}
+                        className={`px-8 py-3 rounded-lg font-black uppercase tracking-widest text-sm flex items-center gap-3 transition-all ${allMilestonesReady ? 'bg-on-surface text-surface hover:bg-on-surface/90 active:scale-95' : 'bg-primary/10 text-primary border border-primary/25 hover:bg-primary/15 active:scale-95'}`}
                      >
-                        {allMilestonesReady ? 'Approve Timeline & Set Pricing' : 'Resolve Milestone Issues'} <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        {allMilestonesReady ? 'Approve Timeline & Set Pricing' : 'Resolve Milestone Issues'} <span className="material-symbols-outlined text-[18px]">{allMilestonesReady ? 'arrow_forward' : 'auto_fix_high'}</span>
                      </button>
                   )}
                   {step === 3 && (
