@@ -3,12 +3,7 @@ import { generateText } from "ai";
 import { getCurrentUser } from "@/lib/session";
 import { getDynamicAIProvider } from "@/lib/ai-router";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
-import {
-  alignMilestoneAmountsToBudget,
-  alignMilestoneDurationsToTimeline,
-  extractRequestedTimelineDays,
-  normalizeGeneratedSow,
-} from "@/lib/milestone-quality";
+import { extractRequestedTimelineDays, normalizeGeneratedSow } from "@/lib/milestone-quality";
 import { getMilestoneVerificationPatternGuide } from "@/lib/milestone-proof";
 import {
   extractBudgetAmountConstraint,
@@ -16,11 +11,11 @@ import {
   extractCentralComponentConstraints,
   extractProjectTargets,
   extractRegionConstraints,
-  ensureSowPreservesScopeConstraints,
   summarizeScopeConstraints,
   type ScopeConstraints,
 } from "@/lib/scope-constraints";
 import { assessScopeFeasibility, type ScopeFeasibilityAssessment } from "@/lib/scope-feasibility";
+import { applySowGuardrails } from "@/lib/sow-guardrails";
 import {
   createSowGenerationCacheKey,
   getCachedSowGeneration,
@@ -509,14 +504,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const normalized = alignMilestoneAmountsToBudget(
-      alignMilestoneDurationsToTimeline(
-        normalizeSowDeliverables(parsedJson),
-        requestedTimelineDays
-      ),
-      scopeConstraints.budgetAmount
-    );
-    const parsed = ensureSowPreservesScopeConstraints(normalized, scopeConstraints);
+    const parsed = applySowGuardrails(normalizeSowDeliverables(parsedJson), scopeConstraints);
     setCachedSowGeneration(cacheKey, parsed);
     return NextResponse.json(parsed);
 

@@ -6,10 +6,8 @@ import { postProjectToMarketplace } from "@/app/actions/marketplace";
 import { fetchRecommendedSquad } from "@/app/actions/concierge";
 import {
   alignMilestoneAmountsToBudget,
-  alignMilestoneDurationsToTimeline,
   assessMilestoneQuality,
   extractRequestedTimelineDays,
-  normalizeGeneratedSow,
   type MilestoneQualityAssessment,
 } from "@/lib/milestone-quality";
 import {
@@ -30,6 +28,7 @@ import {
   type ProjectProblemStarter,
   type ProjectScopeStarter,
 } from "@/lib/project-scope-starters";
+import { applySowGuardrails } from "@/lib/sow-guardrails";
 
 const SCOPE_PROCESS_STEPS = [
   {
@@ -96,7 +95,7 @@ export default function ProjectCreationWizard() {
 
   useEffect(() => {
     if (sowData && !isGenerating) {
-       setEditableSoW(normalizeGeneratedSow(sowData));
+       setEditableSoW(sowData);
     }
   }, [sowData, isGenerating]);
 
@@ -166,12 +165,13 @@ export default function ProjectCreationWizard() {
       ...editableSoW,
       milestones: newMilestones,
     };
-    setEditableSoW(
-      alignMilestoneAmountsToBudget(
-        alignMilestoneDurationsToTimeline(nextSow, requestedTimelineDays),
-        Number(budgetInput) || extractBudgetAmountConstraint(prompt)
+    setEditableSoW(applySowGuardrails(
+      nextSow,
+      buildGuardrailConstraints(
+        Number(budgetInput) || extractBudgetAmountConstraint(prompt),
+        requestedTimelineDays
       )
-    );
+    ));
     setToastMessage("Applied safe scope fixes. Review anything still highlighted.");
     setTimeout(() => setToastMessage(""), 2400);
   };
@@ -232,14 +232,22 @@ export default function ProjectCreationWizard() {
     setEditableSoW({ ...editableSoW, milestones: newMilestones });
   };
 
+  const buildGuardrailConstraints = (budgetAmount: number | null, timelineDays: number | null) => ({
+    regions: extractRegionConstraints(prompt),
+    targets: extractProjectTargets(prompt),
+    components: extractCentralComponentConstraints(prompt),
+    budget: budgetAmount
+      ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(budgetAmount)
+      : extractBudgetConstraint(prompt),
+    budgetAmount,
+    timelineDays,
+  });
+
   const normalizeSowToBuyerConstraints = (
     draft: any,
     budgetAmount: number | null,
     timelineDays: number | null
-  ) => alignMilestoneAmountsToBudget(
-    alignMilestoneDurationsToTimeline(normalizeGeneratedSow(draft), timelineDays),
-    budgetAmount
-  );
+  ) => applySowGuardrails(draft, buildGuardrailConstraints(budgetAmount, timelineDays));
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
