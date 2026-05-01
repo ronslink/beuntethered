@@ -13,8 +13,9 @@ test("client sees settings payment readiness and fee model", async ({ page }) =>
     await signInAs(page, clientEmail);
 
     await page.goto("/settings");
-    await expect(page.getByRole("heading", { name: /^settings$/i })).toBeVisible();
-    await expect(page.getByText("Account trust center")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^account profile$/i })).toBeVisible();
+    await expect(page.getByText("Marketplace identity")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: /account profile sections/i })).toBeVisible();
     await expect(page.getByText("Setup Action Queue")).toBeVisible();
     await expect(page.getByText("Payments & Payouts")).toBeVisible();
     await expect(page.getByText("Client Fee")).toBeVisible();

@@ -104,6 +104,33 @@ function ControlPlaneMetric({
   );
 }
 
+function SectionJumpNav({ isFacilitator }: { isFacilitator: boolean }) {
+  const items = [
+    { href: "#profile", label: "Profile", icon: "person" },
+    { href: "#verification", label: "Verification", icon: "verified_user" },
+    { href: "#payments-payouts", label: isFacilitator ? "Payouts" : "Payments", icon: "payments" },
+    { href: "#ai-model-keys", label: "AI & Automation", icon: "key" },
+    { href: "#notifications", label: "Notifications", icon: "notifications" },
+  ];
+
+  return (
+    <nav className="rounded-2xl border border-outline-variant/20 bg-surface p-2 shadow-sm" aria-label="Account profile sections">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {items.map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            className="flex items-center gap-2 rounded-xl border border-transparent px-3 py-2.5 text-xs font-black uppercase tracking-widest text-on-surface-variant transition-colors hover:border-primary/20 hover:bg-primary/5 hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
+            {item.label}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function VerificationGate({
   icon,
   label,
@@ -326,12 +353,12 @@ export default async function SettingsPage() {
       <header className="relative z-10 mb-8 px-4 lg:px-0 max-w-[1400px]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Account trust center</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Marketplace identity</p>
             <h1 className="text-3xl lg:text-4xl font-black font-headline tracking-tight text-on-surface leading-tight">
-              Settings
+              Account Profile
             </h1>
             <p className="text-on-surface-variant font-medium mt-2 text-sm max-w-2xl">
-              Manage profile readiness, workspace identity, payments, AI keys, and notification preferences for marketplace trust.
+              Manage the buyer-visible identity, verification evidence, payment readiness, and trusted access controls behind your marketplace account.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -348,6 +375,8 @@ export default async function SettingsPage() {
       </header>
 
       <div className="relative z-10 px-4 lg:px-0 max-w-[1400px] space-y-5">
+        <SectionJumpNav isFacilitator={isFacilitator} />
+
         {/* ── Readiness Overview ── */}
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <ReadinessCard
@@ -383,7 +412,7 @@ export default async function SettingsPage() {
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[1fr_420px]">
-          <div className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+          <div id="verification" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">verified_user</span>
               <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Verification Evidence</h2>
@@ -439,7 +468,7 @@ export default async function SettingsPage() {
         <section className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
             <span className="material-symbols-outlined text-[18px] text-on-surface-variant">admin_panel_settings</span>
-            <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Marketplace Control Plane</h2>
+            <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Account Operating Context</h2>
             <span className="ml-auto rounded-md border border-outline-variant/20 bg-surface-container-high px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
               {user.role === "FACILITATOR" ? "Delivery side" : "Buyer side"}
             </span>
@@ -679,7 +708,7 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+        <section id="notifications" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
             <span className="material-symbols-outlined text-[18px] text-on-surface-variant">history</span>
             <div>

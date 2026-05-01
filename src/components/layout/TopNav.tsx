@@ -46,7 +46,7 @@ export function TopNav({ userName, userImage, isAdmin = false }: TopNavProps) {
         <Link
           href="/settings"
           className="group relative flex items-center gap-2.5 rounded-full hover:bg-surface-container/50 transition-all pr-1"
-          title="Settings"
+          title="Account Profile"
         >
           {userImage ? (
             // eslint-disable-next-line @next/next/no-img-element

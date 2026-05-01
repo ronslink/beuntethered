@@ -105,8 +105,8 @@ export function SideNav({ role, isAdmin = false }: { role?: string; isAdmin?: bo
           </Link>
 
           <Link href="/settings" className={link("/settings")}>
-            <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/settings") }}>settings</span>
-            <span className="uppercase tracking-widest text-[10px] font-bold">Settings</span>
+            <span className="material-symbols-outlined text-[20px] shrink-0" style={{ fontVariationSettings: fill("/settings") }}>account_circle</span>
+            <span className="uppercase tracking-widest text-[10px] font-bold">Account</span>
           </Link>
 
           {isAdmin && (
