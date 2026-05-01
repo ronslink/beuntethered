@@ -20,6 +20,12 @@ test("client sees enterprise project intake workflow", async ({ page }) => {
     await expect(page.getByText(/milestone-based sow/i)).toBeVisible();
     await expect(page.getByText(/meaningful/i)).toBeVisible();
     await expect(page.getByText("Verifiable", { exact: true })).toBeVisible();
+
+    await page.getByPlaceholder(/manual business process/i).fill("Testing and bug fixes");
+    await page.getByRole("button", { name: /resolve scope details/i }).click();
+    await expect(page.getByText(/not ready to generate yet/i)).toBeVisible();
+    await expect(page.getByText(/recommended next steps/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /add question prompts/i })).toBeVisible();
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { postProjectToMarketplace } from "@/app/actions/marketplace";
 import { fetchRecommendedSquad } from "@/app/actions/concierge";
@@ -56,6 +56,7 @@ const SCOPE_PROCESS_STEPS = [
 
 export default function ProjectCreationWizard() {
   const router = useRouter();
+  const intakeGuidanceRef = useRef<HTMLDivElement | null>(null);
 
   // State Machine Arrays
   const [step, setStep] = useState<number>(1);
@@ -71,6 +72,7 @@ export default function ProjectCreationWizard() {
   const [scopeRevisionNote, setScopeRevisionNote] = useState("");
   const [scopeRevisionHelp, setScopeRevisionHelp] = useState<string[]>([]);
   const [suggestedScopeRevision, setSuggestedScopeRevision] = useState("");
+  const [intakeGuidanceActive, setIntakeGuidanceActive] = useState(false);
 
   // Triage state
   const [triageResult, setTriageResult] = useState<any>(null);
@@ -119,6 +121,15 @@ export default function ProjectCreationWizard() {
   const updateSoWField = (field: string, value: string) => {
     if (!editableSoW) return;
     setEditableSoW({ ...editableSoW, [field]: value });
+  };
+
+  const showIntakeGuidance = (message: string) => {
+    setIntakeGuidanceActive(true);
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(""), 2800);
+    setTimeout(() => {
+      intakeGuidanceRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
   };
 
   const getMilestoneDeliverables = (milestone: any) => (
@@ -245,16 +256,14 @@ export default function ProjectCreationWizard() {
       const requiredBudgetAmount = Number(budgetInput);
       const requiredTimelineDays = Number(timelineInput);
       if (!Number.isFinite(requiredBudgetAmount) || requiredBudgetAmount <= 0 || !Number.isFinite(requiredTimelineDays) || requiredTimelineDays <= 0) {
-        setToastMessage("Enter a required budget and timeline before generating scope.");
-        setTimeout(() => setToastMessage(""), 2400);
+        showIntakeGuidance("Add the required budget and timeline before generating scope.");
         setIsGenerating(false);
         return;
       }
 
       const intakeAssessment = assessScopeIntake(prompt);
       if (intakeAssessment.status === "needs_detail") {
-        setToastMessage("Answer the advisor questions or use the guided rewrite before generating.");
-        setTimeout(() => setToastMessage(""), 2400);
+        showIntakeGuidance("Answer the advisor questions or use the guided rewrite before generating.");
         setIsGenerating(false);
         return;
       }
@@ -422,6 +431,33 @@ export default function ProjectCreationWizard() {
   const addGuidedQuestionStarter = (question: string) => {
     const starter = `\n\n${question}\nAnswer: `;
     setPrompt((current) => `${current.trim()}${starter}`);
+    setIntakeGuidanceActive(true);
+  };
+
+  const applyGuidedRewrite = () => {
+    setPrompt(intakeAssessment.suggestedPrompt);
+    setIntakeGuidanceActive(true);
+    setToastMessage("Guided rewrite loaded. Replace bracketed items with what you know.");
+    setTimeout(() => setToastMessage(""), 2800);
+  };
+
+  const appendGuidedQuestionPrompts = () => {
+    if (intakeAssessment.guidingQuestions.length === 0) {
+      showIntakeGuidance("No extra questions are needed. Add budget and timeline if they are missing.");
+      return;
+    }
+
+    const prompts = intakeAssessment.guidingQuestions
+      .map((question) => `${question}\nAnswer: `)
+      .join("\n\n");
+    setPrompt((current) => `${current.trim()}\n\n${prompts}`);
+    setIntakeGuidanceActive(true);
+    setToastMessage("Question prompts added. Answer what you know, then generate again.");
+    setTimeout(() => setToastMessage(""), 2800);
+  };
+
+  const handleResolveScopeDetails = () => {
+    showIntakeGuidance("Use the guidance panel to answer missing details before generating.");
   };
 
   const applyProjectStarter = (starter: ProjectScopeStarter) => {
@@ -519,6 +555,26 @@ export default function ProjectCreationWizard() {
   const intakeBlockers = intakeAssessment.issues.filter((issue) => issue.severity === "blocker");
   const intakeWarnings = intakeAssessment.issues.filter((issue) => issue.severity === "warning");
   const missingBudgetOrTimeline = !capturedBudgetAmount || !requestedTimelineDays;
+  const planningInputIssues = [
+    !capturedBudgetAmount
+      ? {
+          code: "missing_required_budget",
+          label: "Required budget is missing",
+          why: "The SOW needs a buyer-funded budget so generated milestones can preserve the commercial constraint instead of inventing a price.",
+          hint: "Enter the maximum project budget the buyer can actually fund in the Required Budget field.",
+          severity: "blocker" as const,
+        }
+      : null,
+    !requestedTimelineDays
+      ? {
+          code: "missing_required_timeline",
+          label: "Required timeline is missing",
+          why: "The SOW needs a target duration so milestones can be sized into realistic checkpoints.",
+          hint: "Enter the target delivery window as a number of days in the Required Timeline field.",
+          severity: "blocker" as const,
+        }
+      : null,
+  ].filter((issue): issue is NonNullable<typeof issue> => issue !== null);
   const feasibilityAssessment = assessScopeFeasibility({
     prompt,
     budgetAmount: capturedBudgetAmount,
@@ -546,6 +602,12 @@ export default function ProjectCreationWizard() {
         ? "Tight constraints need clear tradeoffs."
         : "Ready to draft a first scope.";
   const hasIntakeBlockers = prompt.trim().length >= 5 && (intakeBlockers.length > 0 || missingBudgetOrTimeline);
+  const shouldShowScopeAdvisor = prompt.trim().length >= 5 && (
+    intakeAssessment.issues.length > 0 ||
+    planningInputIssues.length > 0 ||
+    intakeGuidanceActive
+  );
+  const scopeAdvisorNeedsDetail = intakeAssessment.status === "needs_detail" || planningInputIssues.length > 0;
 
   const buildCurrentScopeRevisionGuidance = () => {
     const milestoneIssues = Array.isArray(editableSoW?.milestones)
@@ -798,7 +860,7 @@ export default function ProjectCreationWizard() {
                                  </div>
                                  <button
                                    type="button"
-                                   onClick={() => setPrompt(intakeAssessment.suggestedPrompt)}
+                                   onClick={applyGuidedRewrite}
                                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-secondary/30 bg-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-secondary transition-colors hover:bg-secondary/10"
                                  >
                                     <span className="material-symbols-outlined text-[14px]">conversion_path</span>
@@ -875,20 +937,23 @@ export default function ProjectCreationWizard() {
                            </div>
                         )}
 
-                        {prompt.trim().length >= 5 && intakeAssessment.issues.length > 0 && (
-                           <div className={`rounded-lg border p-4 ${intakeAssessment.status === "needs_detail" ? "border-error/25 bg-error/5" : "border-tertiary/25 bg-tertiary/5"}`}>
+                        {shouldShowScopeAdvisor && (
+                           <div
+                              ref={intakeGuidanceRef}
+                              className={`rounded-lg border p-4 ${scopeAdvisorNeedsDetail ? "border-error/25 bg-error/5" : "border-tertiary/25 bg-tertiary/5"}`}
+                           >
                               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                  <div>
-                                    <p className={`text-[10px] font-black uppercase tracking-widest ${intakeAssessment.status === "needs_detail" ? "text-error" : "text-tertiary"}`}>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${scopeAdvisorNeedsDetail ? "text-error" : "text-tertiary"}`}>
                                        Scope advisor
                                     </p>
                                     <h3 className="mt-1 text-sm font-black text-on-surface">
-                                       {intakeAssessment.status === "needs_detail"
-                                         ? "More detail is needed before this can become a valid milestone."
+                                       {scopeAdvisorNeedsDetail
+                                         ? "Not ready to generate yet."
                                          : "This can be scoped, but these details would improve the result."}
                                     </h3>
                                     <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
-                                       Milestones need a buyer-visible outcome, realistic delivery boundaries, and evidence the client can inspect before approval.
+                                       Milestones need a buyer-visible outcome, required budget and timeline, realistic delivery boundaries, and evidence the client can inspect before approval.
                                     </p>
                                  </div>
                                  <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2 text-right">
@@ -897,8 +962,48 @@ export default function ProjectCreationWizard() {
                                  </div>
                               </div>
 
+                              {scopeAdvisorNeedsDetail && intakeGuidanceActive && (
+                                 <div className="mt-4 rounded-lg border border-primary/20 bg-surface p-4">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Recommended next steps</p>
+                                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                                       <div className="rounded-md border border-outline-variant/15 bg-surface-container-low/40 p-3">
+                                          <p className="text-xs font-black text-on-surface">1. Structure the idea</p>
+                                          <p className="mt-1 text-xs leading-5 text-on-surface-variant">Use the guided rewrite when the request is rough, vague, or written as a business problem.</p>
+                                       </div>
+                                       <div className="rounded-md border border-outline-variant/15 bg-surface-container-low/40 p-3">
+                                          <p className="text-xs font-black text-on-surface">2. Answer gaps</p>
+                                          <p className="mt-1 text-xs leading-5 text-on-surface-variant">Add what you know about users, systems, proof, exceptions, regions, budget, and timeline.</p>
+                                       </div>
+                                       <div className="rounded-md border border-outline-variant/15 bg-surface-container-low/40 p-3">
+                                          <p className="text-xs font-black text-on-surface">3. Generate again</p>
+                                          <p className="mt-1 text-xs leading-5 text-on-surface-variant">When required fields are present, Untether will draft verifiable milestones from the full context.</p>
+                                       </div>
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                       <button
+                                          type="button"
+                                          onClick={applyGuidedRewrite}
+                                          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary transition-colors hover:bg-primary/90"
+                                       >
+                                          <span className="material-symbols-outlined text-[14px]">edit_note</span>
+                                          Use Guided Rewrite
+                                       </button>
+                                       {intakeAssessment.guidingQuestions.length > 0 && (
+                                          <button
+                                             type="button"
+                                             onClick={appendGuidedQuestionPrompts}
+                                             className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/10"
+                                          >
+                                             <span className="material-symbols-outlined text-[14px]">playlist_add</span>
+                                             Add Question Prompts
+                                          </button>
+                                       )}
+                                    </div>
+                                 </div>
+                              )}
+
                               <div className="mt-4 grid gap-3">
-                                 {[...intakeBlockers, ...intakeWarnings].map((issue) => (
+                                 {[...planningInputIssues, ...intakeBlockers, ...intakeWarnings].map((issue) => (
                                     <div key={issue.code} className="rounded-lg border border-outline-variant/15 bg-surface/70 p-3">
                                        <div className="flex items-start gap-2">
                                           <span className={`material-symbols-outlined mt-0.5 text-[16px] ${issue.severity === "blocker" ? "text-error" : "text-tertiary"}`}>
@@ -940,7 +1045,7 @@ export default function ProjectCreationWizard() {
                                  <p className="mt-2 text-xs leading-5 text-on-surface-variant">{intakeAssessment.suggestedPrompt}</p>
                                  <button
                                    type="button"
-                                   onClick={() => setPrompt(intakeAssessment.suggestedPrompt)}
+                                   onClick={applyGuidedRewrite}
                                    className="mt-3 inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary transition-colors hover:bg-primary/90"
                                  >
                                     <span className="material-symbols-outlined text-[14px]">edit_note</span>
@@ -1099,7 +1204,8 @@ export default function ProjectCreationWizard() {
                         )}
                         <div className="flex justify-end pt-4">
                            <button
-                             type="submit"
+                             type={hasIntakeBlockers ? "button" : "submit"}
+                             onClick={hasIntakeBlockers ? handleResolveScopeDetails : undefined}
                              disabled={prompt.trim().length < 5 || isGenerating}
                              className={`px-8 py-3 rounded-md flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all ${prompt.trim().length < 5 || isGenerating ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-70' : hasIntakeBlockers ? 'bg-primary/10 text-primary border border-primary/25 hover:bg-primary/15' : 'bg-primary text-on-primary hover:bg-primary/90'}`}
                            >
