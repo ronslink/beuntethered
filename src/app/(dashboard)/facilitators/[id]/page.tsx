@@ -3,6 +3,7 @@ import { prisma } from "@/lib/auth";
 import FacilitatorProfileClient from "./FacilitatorProfileClient";
 import { getCurrentUser } from "@/lib/session";
 import { buyerProjectManagerListWhere } from "@/lib/project-access";
+import { recordFacilitatorProfileView } from "@/lib/profile-views";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -113,6 +114,14 @@ export default async function FacilitatorProfilePage({ params }: Props) {
         dispute_count: user._count.facilitator_disputes,
         bid_count: user._count.bids,
       };
+
+      await recordFacilitatorProfileView({
+        facilitatorId: user.id,
+        viewerId: currentUser?.id,
+        viewerRole: currentUser?.role ?? null,
+      }).catch((error) => {
+        console.error("Failed to record facilitator profile view:", error);
+      });
     }
 
     if (currentUser?.role === "CLIENT") {

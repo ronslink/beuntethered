@@ -78,6 +78,24 @@ test("facilitator dashboard shows invites and proposal pipeline before awarded w
       status: "OPEN_BIDDING",
     },
   });
+  await prisma.project.create({
+    data: {
+      creator_id: client.id,
+      client_id: client.id,
+      title: "Stripe Buyer Portal",
+      ai_generated_sow: "Build a Stripe buyer portal with Next.js, TypeScript, authenticated dashboards, and audit-ready milestone evidence.",
+      status: "OPEN_BIDDING",
+      milestones: {
+        create: {
+          title: "Stripe dashboard delivery",
+          amount: 3600,
+          description: "Create a verified buyer dashboard with Stripe checkout evidence.",
+          deliverables: ["Preview URL", "Stripe test proof"],
+          acceptance_criteria: ["Buyer can complete a Stripe test checkout in staging."],
+        },
+      },
+    },
+  });
 
   await prisma.projectInvite.create({
     data: {
@@ -100,12 +118,24 @@ test("facilitator dashboard shows invites and proposal pipeline before awarded w
       status: "PENDING",
     },
   });
+  await prisma.profileView.create({
+    data: {
+      facilitator_id: facilitator.id,
+      viewer_id: client.id,
+      viewer_role: "CLIENT",
+    },
+  });
 
   try {
     await page.context().clearCookies();
     await signInAs(page, facilitatorEmail);
 
     await expect(page.getByText("Facilitator Dashboard")).toBeVisible();
+    await expect(page.getByText("New Projects Listed")).toBeVisible();
+    await expect(page.getByText("Profile Views")).toBeVisible();
+    await expect(page.getByText("Best Fit Today")).toBeVisible();
+    await expect(page.getByText("Interesting Projects")).toBeVisible();
+    await expect(page.getByText("Stripe Buyer Portal")).toBeVisible();
     await expect(page.getByText("Opportunity Pipeline")).toBeVisible();
     await expect(page.getByText("Client Invite")).toBeVisible();
     await expect(page.getByText("Invited Analytics Portal", { exact: true })).toHaveCount(2);

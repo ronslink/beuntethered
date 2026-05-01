@@ -263,6 +263,8 @@ model User {
   organizations            OrganizationMember[]
   owned_organizations      Organization[]       @relation("OrganizationOwner")
   verifications            Verification[]
+  profile_views_received   ProfileView[]         @relation("ProfileView_facilitator_idToUser")
+  profile_views_made       ProfileView[]         @relation("ProfileView_viewer_idToUser")
   sent_project_invites     ProjectInvite[]      @relation("ProjectInviteInviter")
   received_project_invites ProjectInvite[]      @relation("ProjectInviteFacilitator")
   attachments              Attachment[]
@@ -325,6 +327,21 @@ model Verification {
   user        User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, type])
+}
+
+model ProfileView {
+  id             String   @id @default(cuid())
+  facilitator_id String
+  viewer_id      String?
+  viewer_role    Role?
+  source         String   @default("facilitator_profile")
+  created_at     DateTime @default(now())
+
+  facilitator User  @relation("ProfileView_facilitator_idToUser", fields: [facilitator_id], references: [id], onDelete: Cascade)
+  viewer      User? @relation("ProfileView_viewer_idToUser", fields: [viewer_id], references: [id], onDelete: SetNull)
+
+  @@index([facilitator_id, created_at])
+  @@index([viewer_id, created_at])
 }
 
 model ProjectInvite {

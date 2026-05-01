@@ -35,6 +35,28 @@ test("client sees facilitator trust evidence profile", async ({ page }) => {
     await expect(page.getByText("3/3")).toBeVisible();
     await expect(page.getByRole("link", { name: /post project/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /portfolio/i })).toBeVisible();
+    await expect
+      .poll(() =>
+        prisma.profileView.count({
+          where: {
+            facilitator_id: facilitator.id,
+            viewer_id: client.id,
+          },
+        })
+      )
+      .toBe(1);
+
+    await page.reload();
+    await expect
+      .poll(() =>
+        prisma.profileView.count({
+          where: {
+            facilitator_id: facilitator.id,
+            viewer_id: client.id,
+          },
+        })
+      )
+      .toBe(1);
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

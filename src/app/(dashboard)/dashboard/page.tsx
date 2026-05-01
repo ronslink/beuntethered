@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { buyerProjectListWhere } from "@/lib/project-access";
 import ProjectActivityLedger from "@/components/dashboard/ProjectActivityLedger";
+import { computeOpportunityFit } from "@/lib/opportunity-fit";
+import { getProfileViewWindowStart } from "@/lib/profile-view-rules";
 
 function timeAgo(date: Date | string | null): string {
   if (!date) return "—";
@@ -151,6 +153,55 @@ async function FacilitatorDashboard({ userId, userName, inviteError }: { userId:
     orderBy: { created_at: "desc" },
     take: 6,
   });
+  const profileViewSince = getProfileViewWindowStart();
+  const facilitatorProfile = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      skills: true,
+      ai_agent_stack: true,
+      trust_score: true,
+      average_ai_audit_score: true,
+      total_sprints_completed: true,
+      platform_tier: true,
+      availability: true,
+      portfolio_url: true,
+    },
+  });
+  const [newOpenProjectCount, profileViews7d, profileViewsTotal, interestingRawProjects] = await Promise.all([
+    prisma.project.count({
+      where: {
+        status: "OPEN_BIDDING",
+        created_at: { gte: profileViewSince },
+      },
+    }),
+    prisma.profileView.count({
+      where: {
+        facilitator_id: userId,
+        created_at: { gte: profileViewSince },
+      },
+    }),
+    prisma.profileView.count({
+      where: { facilitator_id: userId },
+    }),
+    prisma.project.findMany({
+      where: {
+        status: "OPEN_BIDDING",
+        bids: { none: { developer_id: userId } },
+        invites: { none: { facilitator_id: userId, status: { in: ["SENT", "VIEWED", "ACCEPTED"] } } },
+      },
+      include: {
+        organization: { select: { name: true, type: true } },
+        milestones: { orderBy: { id: "asc" } },
+        invites: {
+          where: { facilitator_id: userId, status: { in: ["SENT", "VIEWED", "ACCEPTED"] } },
+          select: { id: true, status: true },
+        },
+        _count: { select: { bids: true } },
+      },
+      orderBy: { created_at: "desc" },
+      take: 8,
+    }),
+  ]);
 
   const activeProjects = projects.filter(p => p.status === "ACTIVE");
   const allMilestones = projects.flatMap(p => p.milestones.map(m => ({ ...m, project: p })));
@@ -166,7 +217,22 @@ async function FacilitatorDashboard({ userId, userName, inviteError }: { userId:
   );
   const openInvites = invitedOpportunities.filter(invite => invite.status === "SENT" || invite.status === "VIEWED");
   const acceptedInvites = invitedOpportunities.filter(invite => invite.status === "ACCEPTED");
-  const dashboardHasWork = projects.length > 0 || proposalPipeline.length > 0 || invitedOpportunities.length > 0;
+  const dashboardHasWork = projects.length > 0 || proposalPipeline.length > 0 || invitedOpportunities.length > 0 || interestingRawProjects.length > 0;
+  const interestingProjects = interestingRawProjects
+    .map(project => {
+      const totalValue = project.milestones.reduce((acc, milestone) => acc + Number(milestone.amount), 0);
+      return {
+        ...project,
+        totalValue,
+        opportunityFit: computeOpportunityFit(project, facilitatorProfile),
+      };
+    })
+    .sort((a, b) => {
+      if (b.opportunityFit.score !== a.opportunityFit.score) return b.opportunityFit.score - a.opportunityFit.score;
+      return b.created_at.getTime() - a.created_at.getTime();
+    })
+    .slice(0, 3);
+  const bestFitScore = interestingProjects[0]?.opportunityFit.score ?? 0;
   const facilitatorQueue = [
     ...openInvites.map(invite => ({
       key: `invite-${invite.id}`,
@@ -199,6 +265,40 @@ async function FacilitatorDashboard({ userId, userName, inviteError }: { userId:
       count: null as number | null,
     })),
   ].slice(0, 8);
+  const facilitatorOverviewCards = [
+    {
+      label: "New Projects Listed",
+      value: newOpenProjectCount,
+      body: "Open bidding opportunities added over the last 7 days.",
+      href: "/marketplace?sort=newest",
+      icon: "fiber_new",
+      tone: "border-primary/20 bg-primary/10 text-primary",
+    },
+    {
+      label: "Profile Views",
+      value: profileViews7d,
+      body: `${profileViewsTotal} total tracked buyer view${profileViewsTotal === 1 ? "" : "s"}.`,
+      href: `/facilitators/${userId}`,
+      icon: "visibility",
+      tone: "border-tertiary/20 bg-tertiary/10 text-tertiary",
+    },
+    {
+      label: "Best Fit Today",
+      value: bestFitScore ? `${bestFitScore}%` : "—",
+      body: bestFitScore ? "Highest profile-fit score among open projects." : "Add skills and AI tools to improve matching.",
+      href: interestingProjects[0] ? `/marketplace/project/${interestingProjects[0].id}` : "/settings",
+      icon: "travel_explore",
+      tone: "border-secondary/20 bg-secondary/10 text-secondary",
+    },
+    {
+      label: "Pipeline Actions",
+      value: proposalPipeline.length + openInvites.length + actionItems.length,
+      body: "Invites, proposals, and active delivery tasks needing attention.",
+      href: facilitatorQueue[0]?.href ?? "/marketplace",
+      icon: "view_kanban",
+      tone: "border-outline-variant/25 bg-surface-container-low text-on-surface",
+    },
+  ];
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
@@ -241,6 +341,29 @@ async function FacilitatorDashboard({ userId, userName, inviteError }: { userId:
             </div>
           ))}
         </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {facilitatorOverviewCards.map(card => (
+            <Link
+              key={card.label}
+              href={card.href}
+              className="group rounded-lg border border-outline-variant/20 bg-surface p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-low"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-lg border ${card.tone}`}>
+                  <span className="material-symbols-outlined text-[18px]">{card.icon}</span>
+                </span>
+                <span className="text-2xl font-black text-on-surface">{card.value}</span>
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{card.label}</p>
+              <p className="mt-2 min-h-10 text-xs font-medium leading-5 text-on-surface-variant">{card.body}</p>
+              <p className="mt-3 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                Open
+                <span className="material-symbols-outlined text-[13px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
+              </p>
+            </Link>
+          ))}
+        </div>
       </header>
 
       {!dashboardHasWork ? (
@@ -256,7 +379,63 @@ async function FacilitatorDashboard({ userId, userName, inviteError }: { userId:
         <div className="relative z-10 grid grid-cols-1 xl:grid-cols-12 gap-6 px-4 lg:px-0">
 
           {/* Project List */}
-          <section className="xl:col-span-8 space-y-3">
+          <section className="xl:col-span-8 space-y-6">
+            <div className="rounded-lg border border-outline-variant/20 bg-surface p-5">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-primary">Marketplace Pulse</p>
+                  <h2 className="mt-1 flex items-center gap-2 text-lg font-black font-headline uppercase tracking-tight text-on-surface">
+                    <span className="material-symbols-outlined text-primary text-[18px]">auto_awesome</span>
+                    Interesting Projects
+                  </h2>
+                </div>
+                <Link href="/marketplace?sort=best_match" className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                  View marketplace
+                  <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                </Link>
+              </div>
+              {interestingProjects.length === 0 ? (
+                <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-5">
+                  <p className="text-sm font-bold text-on-surface">No unmatched open projects right now.</p>
+                  <p className="mt-1 text-xs font-medium text-on-surface-variant">Saved search alerts and new marketplace posts will appear here as they match your profile.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-3">
+                  {interestingProjects.map(project => (
+                    <Link
+                      key={project.id}
+                      href={`/marketplace/project/${project.id}`}
+                      className="group rounded-lg border border-outline-variant/20 bg-surface-container-low p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-high"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary">
+                          {project.opportunityFit.score}% fit
+                        </span>
+                        {project.invites.length > 0 && (
+                          <span className="rounded-md border border-tertiary/20 bg-tertiary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                            invited
+                          </span>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-on-surface group-hover:text-primary">{project.title}</p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {project.opportunityFit.matchedTerms.slice(0, 3).map(term => (
+                          <span key={term} className="rounded-md border border-outline-variant/20 bg-surface px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                            {term}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        <span>{formatCurrency(project.totalValue)}</span>
+                        <span>{project._count.bids} bid{project._count.bids === 1 ? "" : "s"}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs font-black uppercase tracking-widest text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[16px]">folder_open</span>
@@ -313,6 +492,7 @@ async function FacilitatorDashboard({ userId, userName, inviteError }: { userId:
                 </Link>
               );
             })}
+            </div>
 
             {(invitedOpportunities.length > 0 || proposalPipeline.length > 0) && (
               <div className="pt-3">
