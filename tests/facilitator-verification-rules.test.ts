@@ -60,7 +60,7 @@ test("resolves portfolio verification from reviewable profile evidence", () => {
     bio: "Full-stack facilitator for SaaS teams.",
     skills: ["Next.js"],
     aiToolStack: ["Cursor"],
-  }), "VERIFIED");
+  }), "PENDING");
 
   assert.equal(resolvePortfolioVerificationStatus({
     portfolioUrl: "not-a-url",

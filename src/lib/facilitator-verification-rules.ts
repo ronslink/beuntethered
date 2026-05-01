@@ -103,7 +103,7 @@ export function resolvePortfolioVerificationStatus(profile: PortfolioEvidenceLik
   if (!isReviewableUrl(profile.portfolioUrl)) return "REJECTED";
   if (!profile.bio?.trim()) return "PENDING";
   if (!profile.skills || profile.skills.length === 0) return "PENDING";
-  return "VERIFIED";
+  return "PENDING";
 }
 
 export function buildPortfolioEvidence(profile: PortfolioEvidenceLike) {
