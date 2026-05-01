@@ -39,6 +39,7 @@ export async function submitMilestonePayload(formData: FormData) {
       milestoneId: formData.get("milestoneId"),
       previewUrl: formData.get("previewUrl"),
       evidenceSummary: formData.get("evidenceSummary"),
+      linkedEvidenceSourceIds: formData.getAll("linkedEvidenceSourceIds"),
     });
     const fileEntry = formData.get("payloadZip");
     const evidenceFiles = getUploadFilesFromFormData(formData, "evidenceFiles");
@@ -51,7 +52,7 @@ export async function submitMilestonePayload(formData: FormData) {
       return { success: false, error: "Confirm the submission maps to the proof gates and acceptance checks before submitting." };
     }
 
-    const { milestoneId, previewUrl, evidenceSummary } = parsed.data;
+    const { milestoneId, previewUrl, evidenceSummary, linkedEvidenceSourceIds } = parsed.data;
     const file = fileEntry;
     if (!file.name.endsWith(".zip") && !file.name.endsWith(".tar.gz")) {
       return { success: false, error: "Payload must be a .zip or .tar.gz archive" };
@@ -73,6 +74,29 @@ export async function submitMilestonePayload(formData: FormData) {
       return {
         success: false,
         error: "This milestone must be funded in escrow before delivery can be submitted.",
+      };
+    }
+
+    const linkedEvidenceSources = linkedEvidenceSourceIds.length > 0
+      ? await prisma.projectEvidenceSource.findMany({
+          where: {
+            id: { in: linkedEvidenceSourceIds },
+            project_id: milestone.project_id,
+          },
+          select: {
+            id: true,
+            type: true,
+            label: true,
+            url: true,
+            status: true,
+          },
+        })
+      : [];
+
+    if (linkedEvidenceSources.length !== linkedEvidenceSourceIds.length) {
+      return {
+        success: false,
+        error: "One or more selected evidence sources are no longer available on this project. Refresh and try again.",
       };
     }
 
@@ -152,6 +176,8 @@ export async function submitMilestonePayload(formData: FormData) {
         preview_url: previewUrl,
         evidence_count: uploadedEvidence.length,
         evidence_summary: evidenceSummary,
+        linked_evidence_sources: linkedEvidenceSources,
+        linked_evidence_source_count: linkedEvidenceSources.length,
         proof_attested: true,
       },
     });
@@ -177,6 +203,7 @@ export async function submitMilestonePayload(formData: FormData) {
       metadata: {
         milestone_id: milestone.id,
         facilitator_id: user.id,
+        linked_evidence_source_count: linkedEvidenceSources.length,
       },
     });
 

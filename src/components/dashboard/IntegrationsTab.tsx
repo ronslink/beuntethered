@@ -66,6 +66,12 @@ const SOURCE_OPTIONS: Array<{ type: EvidenceSourceTypeValue; label: string; icon
     helper: "Preview/production deployment and build evidence.",
   },
   {
+    type: "RAILWAY",
+    label: "Railway",
+    icon: "dns",
+    helper: "Backend service, worker, API, environment, and deployment evidence.",
+  },
+  {
     type: "SUPABASE",
     label: "Supabase",
     icon: "database",

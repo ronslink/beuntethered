@@ -327,6 +327,40 @@ export default function DossierClient({
                 </div>
               )}
 
+              {advisorPacket && (
+                <div className="rounded-lg border border-outline-variant/20 bg-surface p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        Bid Evidence Confidence
+                      </p>
+                      <p className="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+                        {advisorPacket.evidenceConfidence.hasSystemEvidence
+                          ? "This opportunity has connected technical evidence sources. Reference them in your proposal to make the bid more inspectable."
+                          : "This opportunity does not yet have strong technical evidence sources. Screenshots can support a bid, but live deployment, Railway service, repository, or data evidence is stronger."}
+                      </p>
+                    </div>
+                    <span className="rounded-md bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
+                      {advisorPacket.evidenceConfidence.level} confidence · {advisorPacket.evidenceConfidence.score}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {advisorPacket.evidenceConfidence.strengths.slice(0, 2).map((strength) => (
+                      <div key={strength} className="flex items-start gap-2 rounded-md bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant">
+                        <span className="material-symbols-outlined text-[14px] text-primary">fact_check</span>
+                        {strength}
+                      </div>
+                    ))}
+                    {advisorPacket.evidenceConfidence.gaps.slice(0, 2).map((gap) => (
+                      <div key={gap} className="flex items-start gap-2 rounded-md bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant">
+                        <span className="material-symbols-outlined text-[14px] text-secondary">add_task</span>
+                        {gap}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Quick Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
                 <div className="bg-surface border border-outline-variant/20 rounded-lg p-5 text-center">

@@ -69,6 +69,17 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
       metadata: { source: "playwright_seed" },
     },
   });
+  const evidenceSource = await prisma.projectEvidenceSource.create({
+    data: {
+      project_id: project.id,
+      created_by_id: facilitator.id,
+      type: "VERCEL",
+      label: "Delivery lifecycle preview",
+      url: "https://preview.example.com/delivery-lifecycle",
+      status: "CONNECTED",
+      metadata: { source: "playwright_seed" },
+    },
+  });
 
   try {
     await signInAs(page, facilitatorEmail);
@@ -81,6 +92,8 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
     await expect(page.getByText(/proof readiness/i)).toBeVisible();
     await expect(page.getByText(/submit preview, source archive, and evidence/i)).toBeVisible();
     await expect(page.getByText(/submission proof gates/i)).toBeVisible();
+    await expect(page.getByText(/linked evidence sources/i)).toBeVisible();
+    await page.getByLabel(/delivery lifecycle preview/i).check();
     await page.getByPlaceholder("https://preview.vercel.app").fill("https://preview.example.com/delivery-lifecycle");
     await page.getByPlaceholder(/summarize what changed/i).fill("The preview URL loads the operations dashboard, the attached source archive contains the implementation, and the evidence note documents the dashboard workflow acceptance check.");
     await page.getByLabel(/mapped this submission to the proof gates/i).check();
@@ -107,6 +120,29 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
       .toBe("SUBMITTED_FOR_REVIEW");
 
     await expect(page.getByText(/client reviewing staging/i)).toBeVisible();
+    await expect(page.getByText("Linked Source Evidence")).toBeVisible();
+    await expect(page.getByText("Delivery lifecycle preview")).toBeVisible();
+    await expect
+      .poll(async () => {
+        const activity = await prisma.activityLog.findFirst({
+          where: { project_id: project.id, milestone_id: milestone.id, action: "MILESTONE_SUBMITTED" },
+          orderBy: { created_at: "desc" },
+          select: { metadata: true },
+        });
+        const metadata = activity?.metadata;
+        if (!metadata || typeof metadata !== "object" || !("linked_evidence_sources" in metadata)) return null;
+        const sources = metadata.linked_evidence_sources;
+        if (!Array.isArray(sources)) return null;
+        const firstSource = sources[0];
+        return firstSource &&
+          typeof firstSource === "object" &&
+          !Array.isArray(firstSource) &&
+          "id" in firstSource &&
+          typeof firstSource.id === "string"
+          ? firstSource.id
+          : null;
+      })
+      .toBe(evidenceSource.id);
 
     await prisma.milestoneAudit.deleteMany({ where: { milestone_id: milestone.id } });
     const audit = await prisma.milestoneAudit.create({
@@ -226,6 +262,10 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
       await expect(clientPage.getByText(/ai delivery audit/i)).toBeVisible();
       await expect(clientPage.getByText("94%", { exact: true })).toBeVisible();
       await expect(clientPage.getByText(/preview url loads/i).first()).toBeVisible();
+      await expect(clientPage.getByText("Linked Source Evidence")).toBeVisible();
+      await expect(clientPage.getByText("Client Review Guide")).toBeVisible();
+      await expect(clientPage.getByText(/you do not need to understand every tool/i)).toBeVisible();
+      await expect(clientPage.getByText(/open the deployment link/i)).toBeVisible();
       await expect(clientPage.getByRole("link", { name: /test app/i })).toBeVisible();
       await clientPage.getByRole("button", { name: /open dispute/i }).click();
       await expect(clientPage.getByText(/dispute review context/i)).toBeVisible();

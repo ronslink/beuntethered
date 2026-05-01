@@ -737,6 +737,7 @@ enum PaymentStatus {
 enum EvidenceSourceType {
   GITHUB
   VERCEL
+  RAILWAY
   SUPABASE
   DOMAIN
   OTHER

@@ -179,6 +179,8 @@ export async function saveProjectEvidenceSource(input: unknown) {
                 ? "Attach migration/schema evidence. Do not share service-role keys in messages."
                 : data.type === "VERCEL"
                   ? "Connect deployment URL and commit mapping before milestone approval."
+                  : data.type === "RAILWAY"
+                    ? "Attach service/deployment URL, logs, and environment mapping. Do not share secrets."
                   : "Attach this source to the relevant milestone evidence packet.",
           facilitator_submitted: isFacilitator,
         },

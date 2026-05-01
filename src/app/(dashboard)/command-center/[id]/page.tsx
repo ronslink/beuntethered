@@ -19,6 +19,64 @@ import { buildMilestoneEvidencePacket, getProjectEvidenceSourceCoverage } from "
 import { formatReleaseAttestationValue, getReleaseAttestation } from "@/lib/release-attestation";
 import { BYOC_DISPUTE_EXCLUSION_MESSAGE, getProjectDisputeEligibility } from "@/lib/dispute-rules";
 
+type LinkedEvidenceSource = {
+  id: string;
+  type: string;
+  label: string;
+  url: string | null;
+  status: string;
+};
+
+function isLinkedEvidenceSource(value: unknown): value is LinkedEvidenceSource {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "id" in value &&
+    "type" in value &&
+    "label" in value &&
+    typeof value.id === "string" &&
+    typeof value.type === "string" &&
+    typeof value.label === "string"
+  );
+}
+
+function getSubmittedLinkedEvidenceSources(
+  logs: Array<{ action: string; metadata: unknown; created_at: Date }>
+) {
+  const submissionLog = logs.find((log) => log.action === "MILESTONE_SUBMITTED");
+  const metadata = submissionLog?.metadata;
+  if (!metadata || typeof metadata !== "object" || !("linked_evidence_sources" in metadata)) return [];
+  const sources = metadata.linked_evidence_sources;
+  return Array.isArray(sources) ? sources.filter(isLinkedEvidenceSource) : [];
+}
+
+function getClientEvidenceReviewHints(sources: LinkedEvidenceSource[]) {
+  const hints = new Set<string>();
+  if (sources.some((source) => source.type === "VERCEL")) {
+    hints.add("Open the deployment link and complete the main workflow as a real user.");
+  }
+  if (sources.some((source) => source.type === "RAILWAY")) {
+    hints.add("Ask the facilitator to open the Railway service URL or logs and show that the backend, worker, or API is running with the expected environment.");
+  }
+  if (sources.some((source) => source.type === "GITHUB")) {
+    hints.add("You do not need to read the code. Confirm the repository or pull request is attached for handoff and future maintenance.");
+  }
+  if (sources.some((source) => source.type === "SUPABASE")) {
+    hints.add("Ask the facilitator to show the migration, sample record, or admin data view that proves the backend change worked.");
+  }
+  if (sources.some((source) => source.type === "DOMAIN")) {
+    hints.add("Visit the domain in a private browser window and confirm the live site, SSL lock, and key pages load correctly.");
+  }
+  if (sources.some((source) => source.type === "OTHER")) {
+    hints.add("Review the linked report, recording, screenshot, or handoff note against the acceptance checks.");
+  }
+  if (hints.size === 0) {
+    hints.add("Open the submitted preview and compare the result against each acceptance check before releasing escrow.");
+  }
+  hints.add("If anything is unclear, ask for a walkthrough or screenshot before approving payment.");
+  return Array.from(hints).slice(0, 5);
+}
+
 export default async function ProjectCommandCenter({
   params,
   searchParams,
@@ -148,6 +206,13 @@ export default async function ProjectCommandCenter({
     evidence_source_coverage: getProjectEvidenceSourceCoverage(project.evidence_sources),
     milestone_evidence_packets: project.milestones.map((milestone) => buildMilestoneEvidencePacket(milestone)),
   };
+  const submissionEvidenceSources = project.evidence_sources.map((source) => ({
+    id: source.id,
+    type: source.type,
+    label: source.label,
+    url: source.url,
+    status: source.status,
+  }));
   const timelineEvents = project.timeline_events.map((event) => ({
     id: event.id,
     type: event.type,
@@ -456,6 +521,7 @@ export default async function ProjectCommandCenter({
                     const submissionAttachments = milestone.attachments.filter(
                       (attachment) => attachment.purpose === "MILESTONE_SUBMISSION"
                     );
+                    const linkedSubmissionSources = getSubmittedLinkedEvidenceSources(milestone.activity_logs);
                     const visibleSubmissionAttachments = milestone.attachments.filter(
                       (attachment) =>
                         attachment.purpose === "MILESTONE_SUBMISSION" &&
@@ -747,6 +813,72 @@ export default async function ProjectCommandCenter({
                             </div>
                           )}
 
+                          {linkedSubmissionSources.length > 0 && (
+                            <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-primary">
+                                    <span className="material-symbols-outlined text-[13px]">hub</span>
+                                    Linked Source Evidence
+                                  </p>
+                                  <p className="mt-1 text-xs font-medium text-on-surface-variant">
+                                    {isClient
+                                      ? "These project sources were attached by the facilitator to support this milestone review."
+                                      : "These connected sources are part of the proof packet the client will review."}
+                                  </p>
+                                </div>
+                                <Link
+                                  href={`/command-center/${project.id}?tab=integrations`}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/10"
+                                >
+                                  <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                                  Evidence tab
+                                </Link>
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {linkedSubmissionSources.map((source) => (
+                                  <a
+                                    key={source.id}
+                                    href={source.url || `/command-center/${project.id}?tab=integrations`}
+                                    target={source.url ? "_blank" : undefined}
+                                    rel={source.url ? "noreferrer" : undefined}
+                                    className="flex min-w-0 items-start gap-2 rounded-lg border border-outline-variant/20 bg-surface px-3 py-2 text-xs font-bold text-on-surface transition-colors hover:border-primary/40"
+                                  >
+                                    <span className="material-symbols-outlined mt-0.5 text-[14px] text-primary">verified</span>
+                                    <span className="min-w-0">
+                                      <span className="block truncate">{source.label}</span>
+                                      <span className="mt-0.5 block text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                                        {source.type.toLowerCase()} · {source.status.toLowerCase().replace(/_/g, " ")}
+                                      </span>
+                                      {source.url ? (
+                                        <span className="mt-1 block truncate text-[10px] font-medium text-primary">{source.url}</span>
+                                      ) : null}
+                                    </span>
+                                  </a>
+                                ))}
+                              </div>
+                              {isClient && (
+                                <div className="mt-4 rounded-xl border border-secondary/20 bg-secondary/10 p-4">
+                                  <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-secondary">
+                                    <span className="material-symbols-outlined text-[13px]">psychology</span>
+                                    Client Review Guide
+                                  </p>
+                                  <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+                                    You do not need to understand every tool. Use this checklist to decide what to ask, test, or confirm before approving escrow release.
+                                  </p>
+                                  <div className="mt-3 space-y-1.5">
+                                    {getClientEvidenceReviewHints(linkedSubmissionSources).map((hint) => (
+                                      <p key={hint} className="flex items-start gap-1.5 text-xs font-medium leading-5 text-on-surface-variant">
+                                        <span className="material-symbols-outlined mt-0.5 text-[13px] text-secondary">help</span>
+                                        {hint}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {latestRelease && (
                             <div className="mt-4 rounded-xl border border-tertiary/20 bg-tertiary/5 p-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -800,10 +932,14 @@ export default async function ProjectCommandCenter({
                             <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-outline-variant/10">
                               {isClientOwner && milestone.status === "PENDING" && (
                                 <ClientFundGateway milestoneId={milestone.id} amount={Number(milestone.amount)} isByoc={project.is_byoc} />
-                              )}
-                              {isFacilitator && !isHubLocked && milestone.status === "FUNDED_IN_ESCROW" && (
-                                <FacilitatorSubmitGateway milestoneId={milestone.id} proofPlan={proofPlan} />
-                              )}
+                                )}
+                                {isFacilitator && !isHubLocked && milestone.status === "FUNDED_IN_ESCROW" && (
+                                  <FacilitatorSubmitGateway
+                                    milestoneId={milestone.id}
+                                    proofPlan={proofPlan}
+                                    evidenceSources={submissionEvidenceSources}
+                                  />
+                                )}
                               {isClientOwner && milestone.status === "SUBMITTED_FOR_REVIEW" && milestone.live_preview_url && (() => {
                                 let auditStatus: "PENDING" | "SUCCESS" | "FAILED" | "NONE" = "PENDING";
                                 if (latestAudit) {

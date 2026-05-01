@@ -37,6 +37,9 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
         take: 20,
         select: { metadata: true },
       },
+      evidence_sources: {
+        select: { type: true, status: true, label: true },
+      },
     }
   });
 

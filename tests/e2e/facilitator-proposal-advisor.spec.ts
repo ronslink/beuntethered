@@ -83,6 +83,27 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     },
   });
 
+  await prisma.projectEvidenceSource.createMany({
+    data: [
+      {
+        project_id: project.id,
+        created_by_id: facilitator.id,
+        type: "VERCEL",
+        label: "Verified Stripe Portal preview",
+        url: "https://verified-stripe-portal.vercel.app",
+        status: "CONNECTED",
+      },
+      {
+        project_id: project.id,
+        created_by_id: facilitator.id,
+        type: "OTHER",
+        label: "Screenshot QA packet",
+        url: "https://example.com/screenshots",
+        status: "CONNECTED",
+      },
+    ],
+  });
+
   await prisma.projectInvite.create({
     data: {
       project_id: project.id,
@@ -105,6 +126,8 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await expect(page.getByRole("link", { name: /finish verification/i })).toHaveAttribute("href", "/settings");
     await expect(page.getByRole("heading", { name: "Proposal packet" }).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "Evidence plan" }).first()).toBeVisible();
+    await expect(page.getByText("Evidence confidence").first()).toBeVisible();
+    await expect(page.getByText(/connected technical sources can make this bid more credible/i).first()).toBeVisible();
     await expect(page.getByText("Staging URL or recorded walkthrough for buyer review").first()).toBeVisible();
     await expect(page.getByText("Which payment scenarios must pass in test mode before release?").first()).toBeVisible();
     await expect(page.locator(`a[href="/marketplace/project/${project.id}"]`)).toHaveAttribute(
@@ -115,6 +138,9 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await page.goto(`/marketplace/project/${project.id}`);
     await expect(page.getByText("Award readiness incomplete").first()).toBeVisible();
     await expect(page.getByText("Scope evidence").first()).toBeVisible();
+    await expect(page.getByText("Bid Evidence Confidence")).toBeVisible();
+    await expect(page.getByText(/live deployment, repository, or data evidence is stronger/i)).toHaveCount(0);
+    await expect(page.getByText(/connected technical evidence sources/i)).toBeVisible();
     await expect(page.getByText("Buyer scope checks passed.")).toBeVisible();
     await expect(page.getByText("Budget lock")).toBeVisible();
     await expect(page.getByText("Timeline lock")).toBeVisible();
@@ -123,6 +149,8 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await expect(page.getByText("Submit when ready, but complete verification before a buyer can award this proposal.")).toBeVisible();
     await page.getByRole("button", { name: /quick bid/i }).click();
     await expect(page.getByText("Advisor draft loaded")).toBeVisible();
+    await expect(page.getByText("Evidence confidence", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Reference connected sources such as deployments/i)).toBeVisible();
     await expect(page.getByPlaceholder("Enter your quote")).toHaveValue("");
     await expect(page.getByPlaceholder("Enter days")).toHaveValue("");
     await expect(page.locator("textarea").first()).toHaveValue(/facilitator-led execution/);

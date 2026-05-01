@@ -11,17 +11,36 @@ type SubmissionProofPlan = {
   reviewChecks: string[];
 };
 
+type SubmissionEvidenceSource = {
+  id: string;
+  type: string;
+  label: string;
+  url: string | null;
+  status: string;
+};
+
 export function FacilitatorSubmitGateway({
   milestoneId,
   proofPlan,
+  evidenceSources = [],
 }: {
   milestoneId: string;
   proofPlan?: SubmissionProofPlan;
+  evidenceSources?: SubmissionEvidenceSource[];
 }) {
   const [loading, setLoading] = useState(false);
   const [payloadName, setPayloadName] = useState("Payload");
   const [evidenceNames, setEvidenceNames] = useState<string[]>([]);
+  const [selectedEvidenceSourceIds, setSelectedEvidenceSourceIds] = useState<string[]>([]);
   const [proofAttested, setProofAttested] = useState(false);
+
+  const toggleEvidenceSource = (sourceId: string) => {
+    setSelectedEvidenceSourceIds((current) =>
+      current.includes(sourceId)
+        ? current.filter((id) => id !== sourceId)
+        : [...current, sourceId],
+    );
+  };
 
   const handleAction = async (formData: FormData) => {
     setLoading(true);
@@ -38,6 +57,9 @@ export function FacilitatorSubmitGateway({
   return (
     <form action={handleAction} className="flex w-full max-w-2xl flex-col gap-3 rounded-2xl border border-primary/20 bg-surface-container-low p-4">
       <input type="hidden" name="milestoneId" value={milestoneId} />
+      {selectedEvidenceSourceIds.map((sourceId) => (
+        <input key={sourceId} type="hidden" name="linkedEvidenceSourceIds" value={sourceId} />
+      ))}
       {proofPlan && (
         <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
           <div className="mb-2 flex items-center gap-2">
@@ -85,6 +107,56 @@ export function FacilitatorSubmitGateway({
       <p className="text-[10px] font-medium leading-relaxed text-on-surface-variant">
         Include the review path, any setup notes, and which acceptance checks the buyer should verify before release.
       </p>
+      <div className="rounded-xl border border-outline-variant/20 bg-surface px-3 py-3">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface">Linked evidence sources</p>
+            <p className="mt-1 text-[10px] font-medium leading-4 text-on-surface-variant">
+              Attach connected project sources that support this milestone packet.
+            </p>
+          </div>
+          <span className="rounded-full border border-outline-variant/20 bg-surface-container-low px-2 py-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+            {selectedEvidenceSourceIds.length} selected
+          </span>
+        </div>
+        {evidenceSources.length > 0 ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {evidenceSources.slice(0, 8).map((source) => {
+              const selected = selectedEvidenceSourceIds.includes(source.id);
+              return (
+                <label
+                  key={source.id}
+                  className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                    selected
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-outline-variant/20 bg-surface-container-low text-on-surface-variant hover:border-primary/30"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleEvidenceSource(source.id)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-primary)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-black text-on-surface">{source.label}</span>
+                    <span className="mt-0.5 block text-[9px] font-black uppercase tracking-widest">
+                      {source.type.toLowerCase().replace(/_/g, " ")} · {source.status.toLowerCase().replace(/_/g, " ")}
+                    </span>
+                    {source.url ? (
+                      <span className="mt-1 block truncate text-[10px] font-medium">{source.url}</span>
+                    ) : null}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-secondary/20 bg-secondary/10 px-3 py-2 text-[11px] font-medium leading-5 text-secondary">
+            No project evidence sources are linked yet. Add Vercel, GitHub, Supabase, domain, or external proof in the Evidence & Integrations tab.
+          </p>
+        )}
+      </div>
       <label className="flex items-start gap-2 rounded-xl border border-outline-variant/20 bg-surface px-3 py-2.5 text-xs font-medium text-on-surface-variant">
         <input
           type="checkbox"

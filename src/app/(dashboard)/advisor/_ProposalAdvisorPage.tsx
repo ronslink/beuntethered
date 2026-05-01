@@ -23,6 +23,9 @@ const advisorInclude = {
       created_at: true,
     },
   },
+  evidence_sources: {
+    select: { type: true, status: true, label: true },
+  },
   _count: { select: { bids: true } },
 } satisfies Prisma.ProjectInclude;
 
@@ -194,6 +197,30 @@ function ProjectAdvisorCard({
             <p className="text-[10px] uppercase tracking-widest font-black text-primary mb-1">Positioning</p>
             <p className="text-xs leading-relaxed text-on-surface-variant">{proposalPacket.positioning}</p>
           </div>
+          <div className="mb-4 rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant">
+                  Evidence confidence
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">
+                  {proposalPacket.evidenceConfidence.hasSystemEvidence
+                    ? "Connected technical sources can make this bid more credible than screenshots alone."
+                    : "Current proof is mostly self-attested; attach live deployment, repository, or data evidence when possible."}
+                </p>
+              </div>
+              <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                {proposalPacket.evidenceConfidence.level} · {proposalPacket.evidenceConfidence.score}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {proposalPacket.evidenceConfidence.strengths.slice(0, 3).map((strength) => (
+                <span key={strength} className="rounded-md border border-outline-variant/30 bg-surface px-2 py-1 text-[10px] font-bold text-on-surface-variant">
+                  {strength}
+                </span>
+              ))}
+            </div>
+          </div>
           {project.milestones.length > 0 ? (
             <ol className="space-y-3">
               {proposalPacket.milestoneStrategy.slice(0, 4).map((milestone, index) => (
@@ -234,6 +261,21 @@ function ProjectAdvisorCard({
               </li>
             ))}
           </ul>
+
+          {proposalPacket.evidenceConfidence.gaps.length > 0 && (
+            <>
+              <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mb-2">
+                Confidence gaps
+              </p>
+              <ul className="space-y-2 mb-5">
+                {proposalPacket.evidenceConfidence.gaps.slice(0, 2).map((gap) => (
+                  <li key={gap} className="text-xs leading-relaxed text-on-surface-variant">
+                    {gap}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
           <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mb-2">
             Proof prompts

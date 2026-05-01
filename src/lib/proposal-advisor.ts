@@ -1,3 +1,5 @@
+import { getEvidenceSourceBidConfidence, type ProjectEvidenceSourceInput } from "./delivery-evidence.ts";
+
 type ProposalMilestoneLike = {
   title?: string | null;
   description?: string | null;
@@ -11,6 +13,7 @@ type ProposalProjectLike = {
   title: string;
   ai_generated_sow?: string | null;
   milestones: ProposalMilestoneLike[];
+  evidence_sources?: ProjectEvidenceSourceInput[];
 };
 
 export type ProposalAdvisorPacket = {
@@ -24,6 +27,7 @@ export type ProposalAdvisorPacket = {
     outcome: string;
   }[];
   evidencePlan: string[];
+  evidenceConfidence: ReturnType<typeof getEvidenceSourceBidConfidence>;
   buyerQuestions: string[];
   riskNotes: string[];
   assumptions: string[];
@@ -65,6 +69,7 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
     (total, milestone) => total + (milestone.estimated_duration_days ?? 0),
     0,
   );
+  const evidenceConfidence = getEvidenceSourceBidConfidence(project.evidence_sources ?? []);
 
   const milestoneStrategy =
     project.milestones.length > 0
@@ -102,6 +107,9 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
   if (includesAny(scopeText, [/\b(migration|legacy|data import|existing system)\b/])) {
     evidence.add("Before/after data sample or migration validation report");
   }
+  evidenceConfidence.strengths.forEach((strength) => {
+    if (!/no connected/i.test(strength)) evidence.add(`Use connected ${strength} to support proposal confidence`);
+  });
 
   const questions = new Set<string>([
     "Who is the final approver for each milestone?",
@@ -123,6 +131,9 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
   if (project.milestones.length <= 1 && buyerBudgetTotal > 5000) {
     risks.add("Buyer baseline is concentrated in one milestone; consider proposing smaller funded checkpoints.");
   }
+  if (evidenceConfidence.level === "low") {
+    risks.add("Proposal confidence is lower until live deployment, Railway service, repository, or database evidence is connected.");
+  }
   if (includesAny(scopeText, [/\b(legacy|migration|data import|existing system)\b/])) {
     risks.add("Existing-system access could change scope; make access a start condition.");
   }
@@ -134,6 +145,7 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
     buyerTimelineDays: buyerTimelineDays > 0 ? buyerTimelineDays : null,
     milestoneStrategy,
     evidencePlan: Array.from(evidence).slice(0, 6),
+    evidenceConfidence,
     buyerQuestions: Array.from(questions).slice(0, 5),
     riskNotes: Array.from(risks).slice(0, 4),
     assumptions: [

@@ -153,6 +153,7 @@ export const milestoneSubmissionInputSchema = z.object({
   evidenceSummary: trimmed
     .min(20, "Explain how this delivery satisfies the acceptance criteria.")
     .max(5000),
+  linkedEvidenceSourceIds: z.array(trimmed.min(1)).max(10).default([]),
 });
 
 export const agentMilestoneSubmissionInputSchema = z.object({
@@ -355,7 +356,7 @@ export const projectRepositoryInputSchema = z.object({
   token: trimmed.max(4000).optional(),
 });
 
-export const projectEvidenceSourceTypeOptions = ["GITHUB", "VERCEL", "SUPABASE", "DOMAIN", "OTHER"] as const;
+export const projectEvidenceSourceTypeOptions = ["GITHUB", "VERCEL", "RAILWAY", "SUPABASE", "DOMAIN", "OTHER"] as const;
 
 export const projectEvidenceSourceInputSchema = z.object({
   projectId: trimmed.min(1),

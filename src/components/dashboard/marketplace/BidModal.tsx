@@ -346,6 +346,27 @@ export default function BidModal({
             </div>
           </div>
         )}
+        {advisorPacket && mode !== "SELECTION" && (
+          <div className="px-7 pb-3 shrink-0">
+            <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                    Evidence confidence
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">
+                    {advisorPacket.evidenceConfidence.hasSystemEvidence
+                      ? "Reference connected sources such as deployments, repositories, or data systems to strengthen the bid."
+                      : "Screenshots and notes help, but connected deployment, Railway service, repository, or data evidence will make the bid more credible."}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-md bg-primary/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-primary">
+                  {advisorPacket.evidenceConfidence.level} · {advisorPacket.evidenceConfidence.score}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Scrollable body ── */}
         <div className="overflow-y-auto flex-1 custom-scrollbar">
