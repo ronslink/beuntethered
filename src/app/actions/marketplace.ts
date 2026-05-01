@@ -80,6 +80,9 @@ export async function postProjectToMarketplace(sowData: any) {
         milestone_count: project.milestones.length,
         selected_facilitators: data.selected_facilitators.length,
         organization_id: organization?.id ?? null,
+        operation: "PROJECT_POSTED",
+        scope_validation_status: data.guardrailReport?.overallStatus ?? null,
+        scope_validation_report: data.guardrailReport ?? null,
       },
     });
 

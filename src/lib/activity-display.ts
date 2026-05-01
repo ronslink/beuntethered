@@ -87,8 +87,65 @@ function getEvidenceSummary(metadata: ActivityMetadata) {
   return summary as Record<string, unknown>;
 }
 
+function getScopeValidationReport(metadata: ActivityMetadata) {
+  const report = metadata.scope_validation_report;
+  if (!report || typeof report !== "object" || Array.isArray(report)) return null;
+  return report as {
+    overallStatus?: unknown;
+    items?: unknown;
+  };
+}
+
+function getScopeValidationItem(
+  report: ReturnType<typeof getScopeValidationReport>,
+  key: string
+) {
+  if (!report || !Array.isArray(report.items)) return null;
+  const item = report.items.find((entry) => (
+    entry &&
+    typeof entry === "object" &&
+    !Array.isArray(entry) &&
+    (entry as Record<string, unknown>).key === key
+  ));
+  return item && typeof item === "object" && !Array.isArray(item)
+    ? item as Record<string, unknown>
+    : null;
+}
+
+function formatValidationStatus(value: unknown) {
+  return typeof value === "string" ? value.replace(/_/g, " ") : "unknown";
+}
+
 export function getActivityEvidenceDetails(metadata: ActivityMetadata): ActivityEvidenceDetail[] {
   const operation = typeof metadata.operation === "string" ? metadata.operation : null;
+
+  if (operation === "PROJECT_POSTED") {
+    const report = getScopeValidationReport(metadata);
+    if (!report) {
+      return typeof metadata.milestone_count === "number"
+        ? [{ label: "Milestones", value: String(metadata.milestone_count), tone: "neutral" }]
+        : [];
+    }
+
+    const status = report.overallStatus === "passed" ? "passed" : "needs attention";
+    const budget = getScopeValidationItem(report, "budget");
+    const timeline = getScopeValidationItem(report, "timeline");
+    const regions = getScopeValidationItem(report, "regions");
+    const components = getScopeValidationItem(report, "components");
+    const evidence = getScopeValidationItem(report, "milestoneEvidence");
+    const details: Array<ActivityEvidenceDetail | null> = [
+      { label: "Scope validation", value: status, tone: status === "passed" ? "positive" : "attention" },
+      typeof metadata.milestone_count === "number"
+        ? { label: "Milestones", value: String(metadata.milestone_count), tone: "neutral" }
+        : null,
+      budget ? { label: "Budget", value: formatValidationStatus(budget.status), tone: budget.status === "passed" ? "positive" : "attention" } : null,
+      timeline ? { label: "Timeline", value: formatValidationStatus(timeline.status), tone: timeline.status === "passed" ? "positive" : "attention" } : null,
+      regions ? { label: "Regions", value: formatValidationStatus(regions.status), tone: regions.status === "passed" ? "positive" : "attention" } : null,
+      components ? { label: "Components", value: formatValidationStatus(components.status), tone: components.status === "passed" ? "positive" : "attention" } : null,
+      evidence ? { label: "Evidence", value: formatValidationStatus(evidence.status), tone: evidence.status === "passed" ? "positive" : "attention" } : null,
+    ];
+    return details.filter((detail): detail is ActivityEvidenceDetail => Boolean(detail));
+  }
 
   if (operation === "BYOC_INVITE_CREATED") {
     const clientTotal = formatCents(metadata.client_total_cents);
@@ -186,6 +243,16 @@ export function getActivityNarrative(metadata: ActivityMetadata) {
   const evidenceSummary = getEvidenceSummary(metadata);
   if (typeof evidenceSummary?.proof_summary === "string" && evidenceSummary.proof_summary.trim()) {
     return evidenceSummary.proof_summary.trim();
+  }
+
+  if (metadata.operation === "PROJECT_POSTED") {
+    const report = getScopeValidationReport(metadata);
+    if (report?.overallStatus === "passed") {
+      return "Scope validation passed before marketplace posting.";
+    }
+    if (report?.overallStatus === "needs_attention") {
+      return "Scope validation found items to review before facilitator delivery.";
+    }
   }
 
   return null;

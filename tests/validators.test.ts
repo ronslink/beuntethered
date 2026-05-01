@@ -494,6 +494,14 @@ test("validates marketplace project milestones for verifiable delivery", () => {
   const valid = projectPostingSchema.safeParse({
     title: "Billing Portal Build",
     executiveSummary: "Build a buyer-facing billing portal with Stripe checkout and verifiable payment evidence.",
+    guardrailReport: {
+      overallStatus: "passed",
+      items: [
+        { key: "budget", label: "Budget lock", status: "passed", detail: "Budget matched.", expected: "$2,500", actual: "$2,500" },
+        { key: "timeline", label: "Timeline lock", status: "passed", detail: "Timeline matched.", expected: "10 days", actual: "10 days" },
+        { key: "milestoneEvidence", label: "Milestone evidence", status: "passed", detail: "Evidence is ready.", actual: "1/1 ready" },
+      ],
+    },
     milestones: [
       {
         title: "Billing Portal",

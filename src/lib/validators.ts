@@ -355,12 +355,27 @@ export const projectRepositoryInputSchema = z.object({
   token: trimmed.max(4000).optional(),
 });
 
+const scopeValidationReportSchema = z.object({
+  overallStatus: z.enum(["passed", "needs_attention"]),
+  items: z.array(z.object({
+    key: z.enum(["budget", "timeline", "regions", "components", "milestoneEvidence"]),
+    label: trimmed.min(1).max(80),
+    status: z.enum(["passed", "needs_attention", "not_applicable"]),
+    detail: trimmed.min(1).max(500),
+    expected: trimmed.max(120).optional(),
+    actual: trimmed.max(120).optional(),
+    present: z.array(trimmed.max(160)).optional(),
+    missing: z.array(trimmed.max(160)).optional(),
+  })).max(8),
+});
+
 export const projectPostingSchema = z.object({
   title: trimmed.min(3).max(180),
   executiveSummary: trimmed.min(20).max(20000),
   mode: trimmed.optional(),
   selected_facilitators: z.array(z.object({ id: trimmed.min(1) })).default([]),
   biddingClosesAt: trimmed.optional(),
+  guardrailReport: scopeValidationReportSchema.optional(),
   milestones: z.array(
     z.object({
       title: trimmed.min(1).max(180),

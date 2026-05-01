@@ -50,6 +50,59 @@ test("activity evidence details make arbitration outcomes readable", () => {
   assert.equal(getActivityNarrative(metadata), "Preview failed and required evidence was missing.");
 });
 
+test("activity evidence details show posted scope validation", () => {
+  const metadata = {
+    operation: "PROJECT_POSTED",
+    milestone_count: 2,
+    scope_validation_report: {
+      overallStatus: "passed",
+      items: [
+        { key: "budget", label: "Budget lock", status: "passed", detail: "Budget matched." },
+        { key: "timeline", label: "Timeline lock", status: "passed", detail: "Timeline matched." },
+        { key: "regions", label: "Region coverage", status: "passed", detail: "Regions matched." },
+        { key: "components", label: "Component coverage", status: "passed", detail: "Components matched." },
+        { key: "milestoneEvidence", label: "Milestone evidence", status: "passed", detail: "Evidence ready." },
+      ],
+    },
+  };
+
+  assert.deepEqual(getActivityEvidenceDetails(metadata), [
+    { label: "Scope validation", value: "passed", tone: "positive" },
+    { label: "Milestones", value: "2", tone: "neutral" },
+    { label: "Budget", value: "passed", tone: "positive" },
+    { label: "Timeline", value: "passed", tone: "positive" },
+    { label: "Regions", value: "passed", tone: "positive" },
+    { label: "Components", value: "passed", tone: "positive" },
+    { label: "Evidence", value: "passed", tone: "positive" },
+  ]);
+  assert.equal(getActivityNarrative(metadata), "Scope validation passed before marketplace posting.");
+});
+
+test("activity evidence details flag posted scope validation gaps", () => {
+  const metadata = {
+    operation: "PROJECT_POSTED",
+    milestone_count: 1,
+    scope_validation_report: {
+      overallStatus: "needs_attention",
+      items: [
+        { key: "budget", label: "Budget lock", status: "passed", detail: "Budget matched." },
+        { key: "timeline", label: "Timeline lock", status: "needs_attention", detail: "Timeline mismatch." },
+        { key: "milestoneEvidence", label: "Milestone evidence", status: "needs_attention", detail: "Evidence needs work." },
+      ],
+    },
+  };
+
+  const details = getActivityEvidenceDetails(metadata);
+
+  assert.deepEqual(details.slice(0, 4), [
+    { label: "Scope validation", value: "needs attention", tone: "attention" },
+    { label: "Milestones", value: "1", tone: "neutral" },
+    { label: "Budget", value: "passed", tone: "positive" },
+    { label: "Timeline", value: "needs attention", tone: "attention" },
+  ]);
+  assert.equal(getActivityNarrative(metadata), "Scope validation found items to review before facilitator delivery.");
+});
+
 test("activity scope labels distinguish workspace admin actions", () => {
   const metadata = {
     actor_scope: "WORKSPACE_ADMIN",

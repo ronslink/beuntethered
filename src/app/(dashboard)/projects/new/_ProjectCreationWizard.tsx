@@ -496,6 +496,7 @@ export default function ProjectCreationWizard() {
          ...(editableSoW || sowData),
          mode,
          marketFit: feasibilityAssessment.status,
+         guardrailReport: sowGuardrailReport,
          selected_facilitators: [],
          biddingClosesAt,
       };
@@ -521,6 +522,7 @@ export default function ProjectCreationWizard() {
          ...(editableSoW || sowData),
          mode,
          marketFit: feasibilityAssessment.status,
+         guardrailReport: sowGuardrailReport,
          selected_facilitators: selectedFacilitators,
          biddingClosesAt,
       };
