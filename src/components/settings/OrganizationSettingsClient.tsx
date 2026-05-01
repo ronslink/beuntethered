@@ -92,7 +92,13 @@ export default function OrganizationSettingsClient({
       setName(trimmedName);
       setWebsite(normalizedWebsite);
       setBillingEmail(trimmedBillingEmail);
-      setStatus({ kind: "success", message: "Workspace identity saved." });
+      const businessVerificationStatus = "businessVerificationStatus" in result ? result.businessVerificationStatus : undefined;
+      setStatus({
+        kind: "success",
+        message: businessVerificationStatus === "PENDING"
+          ? "Workspace identity saved. Business evidence queued for manual review."
+          : "Workspace identity saved.",
+      });
       router.refresh();
     });
   };

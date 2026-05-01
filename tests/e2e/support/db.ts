@@ -103,5 +103,21 @@ export async function cleanupByEmailPrefix(prefix: string) {
   await prisma.savedSearch.deleteMany({ where: { user_id: { in: ids } } });
   await prisma.accountRiskSignal.deleteMany({ where: { user_id: { in: ids } } });
   await prisma.verification.deleteMany({ where: { user_id: { in: ids } } });
+  const organizations = await prisma.organization.findMany({
+    where: { owner_id: { in: ids } },
+    select: { id: true },
+  });
+  const organizationIds = organizations.map((organization) => organization.id);
+  await prisma.organizationMember.deleteMany({
+    where: {
+      OR: [
+        { user_id: { in: ids } },
+        ...(organizationIds.length > 0 ? [{ organization_id: { in: organizationIds } }] : []),
+      ],
+    },
+  });
+  if (organizationIds.length > 0) {
+    await prisma.organization.deleteMany({ where: { id: { in: organizationIds } } });
+  }
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
 }

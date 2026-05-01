@@ -128,7 +128,7 @@ export async function updateOrganizationProfile(input: unknown) {
       },
     });
 
-    await tx.verification.upsert({
+    const verification = await tx.verification.upsert({
       where: {
         user_id_type: {
           user_id: user.id,
@@ -154,13 +154,13 @@ export async function updateOrganizationProfile(input: unknown) {
       },
     });
 
-    return saved;
+    return { saved, verificationStatus: verification.status };
   });
 
   revalidatePath("/settings");
   revalidatePath("/dashboard");
 
-  return { success: true, organizationId: organization.id };
+  return { success: true, organizationId: organization.saved.id, businessVerificationStatus: organization.verificationStatus };
 }
 
 export async function addOrganizationMember(input: unknown) {

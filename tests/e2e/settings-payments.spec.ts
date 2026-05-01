@@ -7,7 +7,7 @@ test("client sees settings payment readiness and fee model", async ({ page }) =>
   const clientEmail = `${prefix}-client@example.com`;
 
   await cleanupByEmailPrefix("playwright-settings-");
-  await seedUser({ email: clientEmail, role: "CLIENT", name: "Settings Buyer" });
+  const client = await seedUser({ email: clientEmail, role: "CLIENT", name: "Settings Buyer" });
 
   try {
     await signInAs(page, clientEmail);
@@ -22,6 +22,20 @@ test("client sees settings payment readiness and fee model", async ({ page }) =>
     await expect(page.getByText("Facilitator Fee")).toBeVisible();
     await expect(page.getByText("0%", { exact: true })).toBeVisible();
     await expect(page.getByText("Created during first checkout", { exact: true })).toBeVisible();
+
+    await page.getByPlaceholder("Acme Software").fill("Settings Buyer Co");
+    await page.getByPlaceholder("https://acme.com").fill("settingsbuyer.example.com");
+    await page.getByPlaceholder("ap@acme.com").fill("billing@settingsbuyer.example.com");
+    await page.getByRole("button", { name: /save workspace/i }).click();
+    await expect(page.getByText("Workspace identity saved. Business evidence queued for manual review.")).toBeVisible();
+    await expect
+      .poll(async () =>
+        prisma.verification.findUnique({
+          where: { user_id_type: { user_id: client.id, type: "BUSINESS" } },
+          select: { status: true, provider: true },
+        }),
+      )
+      .toEqual({ status: "PENDING", provider: null });
   } finally {
     await cleanupByEmailPrefix(prefix);
   }
