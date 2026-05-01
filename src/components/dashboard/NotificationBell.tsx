@@ -1,20 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { getUserNotifications, markAllNotificationsAsRead, markNotificationAsRead } from "@/app/actions/notifications";
 import Link from "next/link";
+import {
+  getNotificationCategory,
+  getNotificationCenterCounts,
+  isPersistentUnread,
+  type NotificationCenterItem,
+} from "@/lib/notification-center";
 
 type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "MILESTONE" | "MESSAGE" | "BID" | "ALERT";
 
-interface NotificationItem {
-  id: string;
-  message: string;
-  type: NotificationType;
-  read: boolean;
-  createdAt: Date;
-  href?: string;
-  detail?: string;
-}
+type NotificationItem = NotificationCenterItem & { type: NotificationType };
 
 function getNotificationIcon(type: NotificationType): string {
   switch (type) {
@@ -64,7 +63,9 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const counts = getNotificationCenterCounts(notifications);
+  const actionItems = notifications.filter(notification => getNotificationCategory(notification) === "ACTION").slice(0, 5);
+  const recentItems = notifications.filter(notification => getNotificationCategory(notification) !== "ACTION").slice(0, 12);
 
   useEffect(() => {
     async function fetchNotifications() {
@@ -72,7 +73,10 @@ export function NotificationBell() {
       try {
         const result = await getUserNotifications();
         if (result.success) {
-          setNotifications(result.notifications as NotificationItem[]);
+          setNotifications(result.notifications.map((notification) => ({
+            ...notification,
+            createdAt: notification.createdAt,
+          })) as NotificationItem[]);
         }
       } catch (error) {
         console.error("Failed to fetch notifications:", error);
@@ -124,9 +128,9 @@ export function NotificationBell() {
         aria-label="Notifications"
       >
         <span className="material-symbols-outlined">notifications</span>
-        {unreadCount > 0 && (
+        {counts.unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {counts.unread > 99 ? "99+" : counts.unread}
           </span>
         )}
       </button>
@@ -134,23 +138,33 @@ export function NotificationBell() {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-hidden bg-surface-container-high/95 backdrop-blur-2xl rounded-2xl border border-outline-variant/30 shadow-2xl z-50"
+          className="absolute right-0 top-full mt-2 w-[420px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface/95 shadow-2xl backdrop-blur-2xl z-50"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30">
-            <h3 className="font-semibold text-on-surface text-sm">Notifications</h3>
-            {unreadCount > 0 && (
+          <div className="border-b border-outline-variant/30 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">Action Center</p>
+                <h3 className="text-sm font-black text-on-surface">Notifications</h3>
+              </div>
+              {counts.unread > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/15"
               >
                 Mark all as read
               </button>
-            )}
+              )}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <NotificationStat label="Needs action" value={actionItems.length} />
+              <NotificationStat label="Unread" value={counts.unread} />
+              <NotificationStat label="Trust events" value={counts.trust} />
+            </div>
           </div>
 
           {/* Notification list */}
-          <div className="overflow-y-auto max-h-72">
+          <div className="max-h-[520px] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <span className="material-symbols-outlined text-on-surface-variant animate-spin">progress_activity</span>
@@ -161,51 +175,110 @@ export function NotificationBell() {
                 <p className="text-on-surface-variant text-sm">No notifications yet</p>
               </div>
             ) : (
-              <ul className="divide-y divide-outline-variant/20">
-                {notifications.map((notification) => {
-                  const inner = (
-                    <div className="flex gap-3">
-                      <span className={`material-symbols-outlined text-xl flex-shrink-0 ${getNotificationColor(notification.type)}`}>
-                        {getNotificationIcon(notification.type)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${notification.read ? "text-on-surface-variant" : "text-on-surface font-medium"}`}>
-                          {notification.message}
-                        </p>
-                        {notification.detail && (
-                          <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
-                            {notification.detail}
-                          </p>
-                        )}
-                        <p className="text-xs text-on-surface-variant/70 mt-1">
-                          {formatTimestamp(notification.createdAt)}
-                        </p>
-                      </div>
-                      {!notification.read && (
-                        <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2" />
-                      )}
+              <div className="space-y-4 p-3">
+                {actionItems.length > 0 && (
+                  <NotificationSection title="Needs Action" icon="task_alt">
+                    {actionItems.map(notification => (
+                      <NotificationRow
+                        key={notification.id}
+                        notification={notification}
+                        onOpen={() => handleNotificationClick(notification.id)}
+                        prominent
+                      />
+                    ))}
+                  </NotificationSection>
+                )}
+
+                <NotificationSection title="Recent Activity" icon="history">
+                  {recentItems.length === 0 ? (
+                    <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-5 text-center">
+                      <p className="text-sm font-bold text-on-surface">No recent activity</p>
+                      <p className="mt-1 text-xs font-medium text-on-surface-variant">Trust events, messages, and system notices will appear here.</p>
                     </div>
-                  );
-                  const liClass = `px-4 py-3 hover:bg-surface-container transition-colors ${!notification.read ? "bg-primary/5" : ""}`;
-                  return notification.href ? (
-                    <li key={notification.id}>
-                      <Link href={notification.href} onClick={() => handleNotificationClick(notification.id)} className={`block ${liClass}`}>
-                        {inner}
-                      </Link>
-                    </li>
-                  ) : (
-                    <li key={notification.id} className={liClass}>
-                      <button type="button" onClick={() => handleNotificationClick(notification.id)} className="block w-full text-left">
-                        {inner}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                  ) : recentItems.map(notification => (
+                    <NotificationRow
+                      key={notification.id}
+                      notification={notification}
+                      onOpen={() => handleNotificationClick(notification.id)}
+                    />
+                  ))}
+                </NotificationSection>
+              </div>
             )}
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function NotificationStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2">
+      <p className="text-lg font-black leading-none text-on-surface">{value}</p>
+      <p className="mt-1 text-[8px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+    </div>
+  );
+}
+
+function NotificationSection({ title, icon, children }: { title: string; icon: string; children: ReactNode }) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center gap-2 px-1">
+        <span className="material-symbols-outlined text-[15px] text-primary">{icon}</span>
+        <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface">{title}</h4>
+      </div>
+      <div className="space-y-2">{children}</div>
+    </section>
+  );
+}
+
+function NotificationRow({
+  notification,
+  onOpen,
+  prominent = false,
+}: {
+  notification: NotificationItem;
+  onOpen: () => void;
+  prominent?: boolean;
+}) {
+  const content = (
+    <div className={`flex gap-3 rounded-xl border px-3 py-3 transition-colors ${
+      prominent
+        ? "border-primary/20 bg-primary/5 hover:bg-primary/10"
+        : isPersistentUnread(notification)
+          ? "border-primary/20 bg-primary/5 hover:bg-surface-container-high"
+          : "border-outline-variant/20 bg-surface-container-low hover:bg-surface-container-high"
+    }`}>
+      <span className={`material-symbols-outlined mt-0.5 shrink-0 text-xl ${getNotificationColor(notification.type)}`}>
+        {getNotificationIcon(notification.type)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm leading-5 ${notification.read ? "font-medium text-on-surface-variant" : "font-bold text-on-surface"}`}>
+          {notification.message}
+        </p>
+        {notification.detail && (
+          <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-4 text-on-surface-variant">
+            {notification.detail}
+          </p>
+        )}
+        <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">
+          {formatTimestamp(new Date(notification.createdAt))}
+        </p>
+      </div>
+      {isPersistentUnread(notification) && (
+        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />
+      )}
+    </div>
+  );
+
+  return notification.href ? (
+    <Link href={notification.href} onClick={onOpen} className="block">
+      {content}
+    </Link>
+  ) : (
+    <button type="button" onClick={onOpen} className="block w-full text-left">
+      {content}
+    </button>
   );
 }

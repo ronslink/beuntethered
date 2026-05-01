@@ -20,6 +20,8 @@ export interface NotificationItem {
   createdAt: Date;
   href?: string;
   detail?: string;
+  category?: "ACTION" | "TRUST" | "MESSAGE" | "SYSTEM";
+  persistent?: boolean;
 }
 
 export async function getUserNotifications(): Promise<{ success: boolean; notifications: NotificationItem[] }> {
@@ -40,6 +42,8 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
       read: Boolean(notification.read_at),
       createdAt: notification.created_at,
       href: notification.href ?? undefined,
+      category: "SYSTEM",
+      persistent: true,
     }));
 
     if (user.role === "CLIENT") {
@@ -66,6 +70,9 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
             read: false,
             createdAt: latest.created_at,
             href: `/projects/${p.id}`,
+            detail: "Review, shortlist, negotiate, or award the proposal queue.",
+            category: "ACTION",
+            persistent: false,
           });
         }
       }
@@ -88,6 +95,9 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
           read: false,
           createdAt: new Date(),
           href: `/command-center/${m.project.id}`,
+          detail: `Project: ${m.project.title}`,
+          category: "ACTION",
+          persistent: false,
         });
       }
     }
@@ -107,6 +117,10 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
             type: "MESSAGE",
             read: false,
             createdAt: b.updated_at,
+            href: `/marketplace/project/${b.project.id}`,
+            detail: "Open the project to respond or revise your proposal.",
+            category: "ACTION",
+            persistent: false,
           });
         }
         if (b.status === "ACCEPTED") {
@@ -116,6 +130,10 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
             type: "SUCCESS",
             read: false,
             createdAt: b.updated_at,
+            href: `/command-center/${b.project.id}`,
+            detail: "Open active work and review escrow milestones.",
+            category: "TRUST",
+            persistent: false,
           });
         }
       }
@@ -156,6 +174,8 @@ export async function getUserNotifications(): Promise<{ success: boolean; notifi
         read: true,
         createdAt: log.created_at,
         href: getProjectActivityHref(log.project),
+        category: copy.isWorkspaceAdmin ? "TRUST" : "SYSTEM",
+        persistent: false,
       });
     }
 
