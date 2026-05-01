@@ -402,7 +402,12 @@ export default async function SettingsPage() {
           <div id="verification" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">verified_user</span>
-              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Verification Evidence</h2>
+              <div>
+                <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Verification Evidence</h2>
+                <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
+                  Trust checks that affect shortlist confidence, bid awards, and payout readiness.
+                </p>
+              </div>
             </div>
             <div className={`grid grid-cols-1 ${isFacilitator ? "md:grid-cols-3" : "md:grid-cols-1"} divide-y md:divide-y-0 md:divide-x divide-outline-variant/10`}>
               {(isFacilitator
@@ -427,6 +432,59 @@ export default async function SettingsPage() {
                 </div>
               ))}
             </div>
+            {isFacilitator ? (
+              <div className="border-t border-outline-variant/10 p-5">
+                <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4" data-testid="award-eligibility-checklist">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-primary">Award Eligibility Checklist</p>
+                      <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+                        These are the buyer-trust gates that affect winning marketplace bids and receiving escrow payouts.
+                      </p>
+                    </div>
+                    <span className="rounded-lg border border-outline-variant/20 bg-surface px-2 py-1 text-[10px] font-black text-on-surface">
+                      {verificationCount}/{verificationTotal}
+                    </span>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <VerificationGate
+                      icon="badge"
+                      label="Identity"
+                      status={identityVerification}
+                      detail={identityVerification === "VERIFIED"
+                        ? "Required identity check is complete."
+                        : "Complete identity verification before bid awards can be finalized."}
+                      href="#verification"
+                    />
+                    <VerificationGate
+                      icon="account_balance"
+                      label="Stripe payouts"
+                      status={stripeVerification}
+                      detail={stripeVerification === "VERIFIED"
+                        ? "Payout readiness is verified."
+                        : "Connect and verify Stripe Express for milestone payout release."}
+                      href="#verification"
+                    />
+                    <VerificationGate
+                      icon="work_history"
+                      label="Portfolio evidence"
+                      status={portfolioVerification}
+                      detail={portfolioVerification === "VERIFIED"
+                        ? "Portfolio evidence is verified for buyer review."
+                        : "Add a credible portfolio URL so platform review can verify delivery history."}
+                      href="#professional-profile"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <FacilitatorVerificationActions
+                    hasStripeAccount={!!user.stripe_account_id}
+                    stripeStatus={stripeVerification}
+                    identityStatus={identityVerification}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <aside className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
@@ -647,53 +705,6 @@ export default async function SettingsPage() {
             </p>
             {user.role === "FACILITATOR" ? (
               <div className="space-y-3">
-                <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4" data-testid="award-eligibility-checklist">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-primary">Award Eligibility Checklist</p>
-                      <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
-                        These are the buyer-trust gates that affect winning marketplace bids and receiving escrow payouts.
-                      </p>
-                    </div>
-                    <span className="rounded-lg border border-outline-variant/20 bg-surface-container-high px-2 py-1 text-[10px] font-black text-on-surface">
-                      {verificationCount}/{verificationTotal}
-                    </span>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <VerificationGate
-                      icon="badge"
-                      label="Identity"
-                      status={identityVerification}
-                      detail={identityVerification === "VERIFIED"
-                        ? "Required identity check is complete."
-                        : "Complete identity verification before bid awards can be finalized."}
-                      href="#payments-payouts"
-                    />
-                    <VerificationGate
-                      icon="account_balance"
-                      label="Stripe payouts"
-                      status={stripeVerification}
-                      detail={stripeVerification === "VERIFIED"
-                        ? "Payout readiness is verified."
-                        : "Connect and verify Stripe Express for milestone payout release."}
-                      href="#payments-payouts"
-                    />
-                    <VerificationGate
-                      icon="work_history"
-                      label="Portfolio evidence"
-                      status={portfolioVerification}
-                      detail={portfolioVerification === "VERIFIED"
-                        ? "Portfolio evidence is verified for buyer review."
-                        : "Add a credible portfolio URL so platform review can verify delivery history."}
-                      href="#professional-profile"
-                    />
-                  </div>
-                </div>
-                <FacilitatorVerificationActions
-                  hasStripeAccount={!!user.stripe_account_id}
-                  stripeStatus={stripeVerification}
-                  identityStatus={identityVerification}
-                />
                 <StripeDashboardButton hasStripeAccount={!!user.stripe_account_id} />
               </div>
             ) : (
