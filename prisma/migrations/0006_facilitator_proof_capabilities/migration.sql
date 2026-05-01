@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "proof_capabilities" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

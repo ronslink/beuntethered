@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { saveOnboardingStep } from "@/app/actions/onboarding";
 import { useRouter } from "next/navigation";
+import { EVIDENCE_SOURCE_GUIDE, type EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
+import { getEvidenceProviderBrand } from "@/lib/evidence-provider-branding";
 
 const SKILL_SUGGESTIONS = [
   "React", "Next.js", "TypeScript", "Node.js", "Python", "PostgreSQL",
@@ -24,6 +26,30 @@ const AI_AGENT_OPTIONS = [
   { id: "bolt", label: "Bolt.new", icon: "bolt" },
   { id: "windsurf", label: "Windsurf", icon: "sailing" },
 ];
+
+const EVIDENCE_SOURCE_TYPES = new Set(EVIDENCE_SOURCE_GUIDE.map((item) => item.type));
+
+function normalizeEvidenceTypes(values: string[]) {
+  return values.filter((value): value is EvidenceSourceTypeValue => EVIDENCE_SOURCE_TYPES.has(value as EvidenceSourceTypeValue));
+}
+
+function EvidenceProviderIcon({ type }: { type: EvidenceSourceTypeValue }) {
+  const brand = getEvidenceProviderBrand(type);
+
+  if (!brand.icon) {
+    return (
+      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-current/20 px-1 text-[8px] font-black">
+        {brand.fallbackText}
+      </span>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 shrink-0" fill="currentColor">
+      <path d={brand.icon.path} />
+    </svg>
+  );
+}
 
 function TagPicker({ label, tags, setTags, suggestions }: {
   label: string; tags: string[]; setTags: (t: string[]) => void; suggestions: string[];
@@ -77,6 +103,7 @@ function TagPicker({ label, tags, setTags, suggestions }: {
 export function FacilitatorProfileSettings({ initial }: {
   initial: {
     bio: string | null; skills: string[]; aiAgentStack: string[];
+    proofCapabilities: string[];
     portfolioUrl: string | null; availability: string | null;
     yearsExperience: number | null; preferredProjectSize: string | null;
     hourlyRate: number;
@@ -90,6 +117,9 @@ export function FacilitatorProfileSettings({ initial }: {
   const [bio, setBio] = useState(initial.bio ?? "");
   const [skills, setSkills] = useState<string[]>(initial.skills);
   const [aiStack, setAiStack] = useState<string[]>(initial.aiAgentStack);
+  const [proofCapabilities, setProofCapabilities] = useState<EvidenceSourceTypeValue[]>(
+    normalizeEvidenceTypes(initial.proofCapabilities)
+  );
   const [portfolioUrl, setPortfolioUrl] = useState(initial.portfolioUrl ?? "");
   const [availability, setAvailability] = useState(initial.availability ?? "AVAILABLE");
   const [yearsExp, setYearsExp] = useState(initial.yearsExperience ?? 1);
@@ -100,7 +130,17 @@ export function FacilitatorProfileSettings({ initial }: {
     setSaved(false);
     setStatusMessage("");
     startTransition(async () => {
-      const profileResult = await saveOnboardingStep({ step: "profile", bio, skills, aiAgentStack: aiStack, portfolioUrl, availability, yearsExperience: yearsExp, preferredProjectSize: projectSize });
+      const profileResult = await saveOnboardingStep({
+        step: "profile",
+        bio,
+        skills,
+        aiAgentStack: aiStack,
+        proofCapabilities,
+        portfolioUrl,
+        availability,
+        yearsExperience: yearsExp,
+        preferredProjectSize: projectSize,
+      });
       if (!profileResult.success) {
         setStatusMessage(profileResult.error || "Profile could not be saved.");
         return;
@@ -146,6 +186,43 @@ export function FacilitatorProfileSettings({ initial }: {
                 <span className="material-symbols-outlined text-[15px]">{ag.icon}</span>
                 {ag.label}
                 {selected && <span className="material-symbols-outlined text-[13px] ml-auto" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-2">
+          Active Proof Capabilities
+        </label>
+        <p className="mb-3 text-xs font-medium leading-relaxed text-on-surface-variant">
+          Select the systems you can use to prove milestone delivery through deployments, repos, databases, domains, logs, or release reports.
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+          {EVIDENCE_SOURCE_GUIDE.map((source) => {
+            const selected = proofCapabilities.includes(source.type);
+            return (
+              <button
+                key={source.type}
+                type="button"
+                onClick={() =>
+                  setProofCapabilities(
+                    selected
+                      ? proofCapabilities.filter((capability) => capability !== source.type)
+                      : [...proofCapabilities, source.type]
+                  )
+                }
+                className={`flex min-h-[44px] items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-bold transition-all ${
+                  selected
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-outline-variant/20 text-on-surface-variant hover:border-primary/30 hover:text-on-surface"
+                }`}
+                title={source.description}
+              >
+                <EvidenceProviderIcon type={source.type} />
+                <span className="min-w-0 truncate">{source.label}</span>
+                {selected && <span className="material-symbols-outlined ml-auto text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
               </button>
             );
           })}

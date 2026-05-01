@@ -162,7 +162,7 @@ export default async function SettingsPage() {
       openai_key_encrypted: true, anthropic_key_encrypted: true, google_key_encrypted: true,
       agent_key_hash: true, stripe_account_id: true, stripe_customer_id: true,
       // Profile fields
-      bio: true, skills: true, ai_agent_stack: true, portfolio_url: true,
+      bio: true, skills: true, ai_agent_stack: true, proof_capabilities: true, portfolio_url: true,
       availability: true, years_experience: true, preferred_project_size: true,
       hourly_rate: true,
       // Client fields
@@ -270,7 +270,7 @@ export default async function SettingsPage() {
   const workspaceType = editableOrganization?.type ?? user.company_type ?? "";
   const isFacilitator = user.role === "FACILITATOR";
   const profileComplete = isFacilitator
-    ? Boolean(user.bio && user.skills.length > 0 && user.ai_agent_stack.length > 0 && user.portfolio_url)
+    ? Boolean(user.bio && user.skills.length > 0 && user.ai_agent_stack.length > 0 && user.proof_capabilities.length > 0 && user.portfolio_url)
     : Boolean(workspaceName && workspaceType && user.typical_project_budget);
   const hasPaymentIdentity = isFacilitator ? Boolean(user.stripe_account_id) : Boolean(user.stripe_customer_id);
   const paymentReady = isFacilitator ? hasPaymentIdentity : true;
@@ -317,6 +317,9 @@ export default async function SettingsPage() {
       : null,
     user.role === "FACILITATOR" && portfolioVerification !== "VERIFIED"
       ? { label: "Add or verify portfolio evidence", href: "#professional-profile" }
+      : null,
+    user.role === "FACILITATOR" && user.proof_capabilities.length === 0
+      ? { label: "Select active proof capabilities for buyer-visible evidence matching", href: "#professional-profile" }
       : null,
     user.role === "CLIENT" && businessVerification !== "VERIFIED"
       ? { label: "Add business verification evidence", href: "#workspace-billing" }
@@ -584,6 +587,7 @@ export default async function SettingsPage() {
                 bio: user.bio,
                 skills: user.skills,
                 aiAgentStack: user.ai_agent_stack,
+                proofCapabilities: user.proof_capabilities,
                 portfolioUrl: user.portfolio_url,
                 availability: user.availability,
                 yearsExperience: user.years_experience,

@@ -16,6 +16,7 @@ test("scores an evidence-backed facilitator as enterprise ready", () => {
     availability: "AVAILABLE",
     connectedEvidenceSourceCount: 3,
     evidenceProviderTypes: ["GITHUB", "VERCEL", "SUPABASE"],
+    proofCapabilityTypes: ["GITHUB", "VERCEL", "SUPABASE"],
   });
 
   assert.equal(profile.proofLevel, "enterprise_ready");
@@ -61,4 +62,23 @@ test("keeps dispute records visible as buyer attention items", () => {
   assert.ok(profile.proofScore < 82);
   assert.ok(profile.buyerSignals.some((signal) => signal.key === "disputes" && signal.status === "attention"));
   assert.ok(profile.gaps.some((gap) => gap.includes("2 dispute records")));
+});
+
+test("surfaces active proof capabilities before connected delivery history exists", () => {
+  const profile = getFacilitatorTrustProfile({
+    stripeVerified: true,
+    identityVerified: true,
+    profileComplete: true,
+    completedMilestones: 0,
+    averageAuditScore: 0,
+    disputeCount: 0,
+    aiAgentStackCount: 2,
+    skillsCount: 4,
+    connectedEvidenceSourceCount: 0,
+    proofCapabilityTypes: ["GITHUB", "VERCEL", "DOMAIN"],
+  });
+
+  assert.ok(profile.evidenceProviderLabels.includes("GitHub"));
+  assert.ok(profile.buyerSignals.some((signal) => signal.key === "capabilities" && signal.status === "ready"));
+  assert.ok(profile.gaps.some((gap) => gap.includes("No completed marketplace milestones")));
 });

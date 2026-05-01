@@ -8,7 +8,7 @@ import {
   type FacilitatorProofLevel,
   type FacilitatorProofSignal,
 } from "@/lib/facilitator-trust-profile";
-import type { EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
+import { EVIDENCE_SOURCE_GUIDE, type EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
 
 // SEO Metadata
 export const metadata: Metadata = {
@@ -51,6 +51,9 @@ export type TalentProfile = {
   profile_view_count: number;
   bid_count: number;
   connected_evidence_count: number;
+  evidence_provider_types: EvidenceSourceTypeValue[];
+  connected_evidence_provider_types: EvidenceSourceTypeValue[];
+  proof_capability_types: EvidenceSourceTypeValue[];
   evidence_provider_labels: string[];
   proof_score: number;
   proof_level: FacilitatorProofLevel;
@@ -60,6 +63,12 @@ export type TalentProfile = {
   trust_gaps: string[];
   invite_status: "SENT" | "VIEWED" | "ACCEPTED" | "DECLINED" | null;
 };
+
+const evidenceSourceTypes = new Set(EVIDENCE_SOURCE_GUIDE.map((source) => source.type));
+
+function normalizeEvidenceTypes(values: string[]) {
+  return values.filter((value): value is EvidenceSourceTypeValue => evidenceSourceTypes.has(value as EvidenceSourceTypeValue));
+}
 
 export default async function PublicTalentPage() {
   const user = await getCurrentUser();
@@ -79,6 +88,7 @@ export default async function PublicTalentPage() {
       platform_tier: true,
       portfolio_url: true,
       ai_agent_stack: true,
+      proof_capabilities: true,
       stripe_account_id: true,
       verifications: { select: { type: true, status: true } },
       facilitator_disputes: { select: { id: true } },
@@ -138,6 +148,11 @@ export default async function PublicTalentPage() {
     const portfolioVerified = f.verifications.some((v) => v.type === "PORTFOLIO" && v.status === "VERIFIED");
     const profileComplete = Boolean(f.bio && f.skills.length > 0 && f.portfolio_url);
     const connectedEvidenceSources = f.created_evidence_sources.filter((source) => source.status === "CONNECTED");
+    const evidenceProviderTypes = Array.from(
+      new Set(connectedEvidenceSources.map((source) => source.type as EvidenceSourceTypeValue))
+    );
+    const proofCapabilityTypes = normalizeEvidenceTypes(f.proof_capabilities);
+    const buyerVisibleProviderTypes = Array.from(new Set([...evidenceProviderTypes, ...proofCapabilityTypes]));
     const trustProfile = getFacilitatorTrustProfile({
       stripeVerified,
       identityVerified,
@@ -150,7 +165,8 @@ export default async function PublicTalentPage() {
       skillsCount: f.skills.length,
       availability: f.availability,
       connectedEvidenceSourceCount: connectedEvidenceSources.length,
-      evidenceProviderTypes: connectedEvidenceSources.map((source) => source.type as EvidenceSourceTypeValue),
+      evidenceProviderTypes,
+      proofCapabilityTypes,
       profileViewCount: f._count.profile_views_received,
       bidCount: f._count.bids,
     });
@@ -177,6 +193,9 @@ export default async function PublicTalentPage() {
       profile_view_count: f._count.profile_views_received,
       bid_count: f._count.bids,
       connected_evidence_count: connectedEvidenceSources.length,
+      evidence_provider_types: buyerVisibleProviderTypes,
+      connected_evidence_provider_types: evidenceProviderTypes,
+      proof_capability_types: proofCapabilityTypes,
       evidence_provider_labels: trustProfile.evidenceProviderLabels,
       proof_score: trustProfile.proofScore,
       proof_level: trustProfile.proofLevel,

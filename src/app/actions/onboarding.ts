@@ -11,7 +11,7 @@ import { onboardingStepInputSchema } from "@/lib/validators";
 // ─── Types ────────────────────────────────────────────
 export type OnboardingStepData =
   | { step: "legal"; addressLine1: string; addressCity: string; addressState: string; addressZip: string; addressCountry: string; tosAccepted: boolean }
-  | { step: "profile"; bio: string; skills: string[]; aiAgentStack: string[]; portfolioUrl: string; availability: string; yearsExperience: number; preferredProjectSize: string }
+  | { step: "profile"; bio: string; skills: string[]; aiAgentStack: string[]; proofCapabilities?: string[]; portfolioUrl: string; availability: string; yearsExperience: number; preferredProjectSize: string }
   | { step: "pricing"; hourlyRate: number }
   | { step: "byoc"; openaiKey?: string; anthropicKey?: string; googleKey?: string }
   | { step: "preferences"; companyName: string; companyType: string; preferredBidType: string; typicalProjectBudget: string };
@@ -54,6 +54,7 @@ export async function saveOnboardingStep(
       update.bio = data.bio;
       update.skills = data.skills;
       update.ai_agent_stack = data.aiAgentStack;
+      update.proof_capabilities = data.proofCapabilities;
       update.portfolio_url = data.portfolioUrl || null;
       update.availability = data.availability;
       update.years_experience = data.yearsExperience || null;

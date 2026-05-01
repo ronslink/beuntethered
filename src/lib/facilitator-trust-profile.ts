@@ -24,6 +24,7 @@ export type FacilitatorTrustProfileInput = {
   availability?: string | null;
   connectedEvidenceSourceCount?: number;
   evidenceProviderTypes?: EvidenceSourceTypeValue[];
+  proofCapabilityTypes?: EvidenceSourceTypeValue[];
   profileViewCount?: number;
   bidCount?: number;
 };
@@ -81,7 +82,9 @@ function proofLabel(level: FacilitatorProofLevel) {
 
 export function getFacilitatorTrustProfile(input: FacilitatorTrustProfileInput): FacilitatorTrustProfile {
   const connectedEvidenceSourceCount = input.connectedEvidenceSourceCount ?? 0;
-  const labels = providerLabels(input.evidenceProviderTypes);
+  const proofCapabilityTypes = input.proofCapabilityTypes ?? [];
+  const labels = providerLabels([...(input.evidenceProviderTypes ?? []), ...proofCapabilityTypes]);
+  const declaredProofCapabilityCount = proofCapabilityTypes.length || labels.length;
 
   let score = 0;
   if (input.identityVerified) score += 15;
@@ -94,6 +97,7 @@ export function getFacilitatorTrustProfile(input: FacilitatorTrustProfileInput):
   if (input.aiAgentStackCount > 0 && input.skillsCount > 0) score += 5;
   if (connectedEvidenceSourceCount >= 3) score += 10;
   else if (connectedEvidenceSourceCount >= 1) score += 6;
+  if (proofCapabilityTypes.length > 0) score += Math.min(4, proofCapabilityTypes.length);
   if (input.availability === "AVAILABLE" || input.availability === "READY_THIS_WEEK") score += 2;
 
   if (input.disputeCount > 0) score -= Math.min(12, input.disputeCount * 4);
@@ -154,6 +158,15 @@ export function getFacilitatorTrustProfile(input: FacilitatorTrustProfileInput):
         connectedEvidenceSourceCount > 0
           ? `${connectedEvidenceSourceCount} connected source${connectedEvidenceSourceCount === 1 ? "" : "s"}${labels.length ? `: ${labels.slice(0, 3).join(", ")}` : ""}.`
           : "No connected evidence sources have been recorded yet.",
+    },
+    {
+      key: "capabilities",
+      label: "Proof capabilities",
+      status: declaredProofCapabilityCount > 0 ? "ready" : "pending",
+      detail:
+        declaredProofCapabilityCount > 0
+          ? `Active proof capabilities: ${labels.slice(0, 4).join(", ")}.`
+          : "No active proof capabilities selected yet.",
     },
     {
       key: "disputes",

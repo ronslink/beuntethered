@@ -6,10 +6,16 @@ test("client sees proof readiness on talent search cards", async ({ page }) => {
   const prefix = `playwright-talent-proof-${Date.now()}`;
   const clientEmail = `${prefix}-client@example.com`;
   const facilitatorEmail = `${prefix}-facilitator@example.com`;
+  const screenshotFacilitatorEmail = `${prefix}-screenshot-facilitator@example.com`;
 
   await cleanupByEmailPrefix("playwright-talent-proof-");
   const client = await seedUser({ email: clientEmail, role: "CLIENT", name: "Talent Proof Buyer" });
   const facilitator = await seedUser({ email: facilitatorEmail, role: "FACILITATOR", name: "Evidence Ready Facilitator" });
+  const screenshotFacilitator = await seedUser({
+    email: screenshotFacilitatorEmail,
+    role: "FACILITATOR",
+    name: "Screenshot Only Facilitator",
+  });
 
   await prisma.user.update({
     where: { id: facilitator.id },
@@ -44,6 +50,7 @@ test("client sees proof readiness on talent search cards", async ({ page }) => {
   });
 
   await seedFacilitatorVerifications({ userId: facilitator.id });
+  await seedFacilitatorVerifications({ userId: screenshotFacilitator.id });
 
   try {
     await signInAs(page, client.email);
@@ -56,6 +63,11 @@ test("client sees proof readiness on talent search cards", async ({ page }) => {
     await expect(card.getByText("Evidence tools", { exact: true })).toBeVisible();
     await expect(card.getByText("Vercel", { exact: true })).toBeVisible();
     await expect(page.getByText("Proof ready", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /screenshot only facilitator/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /vercel/i }).click();
+    await expect(page.getByRole("heading", { name: /evidence ready facilitator/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /screenshot only facilitator/i })).toHaveCount(0);
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

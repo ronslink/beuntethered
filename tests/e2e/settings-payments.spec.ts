@@ -56,6 +56,7 @@ test("facilitator sees award eligibility trust gates in settings", async ({ page
     await page.goto("/settings");
     await expect(page.getByText("Award Eligibility Checklist")).toBeVisible();
     await expect(page.getByText("These are the buyer-trust gates")).toBeVisible();
+    await expect(page.getByText("Active Proof Capabilities", { exact: true })).toBeVisible();
     const checklist = page.getByTestId("award-eligibility-checklist");
     await expect(checklist.getByRole("link", { name: /identity/i })).toBeVisible();
     await expect(checklist.getByRole("link", { name: /stripe payouts/i })).toBeVisible();
@@ -63,6 +64,7 @@ test("facilitator sees award eligibility trust gates in settings", async ({ page
     await expect(checklist.getByText("2/3")).toBeVisible();
     await expect(checklist.getByText("Add a credible portfolio URL")).toBeVisible();
 
+    await page.getByRole("button", { name: "Vercel", exact: true }).click();
     await page.getByRole("button", { name: /save profile/i }).click();
     await expect(page.getByText("Saved. Portfolio evidence queued for manual review.")).toBeVisible();
     await expect
@@ -73,6 +75,14 @@ test("facilitator sees award eligibility trust gates in settings", async ({ page
         }),
       )
       .toEqual({ status: "PENDING", provider: "profile_evidence" });
+    await expect
+      .poll(async () =>
+        prisma.user.findUnique({
+          where: { id: facilitator.id },
+          select: { proof_capabilities: true },
+        }),
+      )
+      .toEqual({ proof_capabilities: ["VERCEL"] });
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

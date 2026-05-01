@@ -246,6 +246,7 @@ model User {
   bio                    String?
   skills                 String[] @default([])
   ai_agent_stack         String[] @default([])
+  proof_capabilities     String[] @default([])
   portfolio_url          String?
   availability           String?
   years_experience       Int?

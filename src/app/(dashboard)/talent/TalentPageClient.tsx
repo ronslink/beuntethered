@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { TalentProfile } from "./page";
 import { inviteFacilitatorToProject } from "@/app/actions/project-invites";
+import type { EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
+import { getEvidenceProviderBrand } from "@/lib/evidence-provider-branding";
 
 function getInitials(name: string): string {
   return name
@@ -66,6 +68,7 @@ export default function TalentPageClient({
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("proof");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedProviders, setSelectedProviders] = useState<EvidenceSourceTypeValue[]>([]);
   const [selectedTier, setSelectedTier] = useState("ALL");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [availableOnly, setAvailableOnly] = useState(false);
@@ -78,6 +81,14 @@ export default function TalentPageClient({
     const skills = new Set<string>();
     talent.forEach((profile) => profile.skills.forEach((skill) => skills.add(skill)));
     return Array.from(skills).sort();
+  }, [talent]);
+
+  const evidenceProviders = useMemo(() => {
+    const providers = new Set<EvidenceSourceTypeValue>();
+    talent.forEach((profile) => profile.evidence_provider_types.forEach((type) => providers.add(type)));
+    return Array.from(providers).sort((a, b) =>
+      getEvidenceProviderBrand(a).label.localeCompare(getEvidenceProviderBrand(b).label)
+    );
   }, [talent]);
 
   const marketplaceStats = useMemo(() => {
@@ -105,6 +116,7 @@ export default function TalentPageClient({
           profile.proof_label,
           ...profile.skills,
           ...profile.ai_agent_stack,
+          ...profile.evidence_provider_types,
           ...profile.evidence_provider_labels,
           ...profile.trust_highlights,
           ...profile.trust_gaps,
@@ -120,6 +132,12 @@ export default function TalentPageClient({
     if (selectedSkills.length) {
       results = results.filter((profile) =>
         selectedSkills.every((skill) => profile.skills.includes(skill))
+      );
+    }
+
+    if (selectedProviders.length) {
+      results = results.filter((profile) =>
+        selectedProviders.every((provider) => profile.evidence_provider_types.includes(provider))
       );
     }
 
@@ -145,11 +163,12 @@ export default function TalentPageClient({
     });
 
     return results;
-  }, [availableOnly, query, selectedSkills, selectedTier, sortBy, talent, verifiedOnly]);
+  }, [availableOnly, query, selectedProviders, selectedSkills, selectedTier, sortBy, talent, verifiedOnly]);
 
   const clearFilters = () => {
     setQuery("");
     setSelectedSkills([]);
+    setSelectedProviders([]);
     setSelectedTier("ALL");
     setVerifiedOnly(false);
     setAvailableOnly(false);
@@ -159,6 +178,12 @@ export default function TalentPageClient({
   const toggleSkill = (skill: string) => {
     setSelectedSkills((current) =>
       current.includes(skill) ? current.filter((item) => item !== skill) : [...current, skill]
+    );
+  };
+
+  const toggleProvider = (provider: EvidenceSourceTypeValue) => {
+    setSelectedProviders((current) =>
+      current.includes(provider) ? current.filter((item) => item !== provider) : [...current, provider]
     );
   };
 
@@ -188,6 +213,7 @@ export default function TalentPageClient({
   const hasFilters =
     Boolean(query) ||
     selectedSkills.length > 0 ||
+    selectedProviders.length > 0 ||
     selectedTier !== "ALL" ||
     verifiedOnly ||
     availableOnly;
@@ -301,6 +327,35 @@ export default function TalentPageClient({
                 {skill}
               </button>
             ))}
+
+            {evidenceProviders.length > 0 && (
+              <div className="flex basis-full flex-wrap items-center gap-2 border-t border-outline-variant/20 pt-3">
+                <span className="mr-1 text-[10px] font-black uppercase text-on-surface-variant">
+                  Evidence sources
+                </span>
+                {evidenceProviders.map((provider) => {
+                  const brand = getEvidenceProviderBrand(provider);
+                  const active = selectedProviders.includes(provider);
+
+                  return (
+                    <button
+                      key={provider}
+                      onClick={() => toggleProvider(provider)}
+                      aria-pressed={active}
+                      title={`${brand.label} evidence`}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-black uppercase transition-colors ${
+                        active
+                          ? "border-primary/30 bg-primary/10 text-primary"
+                          : "border-outline-variant/30 text-on-surface-variant hover:border-primary/30 hover:text-primary"
+                      }`}
+                    >
+                      <EvidenceProviderIcon type={provider} />
+                      {brand.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {hasFilters && (
               <button onClick={clearFilters} className="ml-auto text-[10px] font-black uppercase tracking-widest text-primary">
@@ -485,9 +540,13 @@ function TalentRow({
         ))}
         <div className="col-span-2 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2">
           <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Evidence tools</p>
-          <p className="mt-1 truncate text-xs font-bold text-on-surface">
-            {profile.evidence_provider_labels.length ? profile.evidence_provider_labels.slice(0, 3).join(", ") : "Not connected yet"}
-          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {profile.evidence_provider_types.length ? (
+              profile.evidence_provider_types.slice(0, 3).map((type) => <EvidenceProviderChip key={type} type={type} />)
+            ) : (
+              <span className="text-xs font-bold text-on-surface">Not connected yet</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -537,6 +596,46 @@ function TalentRow({
         {profile.proof_score}/100 proof readiness
       </div>
     </article>
+  );
+}
+
+function EvidenceProviderIcon({ type }: { type: EvidenceSourceTypeValue }) {
+  const brand = getEvidenceProviderBrand(type);
+
+  if (!brand.icon) {
+    return (
+      <span
+        className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-current/20 px-1 text-[8px] font-black"
+        aria-hidden="true"
+      >
+        {brand.fallbackText}
+      </span>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="currentColor"
+    >
+      <path d={brand.icon.path} />
+    </svg>
+  );
+}
+
+function EvidenceProviderChip({ type }: { type: EvidenceSourceTypeValue }) {
+  const brand = getEvidenceProviderBrand(type);
+
+  return (
+    <span
+      className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-outline-variant/30 bg-surface px-2 py-1 text-[10px] font-black text-on-surface-variant"
+      title={`${brand.label} evidence`}
+    >
+      <EvidenceProviderIcon type={type} />
+      <span className="truncate">{brand.label}</span>
+    </span>
   );
 }
 

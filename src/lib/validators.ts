@@ -18,6 +18,21 @@ export const projectCategoryOptions = [
   "other_software",
 ] as const;
 
+export const evidenceSourceTypeOptions = [
+  "GITHUB",
+  "VERCEL",
+  "NETLIFY",
+  "CLOUDFLARE",
+  "RAILWAY",
+  "RENDER",
+  "FLY",
+  "DIGITALOCEAN",
+  "HEROKU",
+  "SUPABASE",
+  "DOMAIN",
+  "OTHER",
+] as const;
+
 export const projectComplexityOptions = ["simple", "medium", "complex"] as const;
 export const byocTransitionModeOptions = ["NEW_EXTERNAL", "RUNNING_PROJECT", "RESCUE_TRANSITION", "ONGOING_TO_MILESTONES"] as const;
 
@@ -302,6 +317,7 @@ export const onboardingStepInputSchema = z.discriminatedUnion("step", [
     bio: trimmed.max(2000),
     skills: z.array(trimmed.min(1).max(80)).max(30).default([]),
     aiAgentStack: z.array(trimmed.min(1).max(80)).max(30).default([]),
+    proofCapabilities: z.array(z.enum(evidenceSourceTypeOptions)).max(12).default([]),
     portfolioUrl: z.union([trimmed.url().max(2048), z.literal("")]).default(""),
     availability: trimmed.max(80),
     yearsExperience: z.coerce.number().int().min(0).max(80).default(0),
