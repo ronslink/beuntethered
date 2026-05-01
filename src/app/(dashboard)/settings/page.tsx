@@ -104,6 +104,43 @@ function ControlPlaneMetric({
   );
 }
 
+function VerificationGate({
+  icon,
+  label,
+  status,
+  detail,
+  href,
+}: {
+  icon: string;
+  label: string;
+  status: VerificationStatusValue;
+  detail: string;
+  href: string;
+}) {
+  const ready = status === "VERIFIED";
+  return (
+    <a
+      href={href}
+      className="group rounded-xl border border-outline-variant/20 bg-surface-container-low p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-high"
+    >
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <span className={`material-symbols-outlined rounded-lg border p-1.5 text-[18px] ${
+          ready
+            ? "border-tertiary/20 bg-tertiary/10 text-tertiary"
+            : status === "REJECTED"
+              ? "border-error/20 bg-error/10 text-error"
+              : "border-secondary/20 bg-secondary/10 text-secondary"
+        }`}>
+          {icon}
+        </span>
+        <StatusPill ok={ready} label={verificationPillLabel(status)} tone={verificationTone(status)} />
+      </div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface group-hover:text-primary">{label}</p>
+      <p className="mt-2 min-h-10 text-xs font-medium leading-5 text-on-surface-variant">{detail}</p>
+    </a>
+  );
+}
+
 export default async function SettingsPage() {
   const sessionUser = await getCurrentUser();
   if (!sessionUser) redirect("/api/auth/signin");
@@ -585,6 +622,48 @@ export default async function SettingsPage() {
             </p>
             {user.role === "FACILITATOR" ? (
               <div className="space-y-3">
+                <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4" data-testid="award-eligibility-checklist">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-primary">Award Eligibility Checklist</p>
+                      <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+                        These are the buyer-trust gates that affect winning marketplace bids and receiving escrow payouts.
+                      </p>
+                    </div>
+                    <span className="rounded-lg border border-outline-variant/20 bg-surface-container-high px-2 py-1 text-[10px] font-black text-on-surface">
+                      {verificationCount}/{verificationTotal}
+                    </span>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <VerificationGate
+                      icon="badge"
+                      label="Identity"
+                      status={identityVerification}
+                      detail={identityVerification === "VERIFIED"
+                        ? "Required identity check is complete."
+                        : "Complete identity verification before bid awards can be finalized."}
+                      href="#payments-payouts"
+                    />
+                    <VerificationGate
+                      icon="account_balance"
+                      label="Stripe payouts"
+                      status={stripeVerification}
+                      detail={stripeVerification === "VERIFIED"
+                        ? "Payout readiness is verified."
+                        : "Connect and verify Stripe Express for milestone payout release."}
+                      href="#payments-payouts"
+                    />
+                    <VerificationGate
+                      icon="work_history"
+                      label="Portfolio evidence"
+                      status={portfolioVerification}
+                      detail={portfolioVerification === "VERIFIED"
+                        ? "Portfolio evidence is verified for buyer review."
+                        : "Add a credible portfolio URL so platform review can verify delivery history."}
+                      href="#professional-profile"
+                    />
+                  </div>
+                </div>
                 <FacilitatorVerificationActions
                   hasStripeAccount={!!user.stripe_account_id}
                   stripeStatus={stripeVerification}
