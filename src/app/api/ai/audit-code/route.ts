@@ -169,7 +169,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { milestone_id, payload_url, evidence_summary, agent_key } = parsedInput.data;
+    const { milestone_id, payload_url, evidence_summary, evidence_verification_context, agent_key } = parsedInput.data;
     void agent_key;
     globalMilestoneId = milestone_id;
     globalPayloadUrl = payload_url;
@@ -257,8 +257,12 @@ You must output exclusively a valid JSON object matching this exact interface:
       typeof evidence_summary === "string" && evidence_summary.trim().length > 0
         ? evidence_summary.trim()
         : "No facilitator evidence summary supplied.";
+    const evidenceVerificationContext =
+      typeof evidence_verification_context === "string" && evidence_verification_context.trim().length > 0
+        ? evidence_verification_context.trim()
+        : "No linked evidence source verification context supplied.";
 
-    const userPrompt = `[ACCEPTANCE CRITERIA]\n${criteriaString}\n\n[FACILITATOR EVIDENCE SUMMARY]\n${evidenceSummary}\n\n[PAYLOAD URL / COMMIT LOG]\n${payload_url}\n\nAnalyze this delivery against the acceptance criteria. Does it satisfy the milestone requirements?`;
+    const userPrompt = `[ACCEPTANCE CRITERIA]\n${criteriaString}\n\n[FACILITATOR EVIDENCE SUMMARY]\n${evidenceSummary}\n\n[LINKED EVIDENCE SOURCE VERIFICATION]\n${evidenceVerificationContext}\n\n[PAYLOAD URL / COMMIT LOG]\n${payload_url}\n\nAnalyze this delivery against the acceptance criteria. Does it satisfy the milestone requirements?`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",

@@ -169,6 +169,7 @@ export const auditCodeInputSchema = z.object({
   milestone_id: trimmed.min(1),
   payload_url: trimmed.url().max(2048),
   evidence_summary: trimmed.max(5000).optional(),
+  evidence_verification_context: trimmed.max(5000).optional(),
   agent_key: trimmed.max(256).optional(),
 });
 

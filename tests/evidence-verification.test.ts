@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildLinkedEvidenceVerificationSummary,
   evaluateEvidenceSourceVerification,
   getEvidenceVerificationProfile,
 } from "../src/lib/evidence-verification.ts";
@@ -62,4 +63,36 @@ test("exposes provider-specific setup contracts", () => {
   assert.ok(github.milestoneUse.includes("Source handoff"));
   assert.equal(domain.setupOwner, "CLIENT");
   assert.ok(domain.proves.includes("Domain control"));
+});
+
+test("builds a milestone submission verification summary from linked sources", () => {
+  const summary = buildLinkedEvidenceVerificationSummary([
+    {
+      id: "source_vercel",
+      type: "VERCEL",
+      label: "Client portal preview",
+      url: "https://client-portal.vercel.app",
+      status: "CONNECTED",
+      metadata: {
+        verification_note: "Maps to Milestone 1 and proves the deployed client portal workflow.",
+      },
+    },
+    {
+      id: "source_other",
+      type: "OTHER",
+      label: "Walkthrough recording",
+      url: null,
+      status: "PENDING_VERIFICATION",
+      metadata: {},
+    },
+  ]);
+
+  assert.equal(summary.total, 2);
+  assert.equal(summary.readyCount, 1);
+  assert.equal(summary.pendingCount, 1);
+  assert.ok(summary.averageConfidence > 50);
+  assert.match(summary.releaseSummary, /linked evidence/i);
+  assert.match(summary.auditContext, /Vercel/i);
+  assert.equal(summary.items[0].id, "source_vercel");
+  assert.ok(summary.buyerReview.length > 0);
 });

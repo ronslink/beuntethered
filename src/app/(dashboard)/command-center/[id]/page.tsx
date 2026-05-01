@@ -15,9 +15,19 @@ import { getMilestoneReadiness } from "@/lib/milestone-readiness";
 import { getMilestoneProofPlan } from "@/lib/milestone-proof";
 import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
-import { buildMilestoneEvidencePacket, getProjectEvidenceSourceCoverage } from "@/lib/delivery-evidence";
+import {
+  buildMilestoneEvidencePacket,
+  getProjectEvidenceSourceCoverage,
+  type EvidenceSourceStatusValue,
+  type EvidenceSourceTypeValue,
+} from "@/lib/delivery-evidence";
 import { formatReleaseAttestationValue, getReleaseAttestation } from "@/lib/release-attestation";
 import { BYOC_DISPUTE_EXCLUSION_MESSAGE, getProjectDisputeEligibility } from "@/lib/dispute-rules";
+import {
+  buildLinkedEvidenceVerificationSummary,
+  type LinkedEvidenceVerificationSummary,
+} from "@/lib/evidence-verification";
+import EvidenceProviderMark from "@/components/evidence/EvidenceProviderMark";
 
 type LinkedEvidenceSource = {
   id: string;
@@ -25,7 +35,17 @@ type LinkedEvidenceSource = {
   label: string;
   url: string | null;
   status: string;
+  providerLabel?: string;
+  stage?: string;
+  confidenceScore?: number;
+  summary?: string;
+  buyerReview?: string[];
+  nextActions?: string[];
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
 
 function isLinkedEvidenceSource(value: unknown): value is LinkedEvidenceSource {
   return Boolean(
@@ -34,9 +54,12 @@ function isLinkedEvidenceSource(value: unknown): value is LinkedEvidenceSource {
     "id" in value &&
     "type" in value &&
     "label" in value &&
+    "status" in value &&
     typeof value.id === "string" &&
     typeof value.type === "string" &&
-    typeof value.label === "string"
+    typeof value.label === "string" &&
+    typeof value.status === "string" &&
+    (!("url" in value) || typeof value.url === "string" || value.url === null)
   );
 }
 
@@ -48,6 +71,57 @@ function getSubmittedLinkedEvidenceSources(
   if (!metadata || typeof metadata !== "object" || !("linked_evidence_sources" in metadata)) return [];
   const sources = metadata.linked_evidence_sources;
   return Array.isArray(sources) ? sources.filter(isLinkedEvidenceSource) : [];
+}
+
+function isLinkedEvidenceVerificationSummary(value: unknown): value is LinkedEvidenceVerificationSummary {
+  return Boolean(
+    isRecord(value) &&
+      typeof value.total === "number" &&
+      typeof value.readyCount === "number" &&
+      typeof value.pendingCount === "number" &&
+      typeof value.attentionCount === "number" &&
+      typeof value.averageConfidence === "number" &&
+      typeof value.releaseSummary === "string" &&
+      typeof value.auditContext === "string" &&
+      Array.isArray(value.buyerReview) &&
+      Array.isArray(value.items)
+  );
+}
+
+function getSubmittedEvidenceVerificationSummary(
+  logs: Array<{ action: string; metadata: unknown; created_at: Date }>
+) {
+  const submissionLog = logs.find((log) => log.action === "MILESTONE_SUBMITTED");
+  const metadata = submissionLog?.metadata;
+  if (!isRecord(metadata) || !("linked_evidence_verification" in metadata)) return null;
+  const summary = metadata.linked_evidence_verification;
+  return isLinkedEvidenceVerificationSummary(summary) ? summary : null;
+}
+
+function getStageBadge(stage?: string) {
+  switch (stage) {
+    case "ready":
+      return "border-tertiary/20 bg-tertiary/10 text-tertiary";
+    case "needs_attention":
+      return "border-error/20 bg-error/10 text-error";
+    case "pending":
+      return "border-secondary/20 bg-secondary/10 text-secondary";
+    default:
+      return "border-outline-variant/20 bg-surface-container-high text-on-surface-variant";
+  }
+}
+
+function getStageLabel(stage?: string) {
+  switch (stage) {
+    case "ready":
+      return "Verified";
+    case "needs_attention":
+      return "Needs attention";
+    case "pending":
+      return "Needs context";
+    default:
+      return "Captured";
+  }
 }
 
 function getClientEvidenceReviewHints(sources: LinkedEvidenceSource[]) {
@@ -230,6 +304,14 @@ export default async function ProjectCommandCenter({
     label: source.label,
     url: source.url,
     status: source.status,
+    verification: buildLinkedEvidenceVerificationSummary([{
+      id: source.id,
+      type: source.type,
+      label: source.label,
+      url: source.url,
+      status: source.status,
+      metadata: source.metadata,
+    }]).items[0],
   }));
   const timelineEvents = project.timeline_events.map((event) => ({
     id: event.id,
@@ -540,6 +622,19 @@ export default async function ProjectCommandCenter({
                       (attachment) => attachment.purpose === "MILESTONE_SUBMISSION"
                     );
                     const linkedSubmissionSources = getSubmittedLinkedEvidenceSources(milestone.activity_logs);
+                    const linkedEvidenceVerification =
+                      getSubmittedEvidenceVerificationSummary(milestone.activity_logs) ??
+                      (linkedSubmissionSources.length > 0
+                        ? buildLinkedEvidenceVerificationSummary(
+                            linkedSubmissionSources.map((source) => ({
+                              id: source.id,
+                              type: source.type as EvidenceSourceTypeValue,
+                              label: source.label,
+                              url: source.url,
+                              status: source.status as EvidenceSourceStatusValue,
+                            })),
+                          )
+                        : null);
                     const visibleSubmissionAttachments = milestone.attachments.filter(
                       (attachment) =>
                         attachment.purpose === "MILESTONE_SUBMISSION" &&
@@ -853,6 +948,31 @@ export default async function ProjectCommandCenter({
                                   Evidence tab
                                 </Link>
                               </div>
+                              {linkedEvidenceVerification && (
+                                <div className="mb-3 grid gap-2 sm:grid-cols-4">
+                                  <div className="rounded-lg border border-outline-variant/20 bg-surface px-3 py-2">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Confidence</p>
+                                    <p className="mt-1 text-lg font-black text-on-surface">{linkedEvidenceVerification.averageConfidence}%</p>
+                                  </div>
+                                  <div className="rounded-lg border border-tertiary/20 bg-tertiary/10 px-3 py-2">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-tertiary">Verified</p>
+                                    <p className="mt-1 text-lg font-black text-tertiary">{linkedEvidenceVerification.readyCount}</p>
+                                  </div>
+                                  <div className="rounded-lg border border-secondary/20 bg-secondary/10 px-3 py-2">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-secondary">Needs context</p>
+                                    <p className="mt-1 text-lg font-black text-secondary">{linkedEvidenceVerification.pendingCount}</p>
+                                  </div>
+                                  <div className="rounded-lg border border-error/20 bg-error/10 px-3 py-2">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-error">Attention</p>
+                                    <p className="mt-1 text-lg font-black text-error">{linkedEvidenceVerification.attentionCount}</p>
+                                  </div>
+                                </div>
+                              )}
+                              {linkedEvidenceVerification?.releaseSummary && (
+                                <p className="mb-3 rounded-lg border border-outline-variant/20 bg-surface px-3 py-2 text-xs font-medium leading-5 text-on-surface-variant">
+                                  {linkedEvidenceVerification.releaseSummary}
+                                </p>
+                              )}
                               <div className="grid gap-2 sm:grid-cols-2">
                                 {linkedSubmissionSources.map((source) => (
                                   <a
@@ -862,12 +982,22 @@ export default async function ProjectCommandCenter({
                                     rel={source.url ? "noreferrer" : undefined}
                                     className="flex min-w-0 items-start gap-2 rounded-lg border border-outline-variant/20 bg-surface px-3 py-2 text-xs font-bold text-on-surface transition-colors hover:border-primary/40"
                                   >
-                                    <span className="material-symbols-outlined mt-0.5 text-[14px] text-primary">verified</span>
+                                    <EvidenceProviderMark type={source.type} size="sm" decorative />
                                     <span className="min-w-0">
-                                      <span className="block truncate">{source.label}</span>
-                                      <span className="mt-0.5 block text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
-                                        {source.type.toLowerCase()} · {source.status.toLowerCase().replace(/_/g, " ")}
+                                      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                        <span className="truncate">{source.label}</span>
+                                        {source.confidenceScore ? (
+                                          <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest ${getStageBadge(source.stage)}`}>
+                                            {getStageLabel(source.stage)} · {source.confidenceScore}%
+                                          </span>
+                                        ) : null}
                                       </span>
+                                      <span className="mt-0.5 block text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                                        {(source.providerLabel || source.type).toLowerCase()} · {source.status.toLowerCase().replace(/_/g, " ")}
+                                      </span>
+                                      {source.summary ? (
+                                        <span className="mt-1 block text-[10px] font-medium leading-4 text-on-surface-variant">{source.summary}</span>
+                                      ) : null}
                                       {source.url ? (
                                         <span className="mt-1 block truncate text-[10px] font-medium text-primary">{source.url}</span>
                                       ) : null}
@@ -972,6 +1102,7 @@ export default async function ProjectCommandCenter({
                                     amount={Number(milestone.amount)}
                                     isByoc={project.is_byoc}
                                     aiAuditStatus={auditStatus}
+                                    evidenceVerificationSummary={linkedEvidenceVerification}
                                   />
                                 );
                               })()}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { submitMilestonePayload } from "@/app/actions/milestones";
 import { useRouter } from "next/navigation";
 import { calculateMilestoneFees, formatCents } from "@/lib/platform-fees";
 import { getReviewReleaseState } from "@/lib/review-release-rules";
+import type { LinkedEvidenceVerificationSummary } from "@/lib/evidence-verification";
+import EvidenceProviderMark from "@/components/evidence/EvidenceProviderMark";
 
 type SubmissionProofPlan = {
   requiredArtifacts: Array<{ key: string; label: string; detail: string; available: boolean }>;
@@ -17,7 +19,41 @@ type SubmissionEvidenceSource = {
   label: string;
   url: string | null;
   status: string;
+  verification?: {
+    providerLabel: string;
+    stage: string;
+    confidenceScore: number;
+    summary: string;
+    nextActions: string[];
+    buyerReview: string[];
+  };
 };
+
+function formatEvidenceStage(stage?: string) {
+  switch (stage) {
+    case "ready":
+      return "Verified";
+    case "needs_attention":
+      return "Needs attention";
+    case "pending":
+      return "Needs context";
+    default:
+      return "Captured";
+  }
+}
+
+function evidenceStageClass(stage?: string) {
+  switch (stage) {
+    case "ready":
+      return "border-tertiary/20 bg-tertiary/10 text-tertiary";
+    case "needs_attention":
+      return "border-error/20 bg-error/10 text-error";
+    case "pending":
+      return "border-secondary/20 bg-secondary/10 text-secondary";
+    default:
+      return "border-outline-variant/20 bg-surface-container-high text-on-surface-variant";
+  }
+}
 
 export function FacilitatorSubmitGateway({
   milestoneId,
@@ -33,6 +69,18 @@ export function FacilitatorSubmitGateway({
   const [evidenceNames, setEvidenceNames] = useState<string[]>([]);
   const [selectedEvidenceSourceIds, setSelectedEvidenceSourceIds] = useState<string[]>([]);
   const [proofAttested, setProofAttested] = useState(false);
+  const selectedEvidenceSources = useMemo(
+    () => evidenceSources.filter((source) => selectedEvidenceSourceIds.includes(source.id)),
+    [evidenceSources, selectedEvidenceSourceIds],
+  );
+  const selectedReadyCount = selectedEvidenceSources.filter((source) => source.verification?.stage === "ready").length;
+  const selectedAttentionCount = selectedEvidenceSources.filter((source) => source.verification?.stage === "needs_attention").length;
+  const selectedAverageConfidence = selectedEvidenceSources.length > 0
+    ? Math.round(
+        selectedEvidenceSources.reduce((acc, source) => acc + (source.verification?.confidenceScore ?? 0), 0) /
+          selectedEvidenceSources.length,
+      )
+    : 0;
 
   const toggleEvidenceSource = (sourceId: string) => {
     setSelectedEvidenceSourceIds((current) =>
@@ -112,7 +160,7 @@ export function FacilitatorSubmitGateway({
           <div>
             <p className="text-[9px] font-black uppercase tracking-widest text-on-surface">Linked evidence sources</p>
             <p className="mt-1 text-[10px] font-medium leading-4 text-on-surface-variant">
-              Attach connected project sources that support this milestone packet.
+              Attach connected project sources that support this milestone packet. Verified sources raise buyer confidence more than screenshots alone.
             </p>
           </div>
           <span className="rounded-full border border-outline-variant/20 bg-surface-container-low px-2 py-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
@@ -138,11 +186,22 @@ export function FacilitatorSubmitGateway({
                     onChange={() => toggleEvidenceSource(source.id)}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-primary)]"
                   />
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs font-black text-on-surface">{source.label}</span>
-                    <span className="mt-0.5 block text-[9px] font-black uppercase tracking-widest">
-                      {source.type.toLowerCase().replace(/_/g, " ")} · {source.status.toLowerCase().replace(/_/g, " ")}
+                  <EvidenceProviderMark type={source.type} size="sm" decorative />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="truncate text-xs font-black text-on-surface">{source.label}</span>
+                      {source.verification ? (
+                        <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest ${evidenceStageClass(source.verification.stage)}`}>
+                          {formatEvidenceStage(source.verification.stage)} · {source.verification.confidenceScore}%
+                        </span>
+                      ) : null}
                     </span>
+                    <span className="mt-0.5 block text-[9px] font-black uppercase tracking-widest">
+                      {(source.verification?.providerLabel || source.type).toLowerCase().replace(/_/g, " ")} · {source.status.toLowerCase().replace(/_/g, " ")}
+                    </span>
+                    {source.verification?.summary ? (
+                      <span className="mt-1 block text-[10px] font-medium leading-4 text-on-surface-variant">{source.verification.summary}</span>
+                    ) : null}
                     {source.url ? (
                       <span className="mt-1 block truncate text-[10px] font-medium">{source.url}</span>
                     ) : null}
@@ -155,6 +214,15 @@ export function FacilitatorSubmitGateway({
           <p className="rounded-lg border border-secondary/20 bg-secondary/10 px-3 py-2 text-[11px] font-medium leading-5 text-secondary">
             No project evidence sources are linked yet. Add Vercel, GitHub, Supabase, domain, or external proof in the Evidence & Integrations tab.
           </p>
+        )}
+        {selectedEvidenceSources.length > 0 && (
+          <div className={`mt-3 rounded-lg border px-3 py-2 ${selectedAttentionCount > 0 ? "border-error/20 bg-error/5" : "border-tertiary/20 bg-tertiary/5"}`}>
+            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Selected proof confidence</p>
+            <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+              {selectedReadyCount} verified of {selectedEvidenceSources.length} selected · average confidence {selectedAverageConfidence}%.
+              {selectedAttentionCount > 0 ? " Resolve attention items when possible before submitting." : " Add a short evidence summary that tells the buyer exactly what to test."}
+            </p>
+          </div>
         )}
       </div>
       <label className="flex items-start gap-2 rounded-xl border border-outline-variant/20 bg-surface px-3 py-2.5 text-xs font-medium text-on-surface-variant">
@@ -223,13 +291,15 @@ export function ClientReviewGateway({
   previewUrl,
   amount,
   isByoc,
-  aiAuditStatus = "NONE"
+  aiAuditStatus = "NONE",
+  evidenceVerificationSummary,
 }: {
   milestoneId: string,
   previewUrl: string,
   amount: number,
   isByoc: boolean,
-  aiAuditStatus?: "PENDING" | "SUCCESS" | "FAILED" | "NONE"
+  aiAuditStatus?: "PENDING" | "SUCCESS" | "FAILED" | "NONE",
+  evidenceVerificationSummary?: LinkedEvidenceVerificationSummary | null
 }) {
   const [loading, setLoading] = useState(false);
   const [testedPreview, setTestedPreview] = useState(false);
@@ -348,6 +418,45 @@ export function ClientReviewGateway({
                 <p className="text-xs font-black text-tertiary">{formatCents(fees.facilitatorPayoutCents)}</p>
               </div>
             </div>
+            {evidenceVerificationSummary && evidenceVerificationSummary.total > 0 && (
+              <div className="mt-4 rounded-xl border border-primary/15 bg-surface/70 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-primary">Linked proof confidence</p>
+                    <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+                      {evidenceVerificationSummary.releaseSummary}
+                    </p>
+                  </div>
+                  <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                    {evidenceVerificationSummary.averageConfidence}%
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-lg border border-tertiary/20 bg-tertiary/10 px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-tertiary">Verified</p>
+                    <p className="text-sm font-black text-tertiary">{evidenceVerificationSummary.readyCount}</p>
+                  </div>
+                  <div className="rounded-lg border border-secondary/20 bg-secondary/10 px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-secondary">Needs context</p>
+                    <p className="text-sm font-black text-secondary">{evidenceVerificationSummary.pendingCount}</p>
+                  </div>
+                  <div className="rounded-lg border border-error/20 bg-error/10 px-3 py-2">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-error">Attention</p>
+                    <p className="text-sm font-black text-error">{evidenceVerificationSummary.attentionCount}</p>
+                  </div>
+                </div>
+                {evidenceVerificationSummary.buyerReview.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    {evidenceVerificationSummary.buyerReview.slice(0, 3).map((item) => (
+                      <p key={item} className="flex items-start gap-1.5 text-[10px] font-medium leading-4 text-on-surface-variant">
+                        <span className="material-symbols-outlined mt-0.5 text-[12px] text-primary">checklist</span>
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-4 grid gap-2 max-w-xl">
               <label className="flex items-start gap-2 rounded-lg border border-outline-variant/20 bg-surface/50 px-3 py-2 text-xs font-medium text-on-surface-variant">
                 <input

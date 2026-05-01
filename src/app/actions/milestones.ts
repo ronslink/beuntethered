@@ -15,6 +15,7 @@ import { milestoneSubmissionInputSchema } from "@/lib/validators";
 import { canSubmitMilestone } from "@/lib/milestone-state";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
 import { notifyTrustEvent } from "@/lib/trust-notifications";
+import { buildLinkedEvidenceVerificationSummary } from "@/lib/evidence-verification";
 
 const MAX_DELIVERY_ARCHIVE_BYTES = 25 * 1024 * 1024;
 
@@ -89,6 +90,7 @@ export async function submitMilestonePayload(formData: FormData) {
             label: true,
             url: true,
             status: true,
+            metadata: true,
           },
         })
       : [];
@@ -99,6 +101,7 @@ export async function submitMilestonePayload(formData: FormData) {
         error: "One or more selected evidence sources are no longer available on this project. Refresh and try again.",
       };
     }
+    const linkedEvidenceVerification = buildLinkedEvidenceVerificationSummary(linkedEvidenceSources);
 
     // 1. Convert File to buffer for server-based storage upload
     // Note: In production with >4.5MB files, the presigned URL client-upload route must be used.
@@ -176,8 +179,9 @@ export async function submitMilestonePayload(formData: FormData) {
         preview_url: previewUrl,
         evidence_count: uploadedEvidence.length,
         evidence_summary: evidenceSummary,
-        linked_evidence_sources: linkedEvidenceSources,
+        linked_evidence_sources: linkedEvidenceVerification.items,
         linked_evidence_source_count: linkedEvidenceSources.length,
+        linked_evidence_verification: linkedEvidenceVerification,
         proof_attested: true,
       },
     });
@@ -204,6 +208,8 @@ export async function submitMilestonePayload(formData: FormData) {
         milestone_id: milestone.id,
         facilitator_id: user.id,
         linked_evidence_source_count: linkedEvidenceSources.length,
+        linked_evidence_ready_count: linkedEvidenceVerification.readyCount,
+        linked_evidence_average_confidence: linkedEvidenceVerification.averageConfidence,
       },
     });
 
@@ -221,6 +227,7 @@ export async function submitMilestonePayload(formData: FormData) {
         milestone_id: milestoneId,
         payload_url: previewUrl,
         evidence_summary: evidenceSummary,
+        evidence_verification_context: linkedEvidenceVerification.auditContext,
       }),
     }).catch((err) =>
       console.error("[milestones] AI audit fire-and-forget failed:", err)

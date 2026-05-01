@@ -77,7 +77,10 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
       label: "Delivery lifecycle preview",
       url: "https://preview.example.com/delivery-lifecycle",
       status: "CONNECTED",
-      metadata: { source: "playwright_seed" },
+      metadata: {
+        source: "playwright_seed",
+        verification_note: "Maps to the operations dashboard delivery milestone and proves the preview workflow is reviewable.",
+      },
     },
   });
 
@@ -94,6 +97,8 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
     await expect(page.getByText(/submission proof gates/i)).toBeVisible();
     await expect(page.getByText(/linked evidence sources/i)).toBeVisible();
     await page.getByLabel(/delivery lifecycle preview/i).check();
+    await expect(page.getByText(/selected proof confidence/i)).toBeVisible();
+    await expect(page.getByText(/verified of 1 selected/i)).toBeVisible();
     await page.getByPlaceholder("https://preview.vercel.app").fill("https://preview.example.com/delivery-lifecycle");
     await page.getByPlaceholder(/summarize what changed/i).fill("The preview URL loads the operations dashboard, the attached source archive contains the implementation, and the evidence note documents the dashboard workflow acceptance check.");
     await page.getByLabel(/mapped this submission to the proof gates/i).check();
@@ -131,6 +136,7 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
         });
         const metadata = activity?.metadata;
         if (!metadata || typeof metadata !== "object" || !("linked_evidence_sources" in metadata)) return null;
+        if (!("linked_evidence_verification" in metadata)) return null;
         const sources = metadata.linked_evidence_sources;
         if (!Array.isArray(sources)) return null;
         const firstSource = sources[0];
@@ -263,6 +269,8 @@ test("buyer and facilitator complete a funded milestone delivery review", async 
       await expect(clientPage.getByText("94%", { exact: true })).toBeVisible();
       await expect(clientPage.getByText(/preview url loads/i).first()).toBeVisible();
       await expect(clientPage.getByText("Linked Source Evidence")).toBeVisible();
+      await expect(clientPage.getByText(/linked proof confidence/i)).toBeVisible();
+      await expect(clientPage.getByText(/average confidence/i).last()).toBeVisible();
       await expect(clientPage.getByText("Client Review Guide")).toBeVisible();
       await expect(clientPage.getByText(/you do not need to understand every tool/i)).toBeVisible();
       await expect(clientPage.getByText(/open the deployment link/i)).toBeVisible();

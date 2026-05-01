@@ -51,6 +51,33 @@ export type EvidenceSourceVerificationResult = {
   buyerReview: string[];
 };
 
+export type LinkedEvidenceVerificationItem = {
+  id: string;
+  type: EvidenceSourceTypeValue;
+  label: string;
+  url: string | null;
+  status: EvidenceSourceStatusValue;
+  providerLabel: string;
+  stage: EvidenceVerificationStage;
+  confidenceScore: number;
+  summary: string;
+  blockers: string[];
+  nextActions: string[];
+  buyerReview: string[];
+};
+
+export type LinkedEvidenceVerificationSummary = {
+  total: number;
+  readyCount: number;
+  pendingCount: number;
+  attentionCount: number;
+  averageConfidence: number;
+  releaseSummary: string;
+  auditContext: string;
+  buyerReview: string[];
+  items: LinkedEvidenceVerificationItem[];
+};
+
 export const EVIDENCE_VERIFICATION_PROFILES: Record<EvidenceSourceTypeValue, EvidenceVerificationProfile> = {
   GITHUB: {
     type: "GITHUB",
@@ -561,6 +588,69 @@ export function evaluateEvidenceSourceVerification(source: EvidenceSourceVerific
     blockers,
     nextActions,
     buyerReview,
+  };
+}
+
+export function buildLinkedEvidenceVerificationSummary(
+  sources: EvidenceSourceVerificationInput[],
+): LinkedEvidenceVerificationSummary {
+  const items: LinkedEvidenceVerificationItem[] = sources.map((source, index) => {
+    const result = evaluateEvidenceSourceVerification(source);
+
+    return {
+      id: source.id ?? `${source.type}-${index}`,
+      type: result.sourceType,
+      label: source.label?.trim() || result.providerLabel,
+      url: source.url ?? null,
+      status: source.status,
+      providerLabel: result.providerLabel,
+      stage: result.stage,
+      confidenceScore: result.confidenceScore,
+      summary: result.summary,
+      blockers: result.blockers,
+      nextActions: result.nextActions,
+      buyerReview: result.buyerReview,
+    };
+  });
+  const total = items.length;
+  const readyCount = items.filter((item) => item.stage === "ready").length;
+  const pendingCount = items.filter((item) => item.stage === "pending").length;
+  const attentionCount = items.filter((item) => item.stage === "needs_attention").length;
+  const averageConfidence = total
+    ? Math.round(items.reduce((acc, item) => acc + item.confidenceScore, 0) / total)
+    : 0;
+  const buyerReview = Array.from(new Set(items.flatMap((item) => item.buyerReview))).slice(0, 5);
+  const strongestSources = [...items]
+    .sort((a, b) => b.confidenceScore - a.confidenceScore)
+    .slice(0, 3);
+
+  return {
+    total,
+    readyCount,
+    pendingCount,
+    attentionCount,
+    averageConfidence,
+    releaseSummary:
+      total === 0
+        ? "No provider-backed evidence sources were linked to this submission."
+        : readyCount > 0 && attentionCount === 0
+          ? `${readyCount} of ${total} linked evidence sources are ready for buyer review. Average confidence is ${averageConfidence}%.`
+          : attentionCount > 0
+            ? `${attentionCount} linked evidence source${attentionCount === 1 ? "" : "s"} need attention before this proof package is strong. Average confidence is ${averageConfidence}%.`
+            : `Linked evidence was captured, but it needs more context before it can be treated as verified proof. Average confidence is ${averageConfidence}%.`,
+    auditContext:
+      total === 0
+        ? "No provider-backed evidence sources were linked to this milestone submission."
+        : strongestSources
+            .map((item) =>
+              `${item.providerLabel}: ${item.stage}, ${item.confidenceScore}% confidence, status ${item.status}. ${item.summary}`,
+            )
+            .join("\n"),
+    buyerReview:
+      buyerReview.length > 0
+        ? buyerReview
+        : ["Open the submitted preview and compare the result against each acceptance check before releasing escrow."],
+    items,
   };
 }
 

@@ -251,6 +251,7 @@ test("validates AI audit requests", () => {
     milestone_id: "milestone_1",
     payload_url: "https://preview.example.com/build",
     evidence_summary: "The facilitator submitted a preview, source archive, and acceptance evidence.",
+    evidence_verification_context: "Vercel: ready, 94% confidence, status CONNECTED.",
   }).success, true);
 
   assert.equal(auditCodeInputSchema.safeParse({
