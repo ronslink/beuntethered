@@ -45,6 +45,10 @@ export default function ManualVerificationReviewPanel({ item }: { item: ReviewIt
   const portfolioUrl = item.user.portfolioUrl || evidenceValue(item.evidence, "portfolio_url");
   const website = evidenceValue(item.evidence, "website");
   const billingEmail = evidenceValue(item.evidence, "billing_email");
+  const hasBio = evidenceValue(item.evidence, "has_bio");
+  const skillsCount = evidenceValue(item.evidence, "skills_count");
+  const aiToolCount = evidenceValue(item.evidence, "ai_tool_count");
+  const isPortfolioReview = item.type === "PORTFOLIO";
 
   const submit = (status: "VERIFIED" | "REJECTED") => {
     setMessage("");
@@ -77,9 +81,20 @@ export default function ManualVerificationReviewPanel({ item }: { item: ReviewIt
       <div className="grid gap-5 p-5 lg:grid-cols-[1fr_320px]">
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <EvidenceMetric label="Company" value={item.user.companyName || "Not listed"} />
-            <EvidenceMetric label="Type" value={item.user.companyType || "Not listed"} />
-            <EvidenceMetric label="Billing email" value={billingEmail || "Not listed"} />
+            {isPortfolioReview ? (
+              <>
+                <EvidenceMetric label="Portfolio URL" value={portfolioUrl || "Not listed"} />
+                <EvidenceMetric label="Bio evidence" value={hasBio === "true" ? "Present" : "Missing"} />
+                <EvidenceMetric label="Skills listed" value={skillsCount ?? "0"} />
+                <EvidenceMetric label="AI tools listed" value={aiToolCount ?? "0"} />
+              </>
+            ) : (
+              <>
+                <EvidenceMetric label="Company" value={item.user.companyName || "Not listed"} />
+                <EvidenceMetric label="Type" value={item.user.companyType || "Not listed"} />
+                <EvidenceMetric label="Billing email" value={billingEmail || "Not listed"} />
+              </>
+            )}
             <EvidenceMetric label="Updated" value={new Date(item.updatedAt).toLocaleString()} />
           </div>
 

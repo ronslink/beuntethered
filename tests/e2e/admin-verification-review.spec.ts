@@ -53,6 +53,10 @@ test("admin can review manual verification queue", async ({ page }) => {
     await expect(page.getByRole("link", { name: /^admin$/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /verifications/i }).first()).toBeVisible();
     await expect(page.getByText(/portfolio verification/i)).toBeVisible();
+    await expect(page.getByText("Portfolio URL")).toBeVisible();
+    await expect(page.getByText("Bio evidence")).toBeVisible();
+    await expect(page.getByText("Skills listed")).toBeVisible();
+    await expect(page.getByText("AI tools listed")).toBeVisible();
     await expect(page.getByRole("button", { name: /approve/i }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /reject/i }).first()).toBeVisible();
 
