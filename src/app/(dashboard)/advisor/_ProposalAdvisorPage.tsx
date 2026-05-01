@@ -206,7 +206,7 @@ function ProjectAdvisorCard({
                 <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">
                   {proposalPacket.evidenceConfidence.hasSystemEvidence
                     ? "Connected technical sources can make this bid more credible than screenshots alone."
-                    : "Current proof is mostly self-attested; attach live deployment, repository, or data evidence when possible."}
+                    : "Current proof is mostly self-attested; attach deployment, service, repository, or data evidence when possible."}
                 </p>
               </div>
               <span className="rounded-md bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary">

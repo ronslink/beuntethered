@@ -37,6 +37,33 @@ async function getEvidenceManageableProject(projectId: string, user: { id: strin
   return { project, isFacilitator, isClient };
 }
 
+function getEvidenceSourceOwnershipHint(type: string) {
+  switch (type) {
+    case "DOMAIN":
+      return "Use DNS TXT or .well-known file verification. Do not share registrar passwords.";
+    case "SUPABASE":
+      return "Attach migration/schema evidence. Do not share service-role keys in messages.";
+    case "VERCEL":
+      return "Connect deployment URL and commit mapping before milestone approval.";
+    case "NETLIFY":
+      return "Attach deploy preview or production URL with deploy/build status. Do not share account tokens.";
+    case "CLOUDFLARE":
+      return "Attach Pages/Worker route, deployment status, or DNS evidence. Do not share API tokens.";
+    case "RAILWAY":
+      return "Attach service/deployment URL, logs, and environment mapping. Do not share secrets.";
+    case "RENDER":
+      return "Attach service URL, deploy event, health check, or worker/cron run evidence. Do not share secrets.";
+    case "FLY":
+      return "Attach app URL, deployment ID, machine/region status, or health check evidence. Do not share tokens.";
+    case "DIGITALOCEAN":
+      return "Attach App Platform URL, deployment log, component status, or managed database evidence. Do not share API tokens.";
+    case "HEROKU":
+      return "Attach review app URL, release version, dyno/process status, or pipeline evidence. Do not share API keys.";
+    default:
+      return "Attach this source to the relevant milestone evidence packet.";
+  }
+}
+
 export async function linkProjectRepository(input: unknown) {
   try {
     const user = await getCurrentUser();
@@ -172,16 +199,7 @@ export async function saveProjectEvidenceSource(input: unknown) {
         metadata: {
           verification_note: data.verificationNote || null,
           submitted_by_role: user.role,
-          ownership_hint:
-            data.type === "DOMAIN"
-              ? "Use DNS TXT or .well-known file verification. Do not share registrar passwords."
-              : data.type === "SUPABASE"
-                ? "Attach migration/schema evidence. Do not share service-role keys in messages."
-                : data.type === "VERCEL"
-                  ? "Connect deployment URL and commit mapping before milestone approval."
-                  : data.type === "RAILWAY"
-                    ? "Attach service/deployment URL, logs, and environment mapping. Do not share secrets."
-                  : "Attach this source to the relevant milestone evidence packet.",
+          ownership_hint: getEvidenceSourceOwnershipHint(data.type),
           facilitator_submitted: isFacilitator,
         },
       },

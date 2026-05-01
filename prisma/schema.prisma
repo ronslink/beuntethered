@@ -737,7 +737,13 @@ enum PaymentStatus {
 enum EvidenceSourceType {
   GITHUB
   VERCEL
+  NETLIFY
+  CLOUDFLARE
   RAILWAY
+  RENDER
+  FLY
+  DIGITALOCEAN
+  HEROKU
   SUPABASE
   DOMAIN
   OTHER

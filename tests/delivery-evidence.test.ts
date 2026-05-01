@@ -10,16 +10,20 @@ test("summarizes project evidence source coverage by provider", () => {
   const coverage = getProjectEvidenceSourceCoverage([
     { type: "GITHUB", status: "CONNECTED" },
     { type: "VERCEL", status: "PENDING_VERIFICATION" },
+    { type: "NETLIFY", status: "CONNECTED" },
     { type: "RAILWAY", status: "CONNECTED" },
+    { type: "RENDER", status: "CONNECTED" },
     { type: "SUPABASE", status: "NEEDS_ATTENTION" },
   ]);
 
-  assert.equal(coverage.connectedCount, 2);
+  assert.equal(coverage.connectedCount, 4);
   assert.equal(coverage.pendingCount, 1);
   assert.equal(coverage.attentionCount, 1);
   assert.equal(coverage.readyForAudit, false);
   assert.equal(coverage.summary.find((item) => item.type === "GITHUB")?.status, "connected");
+  assert.equal(coverage.summary.find((item) => item.type === "NETLIFY")?.status, "connected");
   assert.equal(coverage.summary.find((item) => item.type === "RAILWAY")?.status, "connected");
+  assert.equal(coverage.summary.find((item) => item.type === "RENDER")?.status, "connected");
   assert.equal(coverage.summary.find((item) => item.type === "DOMAIN")?.status, "missing");
 });
 

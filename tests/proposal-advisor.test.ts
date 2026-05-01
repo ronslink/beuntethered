@@ -26,7 +26,9 @@ test("builds a facilitator proposal packet from buyer SOW milestones", () => {
     ],
     evidence_sources: [
       { type: "VERCEL", status: "CONNECTED", label: "Staging deployment" },
+      { type: "NETLIFY", status: "CONNECTED", label: "Frontend deploy preview" },
       { type: "RAILWAY", status: "CONNECTED", label: "Worker service" },
+      { type: "RENDER", status: "CONNECTED", label: "Webhook worker" },
       { type: "GITHUB", status: "CONNECTED", label: "Delivery repository" },
     ],
   });
@@ -40,7 +42,9 @@ test("builds a facilitator proposal packet from buyer SOW milestones", () => {
   assert.equal(packet.evidenceConfidence.level, "high");
   assert.ok(packet.evidenceConfidence.hasSystemEvidence);
   assert.ok(packet.evidenceConfidence.strengths.some((item) => /deployment/i.test(item)));
+  assert.ok(packet.evidenceConfidence.strengths.some((item) => /deploy preview/i.test(item)));
   assert.ok(packet.evidenceConfidence.strengths.some((item) => /backend service/i.test(item)));
+  assert.ok(packet.evidenceConfidence.strengths.some((item) => /managed backend/i.test(item)));
   assert.ok(packet.evidencePlan.some((item) => /webhook/i.test(item)));
   assert.ok(packet.buyerQuestions.some((item) => /payment scenarios/i.test(item)));
   assert.match(packet.positioning, /facilitator-led execution/);
@@ -57,6 +61,6 @@ test("flags missing pricing and timeline as proposal risks", () => {
   assert.equal(packet.buyerTimelineDays, null);
   assert.ok(packet.riskNotes.some((risk) => /price after clarification/i.test(risk)));
   assert.ok(packet.riskNotes.some((risk) => /confirm delivery window before quoting/i.test(risk)));
-  assert.ok(packet.riskNotes.some((risk) => /live deployment, Railway service, repository, or database evidence/i.test(risk)));
+  assert.ok(packet.riskNotes.some((risk) => /live deployment, PaaS service, repository, or database evidence/i.test(risk)));
   assert.ok(packet.buyerQuestions.some((question) => /model\/provider/i.test(question)));
 });

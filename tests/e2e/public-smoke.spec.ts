@@ -6,6 +6,10 @@ test("public homepage presents verified delivery positioning", async ({ page }) 
   await expect(page.getByRole("heading", { name: /hire human-led software facilitators/i })).toBeVisible();
   await expect(page.getByRole("link", { name: /post a project/i })).toBeVisible();
   await expect(page.getByText(/verified software delivery/i).first()).toBeVisible();
+  await expect(page.getByText("Proof network")).toBeVisible();
+  await expect(page.getByText("Netlify")).toBeVisible();
+  await expect(page.getByText("Render")).toBeVisible();
+  await expect(page.getByText("Cloudflare Pages")).toBeVisible();
 });
 
 test("pricing page shows clear fee model", async ({ page }) => {

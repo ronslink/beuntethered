@@ -41,27 +41,28 @@ test("facilitator adds project delivery evidence source", async ({ page }) => {
     await expect(page.getByText("Delivery Evidence System")).toBeVisible();
     await expect(page.getByText("No evidence sources connected yet.")).toBeVisible();
 
-    await page.getByLabel(/display name/i).fill("Vercel preview deployment");
-    await page.getByLabel(/url or provider link/i).fill("https://evidence-preview.vercel.app");
+    await page.getByLabel(/source type/i).selectOption("RENDER");
+    await page.getByLabel(/display name/i).fill("Render webhook worker");
+    await page.getByLabel(/url or provider link/i).fill("https://evidence-worker.onrender.com");
     await page
       .getByLabel(/verification note/i)
       .fill("This preview maps to the portal deployment milestone and is ready for buyer review.");
     await page.getByRole("button", { name: /add source/i }).click();
 
     await expect(page.getByText("Evidence source added to the project packet.")).toBeVisible();
-    await expect(page.getByText("Vercel preview deployment")).toBeVisible();
-    await expect(page.getByText("https://evidence-preview.vercel.app")).toBeVisible();
+    await expect(page.getByText("Render webhook worker")).toBeVisible();
+    await expect(page.getByText("https://evidence-worker.onrender.com")).toBeVisible();
 
     await expect
       .poll(async () =>
         prisma.projectEvidenceSource.findFirst({
-          where: { project_id: project.id, type: "VERCEL" },
+          where: { project_id: project.id, type: "RENDER" },
           select: { label: true, url: true, status: true },
         }),
       )
       .toEqual({
-        label: "Vercel preview deployment",
-        url: "https://evidence-preview.vercel.app",
+        label: "Render webhook worker",
+        url: "https://evidence-worker.onrender.com",
         status: "PENDING_VERIFICATION",
       });
   } finally {

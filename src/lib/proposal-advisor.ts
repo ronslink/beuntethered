@@ -132,7 +132,7 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
     risks.add("Buyer baseline is concentrated in one milestone; consider proposing smaller funded checkpoints.");
   }
   if (evidenceConfidence.level === "low") {
-    risks.add("Proposal confidence is lower until live deployment, Railway service, repository, or database evidence is connected.");
+    risks.add("Proposal confidence is lower until live deployment, PaaS service, repository, or database evidence is connected.");
   }
   if (includesAny(scopeText, [/\b(legacy|migration|data import|existing system)\b/])) {
     risks.add("Existing-system access could change scope; make access a start condition.");

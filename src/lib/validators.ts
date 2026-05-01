@@ -356,7 +356,20 @@ export const projectRepositoryInputSchema = z.object({
   token: trimmed.max(4000).optional(),
 });
 
-export const projectEvidenceSourceTypeOptions = ["GITHUB", "VERCEL", "RAILWAY", "SUPABASE", "DOMAIN", "OTHER"] as const;
+export const projectEvidenceSourceTypeOptions = [
+  "GITHUB",
+  "VERCEL",
+  "NETLIFY",
+  "CLOUDFLARE",
+  "RAILWAY",
+  "RENDER",
+  "FLY",
+  "DIGITALOCEAN",
+  "HEROKU",
+  "SUPABASE",
+  "DOMAIN",
+  "OTHER",
+] as const;
 
 export const projectEvidenceSourceInputSchema = z.object({
   projectId: trimmed.min(1),

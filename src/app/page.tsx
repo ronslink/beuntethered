@@ -34,6 +34,27 @@ const trustRows = [
   ["Release", "Funds release only after review, approval, and evidence-backed handoff."],
 ];
 
+const proofNetworks = [
+  {
+    title: "Frontend previews",
+    icon: "web_asset",
+    providers: ["Vercel", "Netlify", "Cloudflare Pages"],
+    body: "Buyers can open a real preview URL and test the workflow before releasing escrow.",
+  },
+  {
+    title: "Backend services",
+    icon: "dns",
+    providers: ["Railway", "Render", "Fly.io", "Heroku", "DigitalOcean"],
+    body: "Facilitators can attach service URLs, deployment logs, workers, cron runs, and health checks.",
+  },
+  {
+    title: "Code and data proof",
+    icon: "fact_check",
+    providers: ["GitHub", "Supabase", "Domains"],
+    body: "Repositories, migrations, pull requests, DNS, and launch checks become reviewable evidence.",
+  },
+];
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-on-surface">
@@ -134,6 +155,46 @@ export default function LandingPage() {
                   <p className="mt-3 text-sm font-semibold leading-relaxed">{item}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 py-16 border-y border-outline-variant/30 bg-surface-container-low">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-widest text-primary">Proof network</p>
+                <h2 className="mt-3 text-3xl font-black font-headline tracking-tight">
+                  Evidence from the tools software teams already use.
+                </h2>
+                <p className="mt-4 text-on-surface-variant leading-relaxed">
+                  Untether does not ask clients to trust screenshots alone. Facilitators attach deployments,
+                  services, repositories, database proof, and domain checks so milestone approval is based on
+                  inspectable evidence.
+                </p>
+              </div>
+              <div className="grid gap-3">
+                {proofNetworks.map((network) => (
+                  <div key={network.title} className="rounded-xl border border-outline-variant/30 bg-surface p-5">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="flex items-start gap-3">
+                        <span className="material-symbols-outlined mt-0.5 text-[20px] text-primary">{network.icon}</span>
+                        <div>
+                          <h3 className="text-base font-black text-on-surface">{network.title}</h3>
+                          <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">{network.body}</p>
+                        </div>
+                      </div>
+                      <div className="flex max-w-md flex-wrap gap-1.5 md:justify-end">
+                        {network.providers.map((provider) => (
+                          <span key={provider} className="rounded-md border border-outline-variant/30 bg-surface-container-low px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                            {provider}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

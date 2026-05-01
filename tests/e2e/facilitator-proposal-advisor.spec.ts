@@ -139,7 +139,7 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await expect(page.getByText("Award readiness incomplete").first()).toBeVisible();
     await expect(page.getByText("Scope evidence").first()).toBeVisible();
     await expect(page.getByText("Bid Evidence Confidence")).toBeVisible();
-    await expect(page.getByText(/live deployment, repository, or data evidence is stronger/i)).toHaveCount(0);
+    await expect(page.getByText(/live deployment, PaaS service, repository, or data evidence is stronger/i)).toHaveCount(0);
     await expect(page.getByText(/connected technical evidence sources/i)).toBeVisible();
     await expect(page.getByText("Buyer scope checks passed.")).toBeVisible();
     await expect(page.getByText("Budget lock")).toBeVisible();

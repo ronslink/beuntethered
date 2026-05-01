@@ -357,7 +357,7 @@ export default function BidModal({
                   <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">
                     {advisorPacket.evidenceConfidence.hasSystemEvidence
                       ? "Reference connected sources such as deployments, repositories, or data systems to strengthen the bid."
-                      : "Screenshots and notes help, but connected deployment, Railway service, repository, or data evidence will make the bid more credible."}
+                      : "Screenshots and notes help, but connected deployment, PaaS service, repository, or data evidence will make the bid more credible."}
                   </p>
                 </div>
                 <span className="shrink-0 rounded-md bg-primary/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-primary">

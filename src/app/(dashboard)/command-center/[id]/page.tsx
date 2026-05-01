@@ -55,8 +55,26 @@ function getClientEvidenceReviewHints(sources: LinkedEvidenceSource[]) {
   if (sources.some((source) => source.type === "VERCEL")) {
     hints.add("Open the deployment link and complete the main workflow as a real user.");
   }
+  if (sources.some((source) => source.type === "NETLIFY")) {
+    hints.add("Open the Netlify deploy preview or production URL and complete the main workflow as a real user.");
+  }
+  if (sources.some((source) => source.type === "CLOUDFLARE")) {
+    hints.add("Open the Cloudflare Pages URL or Worker route and ask the facilitator to show the relevant deploy, route, or request log.");
+  }
   if (sources.some((source) => source.type === "RAILWAY")) {
     hints.add("Ask the facilitator to open the Railway service URL or logs and show that the backend, worker, or API is running with the expected environment.");
+  }
+  if (sources.some((source) => source.type === "RENDER")) {
+    hints.add("Ask the facilitator to show the Render service health, deploy event, or worker/cron run tied to the delivered feature.");
+  }
+  if (sources.some((source) => source.type === "FLY")) {
+    hints.add("Ask the facilitator to show the Fly.io app URL, health check, and region or machine status for the deployed service.");
+  }
+  if (sources.some((source) => source.type === "DIGITALOCEAN")) {
+    hints.add("Ask the facilitator to show the DigitalOcean App Platform deployment log or component status for the delivered service.");
+  }
+  if (sources.some((source) => source.type === "HEROKU")) {
+    hints.add("Open the Heroku review app or app URL and ask the facilitator to show the release or dyno status if the work is backend-facing.");
   }
   if (sources.some((source) => source.type === "GITHUB")) {
     hints.add("You do not need to read the code. Confirm the repository or pull request is attached for handoff and future maintenance.");

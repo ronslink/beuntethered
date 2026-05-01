@@ -337,7 +337,7 @@ export default function DossierClient({
                       <p className="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
                         {advisorPacket.evidenceConfidence.hasSystemEvidence
                           ? "This opportunity has connected technical evidence sources. Reference them in your proposal to make the bid more inspectable."
-                          : "This opportunity does not yet have strong technical evidence sources. Screenshots can support a bid, but live deployment, Railway service, repository, or data evidence is stronger."}
+                          : "This opportunity does not yet have strong technical evidence sources. Screenshots can support a bid, but live deployment, PaaS service, repository, or data evidence is stronger."}
                       </p>
                     </div>
                     <span className="rounded-md bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary">

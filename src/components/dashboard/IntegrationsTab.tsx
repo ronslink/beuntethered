@@ -66,10 +66,46 @@ const SOURCE_OPTIONS: Array<{ type: EvidenceSourceTypeValue; label: string; icon
     helper: "Preview/production deployment and build evidence.",
   },
   {
+    type: "NETLIFY",
+    label: "Netlify",
+    icon: "deployed_code",
+    helper: "Deploy preview, production URL, build, and function evidence.",
+  },
+  {
+    type: "CLOUDFLARE",
+    label: "Cloudflare",
+    icon: "cloud",
+    helper: "Pages, Workers, routes, DNS, and edge deployment evidence.",
+  },
+  {
     type: "RAILWAY",
     label: "Railway",
     icon: "dns",
     helper: "Backend service, worker, API, environment, and deployment evidence.",
+  },
+  {
+    type: "RENDER",
+    label: "Render",
+    icon: "settings_system_daydream",
+    helper: "Web service, background worker, cron, database, and deploy evidence.",
+  },
+  {
+    type: "FLY",
+    label: "Fly.io",
+    icon: "flight_takeoff",
+    helper: "Container app, machine, region, health check, and deploy evidence.",
+  },
+  {
+    type: "DIGITALOCEAN",
+    label: "DigitalOcean",
+    icon: "water_drop",
+    helper: "App Platform service, deployment, database, and managed component evidence.",
+  },
+  {
+    type: "HEROKU",
+    label: "Heroku",
+    icon: "apps",
+    helper: "Dyno, review app, release, pipeline, and add-on evidence.",
   },
   {
     type: "SUPABASE",
@@ -405,7 +441,7 @@ export default function IntegrationsTab({
                   id="evidence-source-label"
                   value={sourceForm.label}
                   onChange={(event) => setSourceForm((current) => ({ ...current, label: event.target.value }))}
-                  placeholder="Production Vercel deployment"
+                  placeholder="Production deployment or service"
                   className="w-full rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface outline-none transition-colors focus:border-primary"
                   required
                 />
