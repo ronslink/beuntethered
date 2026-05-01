@@ -146,6 +146,8 @@ test("submitting a proposal accepts a viewed invite automatically", async ({ pag
 
     await page.getByRole("button", { name: /submit proposal/i }).click();
     await page.getByRole("button", { name: /quick bid/i }).click();
+    await page.getByPlaceholder("Enter your quote").fill("2400");
+    await page.getByPlaceholder("Enter days").fill("6");
     await page
       .getByPlaceholder("Describe your approach, tools, and how you will build this...")
       .fill("I will deliver the dashboard with a working preview URL, repository evidence, and acceptance checklist mapped to the milestone.");
