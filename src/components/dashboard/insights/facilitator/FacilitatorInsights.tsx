@@ -226,10 +226,10 @@ export default function FacilitatorInsights({
             <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
               <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Work Queue</h2>
               <div className="mt-5 space-y-3">
-                <QueueRow icon="workspaces" label="Active milestones" value={activeMilestones} />
-                <QueueRow icon="rate_review" label="Submitted for review" value={reviewMilestones} />
-                <QueueRow icon="outgoing_mail" label="Pending invites" value={pendingInvites} />
-                <QueueRow icon="gavel" label="Disputed milestones" value={disputedMilestones} />
+                <QueueRow icon="workspaces" label="Active milestones" value={activeMilestones} href="/dashboard" />
+                <QueueRow icon="rate_review" label="Submitted for review" value={reviewMilestones} href="/dashboard" />
+                <QueueRow icon="outgoing_mail" label="Pending invites" value={pendingInvites} href="/marketplace" />
+                <QueueRow icon="gavel" label="Disputed milestones" value={disputedMilestones} href={disputeQueue[0] ? `/command-center/${disputeQueue[0].projectId}` : "/insights"} />
               </div>
             </div>
 
@@ -336,15 +336,23 @@ function Metric({ label, value, icon, tone }: { label: string; value: string; ic
   );
 }
 
-function QueueRow({ icon, label, value }: { icon: string; label: string; value: number }) {
+function QueueRow({ icon, label, value, href }: { icon: string; label: string; value: number; href: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3">
+    <Link
+      href={href}
+      className="group flex items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 transition-colors hover:border-tertiary/40 hover:bg-surface-container-high"
+    >
       <div className="flex items-center gap-3">
         <span className="material-symbols-outlined text-[18px] text-tertiary">{icon}</span>
         <p className="text-sm font-bold text-on-surface">{label}</p>
       </div>
-      <span className="text-lg font-black text-on-surface">{value}</span>
-    </div>
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-black text-on-surface">{value}</span>
+        <span className="material-symbols-outlined text-[15px] text-outline-variant transition-colors group-hover:text-tertiary">
+          arrow_forward
+        </span>
+      </div>
+    </Link>
   );
 }
 

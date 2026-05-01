@@ -111,6 +111,8 @@ test("buyer insights show durable audit evidence metrics", async ({ page }) => {
     await expect(page.getByText("Proposal decisions")).toBeVisible();
     await expect(page.getByText("Escrow funding")).toBeVisible();
     await expect(page.getByText("Delivery review")).toBeVisible();
+    await expect(page.getByRole("link", { name: /milestones awaiting funding/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /milestones awaiting review/i })).toBeVisible();
     await expect(page.getByText("Priority Workspaces")).toBeVisible();
     await expect(page.getByText("Insights Active Portal")).toBeVisible();
     await expect(page.getByText("Insights Proposal Queue")).toBeVisible();
@@ -187,6 +189,8 @@ test("facilitator insights show profile demand and opportunity radar", async ({ 
     await expect(page.getByText("Opportunity Radar")).toBeVisible();
     await expect(page.getByText("Insights Fit Portal")).toBeVisible();
     await expect(page.getByText(/fit/).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /active milestones/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /pending invites/i })).toBeVisible();
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

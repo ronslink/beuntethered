@@ -69,11 +69,36 @@ export default function ClientInsights({
   const closedShare = totalSpend > 0 ? Math.max(0, 100 - activeShare) : 0;
 
   const actionQueue = [
-    { label: "Milestones awaiting funding", value: pendingMilestones, icon: "account_balance_wallet" },
-    { label: "Milestones funded in escrow", value: fundedMilestones, icon: "lock" },
-    { label: "Milestones awaiting review", value: reviewMilestones, icon: "rate_review" },
-    { label: "Milestones in dispute", value: disputedMilestones, icon: "gavel" },
-    { label: "Open projects accepting proposals", value: openProjectCount, icon: "campaign" },
+    {
+      label: "Milestones awaiting funding",
+      value: pendingMilestones,
+      icon: "account_balance_wallet",
+      href: projectHealth.find((project) => project.pendingFundingCount > 0)?.href ?? "/wallet",
+    },
+    {
+      label: "Milestones funded in escrow",
+      value: fundedMilestones,
+      icon: "lock",
+      href: projectHealth.find((project) => project.fundedCount > 0)?.href ?? "/wallet",
+    },
+    {
+      label: "Milestones awaiting review",
+      value: reviewMilestones,
+      icon: "rate_review",
+      href: projectHealth.find((project) => project.reviewCount > 0)?.href ?? "/dashboard",
+    },
+    {
+      label: "Milestones in dispute",
+      value: disputedMilestones,
+      icon: "gavel",
+      href: projectHealth.find((project) => project.disputedCount > 0)?.href ?? "/insights",
+    },
+    {
+      label: "Open projects accepting proposals",
+      value: openProjectCount,
+      icon: "campaign",
+      href: "/projects",
+    },
   ];
 
   return (
@@ -187,13 +212,22 @@ export default function ClientInsights({
             <p className="mt-1 text-sm text-on-surface-variant">Buyer-side operational signals for today.</p>
             <div className="mt-5 space-y-3">
               {actionQueue.map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3">
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="group flex items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 transition-colors hover:border-primary/40 hover:bg-surface-container-high"
+                >
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-[18px] text-primary">{item.icon}</span>
                     <p className="text-sm font-bold text-on-surface">{item.label}</p>
                   </div>
-                  <span className="text-lg font-black text-on-surface">{item.value}</span>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-black text-on-surface">{item.value}</span>
+                    <span className="material-symbols-outlined text-[15px] text-outline-variant transition-colors group-hover:text-primary">
+                      arrow_forward
+                    </span>
+                  </div>
+                </Link>
               ))}
             </div>
           </aside>
