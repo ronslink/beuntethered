@@ -15,6 +15,7 @@ import { getMilestoneReadiness } from "@/lib/milestone-readiness";
 import { getMilestoneProofPlan } from "@/lib/milestone-proof";
 import { buildDisputeEvidenceContext } from "@/lib/dispute-evidence";
 import { getBYOCTransitionBaseline } from "@/lib/byoc-transition";
+import { buildMilestoneEvidencePacket, getProjectEvidenceSourceCoverage } from "@/lib/delivery-evidence";
 import { formatReleaseAttestationValue, getReleaseAttestation } from "@/lib/release-attestation";
 import { BYOC_DISPUTE_EXCLUSION_MESSAGE, getProjectDisputeEligibility } from "@/lib/dispute-rules";
 
@@ -59,6 +60,10 @@ export default async function ProjectCommandCenter({
         orderBy: { created_at: "desc" },
         take: 12,
         include: { actor: { select: { name: true, email: true, role: true } } },
+      },
+      evidence_sources: {
+        orderBy: { created_at: "desc" },
+        include: { created_by: { select: { name: true, email: true, role: true } } },
       },
       disputes: {
         orderBy: { created_at: "desc" },
@@ -124,6 +129,24 @@ export default async function ProjectCommandCenter({
     is_byoc: project.is_byoc,
     github_repo_url: project.github_repo_url,
     has_github_token: !!project.github_access_token,
+    evidence_sources: project.evidence_sources.map((source) => ({
+      id: source.id,
+      type: source.type,
+      label: source.label,
+      url: source.url,
+      status: source.status,
+      metadata: source.metadata,
+      created_at: source.created_at.toISOString(),
+      created_by: source.created_by
+        ? {
+            name: source.created_by.name,
+            email: source.created_by.email,
+            role: source.created_by.role,
+          }
+        : null,
+    })),
+    evidence_source_coverage: getProjectEvidenceSourceCoverage(project.evidence_sources),
+    milestone_evidence_packets: project.milestones.map((milestone) => buildMilestoneEvidencePacket(milestone)),
   };
   const timelineEvents = project.timeline_events.map((event) => ({
     id: event.id,
@@ -202,7 +225,7 @@ export default async function ProjectCommandCenter({
   const tabs = [
     { key: "war-room",     label: "Milestones",     icon: "layers" },
     { key: "messages",     label: "Messages",       icon: "chat" },
-    { key: "integrations", label: "Integrations",   icon: "hub" },
+    { key: "integrations", label: "Evidence & Integrations",   icon: "hub" },
     { key: "contract",     label: "Agreement",      icon: "verified_user" },
   ];
 
@@ -307,7 +330,7 @@ export default async function ProjectCommandCenter({
         </div>
 
       ) : activeTab === "integrations" ? (
-        <div className="px-4 lg:px-0 relative z-10 w-full max-w-4xl">
+        <div className="px-4 lg:px-0 relative z-10 w-full max-w-[1400px]">
           <IntegrationsTab project={integrationProject} viewerRole={isFacilitator ? "FACILITATOR" : "CLIENT"} />
         </div>
 

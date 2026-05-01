@@ -139,6 +139,7 @@ model Project {
   activity_logs       ActivityLog[]
   payment_records     PaymentRecord[]
   account_risk_signals AccountRiskSignal[]
+  evidence_sources    ProjectEvidenceSource[]
 
   @@index([invited_client_email])
 }
@@ -273,6 +274,7 @@ model User {
   notifications            Notification[]
   payment_records          PaymentRecord[]
   requested_audits         MilestoneAudit[]
+  created_evidence_sources ProjectEvidenceSource[]
   client_projects          Project[]            @relation("Project_client_idToUser")
   created_projects         Project[]            @relation("Project_creator_idToUser")
   client_reviews           Review[]             @relation("Review_client_idToUser")
@@ -510,6 +512,24 @@ model PaymentRecord {
   @@index([milestone_id, kind, status])
 }
 
+model ProjectEvidenceSource {
+  id            String               @id @default(cuid())
+  project_id    String
+  created_by_id String?
+  type          EvidenceSourceType
+  label         String
+  url           String?
+  status        EvidenceSourceStatus @default(PENDING_VERIFICATION)
+  metadata      Json?
+  created_at    DateTime             @default(now())
+  updated_at    DateTime             @updatedAt
+  project       Project              @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  created_by    User?                @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
+
+  @@index([project_id, type])
+  @@index([created_by_id, created_at])
+}
+
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -712,4 +732,18 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
   CANCELLED
+}
+
+enum EvidenceSourceType {
+  GITHUB
+  VERCEL
+  SUPABASE
+  DOMAIN
+  OTHER
+}
+
+enum EvidenceSourceStatus {
+  CONNECTED
+  PENDING_VERIFICATION
+  NEEDS_ATTENTION
 }

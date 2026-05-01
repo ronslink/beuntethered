@@ -355,6 +355,24 @@ export const projectRepositoryInputSchema = z.object({
   token: trimmed.max(4000).optional(),
 });
 
+export const projectEvidenceSourceTypeOptions = ["GITHUB", "VERCEL", "SUPABASE", "DOMAIN", "OTHER"] as const;
+
+export const projectEvidenceSourceInputSchema = z.object({
+  projectId: trimmed.min(1),
+  type: z.enum(projectEvidenceSourceTypeOptions),
+  label: trimmed.min(2, "Name the evidence source.").max(120),
+  url: z.union([trimmed.url().max(2048), z.literal("")]).default(""),
+  verificationNote: trimmed.max(1000).optional().default(""),
+}).superRefine((value, ctx) => {
+  if (value.type !== "OTHER" && !value.url) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["url"],
+      message: "Add a reviewable URL or provider link for this evidence source.",
+    });
+  }
+});
+
 const scopeValidationReportSchema = z.object({
   overallStatus: z.enum(["passed", "needs_attention"]),
   items: z.array(z.object({
