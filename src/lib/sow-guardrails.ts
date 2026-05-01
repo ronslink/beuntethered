@@ -69,6 +69,13 @@ export function isSowGuardrailReport(value: unknown): value is SowGuardrailRepor
   });
 }
 
+export function getSowGuardrailReportFromMetadata(metadata: unknown): SowGuardrailReport | null {
+  if (!isPlainRecord(metadata)) return null;
+
+  const report = metadata.scope_validation_report;
+  return isSowGuardrailReport(report) ? report : null;
+}
+
 function formatMoney(value: number) {
   return value.toLocaleString("en-US", {
     style: "currency",

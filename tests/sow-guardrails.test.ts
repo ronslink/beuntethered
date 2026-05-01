@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applySowGuardrails, buildSowGuardrailReport, isSowGuardrailReport } from "../src/lib/sow-guardrails.ts";
+import {
+  applySowGuardrails,
+  buildSowGuardrailReport,
+  getSowGuardrailReportFromMetadata,
+  isSowGuardrailReport,
+} from "../src/lib/sow-guardrails.ts";
 
 const payrollConstraints = {
   regions: ["North America", "Middle East", "Asia"],
@@ -162,6 +167,8 @@ test("recognizes persisted SOW guardrail reports in activity metadata", () => {
   );
 
   assert.equal(isSowGuardrailReport(report), true);
+  assert.deepEqual(getSowGuardrailReportFromMetadata({ scope_validation_report: report }), report);
+  assert.equal(getSowGuardrailReportFromMetadata({ scope_validation_report: { ...report, overallStatus: "unknown" } }), null);
   assert.equal(isSowGuardrailReport({ ...report, overallStatus: "unknown" }), false);
   assert.equal(isSowGuardrailReport({ ...report, items: [{ key: "budget", status: "passed" }] }), false);
   assert.equal(isSowGuardrailReport(null), false);

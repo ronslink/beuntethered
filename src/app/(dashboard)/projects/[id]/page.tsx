@@ -8,16 +8,9 @@ import BidReviewShell from "@/components/dashboard/projects/BidReviewShell";
 import { ScopeValidationReportCard } from "@/components/dashboard/projects/ScopeValidationReportCard";
 import ProjectActivityLedger from "@/components/dashboard/ProjectActivityLedger";
 import { canManageBuyerProjectRole, getBuyerProjectRoleFromMembership } from "@/lib/project-access";
-import { isSowGuardrailReport, type SowGuardrailReport } from "@/lib/sow-guardrails";
+import { getSowGuardrailReportFromMetadata, type SowGuardrailReport } from "@/lib/sow-guardrails";
 
 export const dynamic = "force-dynamic";
-
-function getScopeValidationReport(metadata: unknown): SowGuardrailReport | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
-
-  const report = (metadata as Record<string, unknown>).scope_validation_report;
-  return isSowGuardrailReport(report) ? report : null;
-}
 
 export default async function ProjectReviewPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -107,7 +100,7 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
     ? `${hoursRemaining}h left`
     : null;
   const scopeValidationReport = project.activity_logs
-    .map((log) => getScopeValidationReport(log.metadata))
+    .map((log) => getSowGuardrailReportFromMetadata(log.metadata))
     .find((report): report is SowGuardrailReport => Boolean(report));
 
   return (

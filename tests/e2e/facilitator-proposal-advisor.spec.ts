@@ -42,6 +42,47 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     },
   });
 
+  await prisma.activityLog.create({
+    data: {
+      project_id: project.id,
+      actor_id: client.id,
+      action: "PROJECT_POSTED",
+      entity_type: "Project",
+      entity_id: project.id,
+      metadata: {
+        operation: "PROJECT_POSTED",
+        scope_validation_report: {
+          overallStatus: "passed",
+          items: [
+            {
+              key: "budget",
+              label: "Budget lock",
+              status: "passed",
+              expected: "$4,000",
+              actual: "$4,000",
+              detail: "Milestone amounts match the buyer-entered budget.",
+            },
+            {
+              key: "timeline",
+              label: "Timeline lock",
+              status: "passed",
+              expected: "11 days",
+              actual: "11 days",
+              detail: "Milestone durations match the buyer-entered timeline.",
+            },
+            {
+              key: "milestoneEvidence",
+              label: "Milestone evidence",
+              status: "passed",
+              actual: "2/2 ready",
+              detail: "Every milestone has buyer-visible outputs and proof checks.",
+            },
+          ],
+        },
+      },
+    },
+  });
+
   await prisma.projectInvite.create({
     data: {
       project_id: project.id,
@@ -73,6 +114,10 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
 
     await page.goto(`/marketplace/project/${project.id}`);
     await expect(page.getByText("Award readiness incomplete").first()).toBeVisible();
+    await expect(page.getByText("Scope evidence").first()).toBeVisible();
+    await expect(page.getByText("Buyer scope checks passed.")).toBeVisible();
+    await expect(page.getByText("Budget lock")).toBeVisible();
+    await expect(page.getByText("Timeline lock")).toBeVisible();
     await expect(page.getByRole("link", { name: /finish verification/i }).first()).toHaveAttribute("href", "/settings");
     await page.getByRole("button", { name: /submit proposal/i }).click();
     await expect(page.getByText("Submit when ready, but complete verification before a buyer can award this proposal.")).toBeVisible();

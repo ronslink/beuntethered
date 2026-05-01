@@ -5,6 +5,7 @@ import DossierClient from "@/components/dashboard/marketplace/DossierClient";
 import { computeOpportunityFit, inferOpportunityTerms } from "@/lib/opportunity-fit";
 import { getFacilitatorAwardReadiness } from "@/lib/bid-award-rules";
 import { buildProposalAdvisorPacket } from "@/lib/proposal-advisor";
+import { getSowGuardrailReportFromMetadata, type SowGuardrailReport } from "@/lib/sow-guardrails";
 
 export default async function ProjectDossierPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -31,6 +32,11 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
         take: 1,
       },
       _count: { select: { bids: true } },
+      activity_logs: {
+        orderBy: { created_at: "desc" },
+        take: 20,
+        select: { metadata: true },
+      },
     }
   });
 
@@ -112,6 +118,7 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
     client: undefined,
     bids: undefined,
     invites: undefined,
+    activity_logs: undefined,
   };
 
   const serializedMilestones = project.milestones.map(m => ({
@@ -125,6 +132,9 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
     status: m.status,
   }));
   const advisorPacket = buildProposalAdvisorPacket(project);
+  const scopeValidationReport = project.activity_logs
+    .map((log) => getSowGuardrailReportFromMetadata(log.metadata))
+    .find((report): report is SowGuardrailReport => Boolean(report));
 
   return (
     <DossierClient
@@ -145,6 +155,7 @@ export default async function ProjectDossierPage(props: { params: Promise<{ id: 
         createdAt: project.bids[0].created_at.toISOString(),
       } : null}
       advisorPacket={advisorPacket}
+      scopeValidationReport={scopeValidationReport ?? null}
     />
   );
 }

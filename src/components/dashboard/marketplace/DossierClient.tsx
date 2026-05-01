@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import BidModal from "@/components/dashboard/marketplace/BidModal";
 import { markProjectInviteViewed, respondToProjectInvite } from "@/app/actions/project-invites";
 import type { ProposalAdvisorPacket } from "@/lib/proposal-advisor";
+import { ScopeValidationReportCard } from "@/components/dashboard/projects/ScopeValidationReportCard";
+import type { SowGuardrailReport } from "@/lib/sow-guardrails";
 
 type DossierProject = {
   id: string;
@@ -62,6 +64,7 @@ export default function DossierClient({
   invite,
   existingProposal,
   advisorPacket,
+  scopeValidationReport,
 }: {
   project: DossierProject;
   milestones: DossierMilestone[];
@@ -74,6 +77,7 @@ export default function DossierClient({
   invite: ProjectInviteState;
   existingProposal: ExistingProposal;
   advisorPacket?: ProposalAdvisorPacket | null;
+  scopeValidationReport?: SowGuardrailReport | null;
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"overview" | "architecture" | "escrow">("overview");
@@ -285,6 +289,17 @@ export default function DossierClient({
                   {project.ai_generated_sow}
                 </p>
               </div>
+
+              {scopeValidationReport && (
+                <ScopeValidationReportCard
+                  report={scopeValidationReport}
+                  eyebrow="Scope evidence"
+                  titlePassed="Buyer scope checks passed."
+                  titleAttention="Buyer scope has review items."
+                  description="Captured when the project entered the marketplace so your proposal can preserve buyer constraints and price only after any needed clarification."
+                  gridClassName="md:grid-cols-2"
+                />
+              )}
 
               {/* Scope signal tags */}
               <div className="space-y-3">
