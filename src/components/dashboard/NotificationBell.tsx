@@ -214,7 +214,10 @@ export function NotificationBell() {
 
 function NotificationStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2">
+    <div
+      aria-label={`${label}: ${value}`}
+      className="rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2"
+    >
       <p className="text-lg font-black leading-none text-on-surface">{value}</p>
       <p className="mt-1 text-[8px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
     </div>
