@@ -1,5 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import {
+  BYOC_CLIENT_FEE_RATE,
+  FACILITATOR_PLATFORM_FEE_RATE,
+  MARKETPLACE_CLIENT_FEE_RATE,
+  calculateMilestoneFees,
+  formatFeeRate,
+} from "@/lib/platform-fees";
 
 export const metadata: Metadata = {
   title: "Pricing - Untether",
@@ -10,7 +17,7 @@ export const metadata: Metadata = {
 const clientPlans = [
   {
     name: "Marketplace",
-    price: "8%",
+    price: formatFeeRate(MARKETPLACE_CLIENT_FEE_RATE),
     sub: "client fee per funded milestone",
     features: [
       "AI scope generation",
@@ -23,7 +30,7 @@ const clientPlans = [
   },
   {
     name: "BYOC",
-    price: "5%",
+    price: formatFeeRate(BYOC_CLIENT_FEE_RATE),
     sub: "client fee when facilitator brings the client",
     features: [
       "Secure client onboarding",
@@ -36,15 +43,23 @@ const clientPlans = [
   },
 ];
 
+const exampleFees = calculateMilestoneFees({ amount: 10_000, isByoc: false });
+const formatWholeDollars = (cents: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+
 const feeExample = [
-  ["Milestone amount", "$10,000"],
-  ["Marketplace client fee at 8%", "$800"],
-  ["Client total due", "$10,800"],
-  ["Facilitator payout", "$10,000"],
+  ["Milestone amount", formatWholeDollars(exampleFees.grossAmountCents)],
+  [`Marketplace client fee at ${formatFeeRate(exampleFees.feeRate)}`, formatWholeDollars(exampleFees.platformFeeCents)],
+  ["Client total due", formatWholeDollars(exampleFees.clientTotalCents)],
+  ["Facilitator payout", formatWholeDollars(exampleFees.facilitatorPayoutCents)],
 ];
 
 const facilitatorFeatures = [
-  "0% platform fee on facilitator earnings",
+  `${formatFeeRate(FACILITATOR_PLATFORM_FEE_RATE)} platform fee on facilitator earnings`,
   "Stripe Connect payouts after milestone approval",
   "Trust score and audit-backed reputation",
   "AI tool workflow and portfolio profile",
@@ -63,6 +78,10 @@ export default function PricingPage() {
           </h1>
           <p className="mt-5 text-lg text-on-surface-variant max-w-2xl leading-relaxed">
             Clients fund milestones through escrow. Facilitators keep their quoted rate. Untether charges a clear client-side orchestration fee.
+          </p>
+          <p className="mt-4 text-sm text-on-surface-variant max-w-2xl leading-relaxed">
+            Untether does not publish generic project prices. Project pricing comes from buyer constraints,
+            facilitator proposals, and the milestone evidence required to approve the work.
           </p>
         </div>
       </section>

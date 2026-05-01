@@ -26,9 +26,11 @@ test("builds a facilitator proposal packet from buyer SOW milestones", () => {
     ],
   });
 
-  assert.equal(packet.proposedAmount, 4000);
-  assert.equal(packet.estimatedDays, 7);
+  assert.equal(packet.buyerBudgetTotal, 4000);
+  assert.equal(packet.buyerTimelineDays, 7);
   assert.equal(packet.milestoneStrategy.length, 2);
+  assert.equal(packet.milestoneStrategy[0].buyerAmount, 2500);
+  assert.equal(packet.milestoneStrategy[0].buyerDays, 4);
   assert.ok(packet.evidencePlan.some((item) => /staging url/i.test(item)));
   assert.ok(packet.evidencePlan.some((item) => /webhook/i.test(item)));
   assert.ok(packet.buyerQuestions.some((item) => /payment scenarios/i.test(item)));
@@ -42,9 +44,9 @@ test("flags missing pricing and timeline as proposal risks", () => {
     milestones: [],
   });
 
-  assert.equal(packet.proposedAmount, 0);
-  assert.equal(packet.estimatedDays, 0);
-  assert.ok(packet.riskNotes.some((risk) => /budget is not explicit/i.test(risk)));
-  assert.ok(packet.riskNotes.some((risk) => /timeline is not explicit/i.test(risk)));
+  assert.equal(packet.buyerBudgetTotal, null);
+  assert.equal(packet.buyerTimelineDays, null);
+  assert.ok(packet.riskNotes.some((risk) => /price after clarification/i.test(risk)));
+  assert.ok(packet.riskNotes.some((risk) => /confirm delivery window before quoting/i.test(risk)));
   assert.ok(packet.buyerQuestions.some((question) => /model\/provider/i.test(question)));
 });

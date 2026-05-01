@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { generateBYOCInvite } from "@/app/actions/byoc";
 import { getBYOCPacketState } from "@/lib/byoc-packet-state";
+import {
+  BYOC_CLIENT_FEE_RATE,
+  FACILITATOR_PLATFORM_FEE_RATE,
+  formatFeeRate,
+} from "@/lib/platform-fees";
 
 type SOWMilestone = {
   title: string;
@@ -178,7 +183,7 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
   const milestoneCount = sowData?.milestones?.length ?? 0;
   const estimatedClientFee = useMemo(() => {
     if (!sowData) return 0;
-    return Math.round(sowData.totalAmount * 0.05);
+    return Math.round(sowData.totalAmount * BYOC_CLIENT_FEE_RATE);
   }, [sowData]);
 
   const handleGenerate = async (event: React.FormEvent) => {
@@ -327,11 +332,11 @@ export default function BYOCDraftingHub({ recentPackets }: { recentPackets: Rece
             <div className="grid min-w-full grid-cols-3 gap-2 lg:min-w-[360px]">
               <div className="rounded-lg border border-outline-variant/30 bg-surface p-3">
                 <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Facilitator fee</p>
-                <p className="mt-1 text-xl font-black text-on-surface">0%</p>
+                <p className="mt-1 text-xl font-black text-on-surface">{formatFeeRate(FACILITATOR_PLATFORM_FEE_RATE)}</p>
               </div>
               <div className="rounded-lg border border-outline-variant/30 bg-surface p-3">
                 <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Client fee</p>
-                <p className="mt-1 text-xl font-black text-on-surface">5%</p>
+                <p className="mt-1 text-xl font-black text-on-surface">{formatFeeRate(BYOC_CLIENT_FEE_RATE)}</p>
               </div>
               <div className="rounded-lg border border-outline-variant/30 bg-surface p-3">
                 <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Release</p>

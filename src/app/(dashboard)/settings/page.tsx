@@ -10,6 +10,11 @@ import DisplayNameInput from "@/components/settings/DisplayNameInput";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import OrganizationSettingsClient from "@/components/settings/OrganizationSettingsClient";
 import { isServerGemmaConfigured } from "@/lib/ai-provider-config";
+import {
+  FACILITATOR_PLATFORM_FEE_RATE,
+  MARKETPLACE_CLIENT_FEE_RATE,
+  formatFeeRate,
+} from "@/lib/platform-fees";
 
 type VerificationStatusValue = "PENDING" | "VERIFIED" | "REJECTED";
 
@@ -559,12 +564,12 @@ export default async function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
               <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4">
                 <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Client Fee</p>
-                <p className="text-lg font-black text-on-surface">8%</p>
+                <p className="text-lg font-black text-on-surface">{formatFeeRate(MARKETPLACE_CLIENT_FEE_RATE)}</p>
                 <p className="text-[10px] text-on-surface-variant mt-1">Added at milestone funding.</p>
               </div>
               <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4">
                 <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Facilitator Fee</p>
-                <p className="text-lg font-black text-on-surface">0%</p>
+                <p className="text-lg font-black text-on-surface">{formatFeeRate(FACILITATOR_PLATFORM_FEE_RATE)}</p>
                 <p className="text-[10px] text-on-surface-variant mt-1">Payout equals approved milestone amount.</p>
               </div>
               <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4">

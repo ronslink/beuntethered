@@ -88,7 +88,7 @@ function bidRisks(project: AdvisorProject) {
   if (/mobile|ios|android|app store/.test(scope)) risks.add("Confirm device targets and release-store expectations.");
 
   if (risks.size === 0) {
-    risks.add("Confirm buyer priorities, acceptance evidence, and review cadence before pricing.");
+    risks.add("Confirm buyer priorities, acceptance evidence, and review cadence before quoting.");
   }
 
   return Array.from(risks).slice(0, 3);
@@ -101,7 +101,7 @@ function ProjectAdvisorCard({
   project: AdvisorProject;
   fit: ReturnType<typeof computeOpportunityFit>;
 }) {
-  const totalValue = project.milestones.reduce((total, milestone) => total + Number(milestone.amount), 0);
+  const buyerBudgetReference = project.milestones.reduce((total, milestone) => total + Number(milestone.amount), 0);
   const ownBid = project.bids[0];
   const invite = project.invites[0];
   const proofPrompts = verificationPrompts(project);
@@ -150,15 +150,15 @@ function ProjectAdvisorCard({
           </h3>
           <dl className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-3">
-              <dt className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Budget map</dt>
+              <dt className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Buyer budget reference</dt>
               <dd className="text-sm font-black text-on-surface mt-1">
-                {totalValue > 0 ? formatCurrency(totalValue) : "Buyer TBD"}
+                {buyerBudgetReference > 0 ? formatCurrency(buyerBudgetReference) : "Buyer TBD"}
               </dd>
             </div>
             <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-3">
-              <dt className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Timeline</dt>
+              <dt className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Buyer timeline reference</dt>
               <dd className="text-sm font-black text-on-surface mt-1">
-                {proposalPacket.estimatedDays > 0 ? `${proposalPacket.estimatedDays} days` : "Estimate needed"}
+                {proposalPacket.buyerTimelineDays ? `${proposalPacket.buyerTimelineDays} days` : "Buyer TBD"}
               </dd>
             </div>
             <div className="rounded-lg border border-outline-variant/30 bg-surface-container-low/40 p-3">
@@ -208,8 +208,8 @@ function ProjectAdvisorCard({
                         {milestone.outcome}
                       </p>
                       <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mt-2">
-                        {milestone.amount > 0 ? formatCurrency(milestone.amount) : "Price TBD"}
-                        {milestone.days ? ` · ${milestone.days} days` : ""}
+                        Buyer baseline: {milestone.buyerAmount ? formatCurrency(milestone.buyerAmount) : "budget TBD"}
+                        {milestone.buyerDays ? ` · ${milestone.buyerDays} days` : " · timeline TBD"}
                       </p>
                     </div>
                   </div>
@@ -247,7 +247,7 @@ function ProjectAdvisorCard({
           </ul>
 
           <p className="text-[10px] uppercase tracking-widest font-black text-on-surface-variant mb-2">
-            Clarify before pricing
+            Clarify before quoting
           </p>
           <ul className="space-y-2 mb-5">
             {proposalPacket.buyerQuestions.slice(0, 3).map((question) => (
@@ -348,8 +348,8 @@ export default async function ProposalAdvisorPage({ userId }: ProposalAdvisorPag
                 Proposal Advisor
               </h1>
               <p className="text-on-surface-variant font-medium mt-2 text-sm leading-relaxed max-w-3xl">
-                Turn live buyer SOWs into outcome-based proposals with milestone pricing, delivery proof,
-                and buyer-ready risk questions.
+                Turn live buyer SOWs into outcome-based proposal plans with buyer budget references,
+                delivery proof, and risk questions before you quote.
               </p>
             </div>
             <Link

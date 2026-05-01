@@ -14,4 +14,5 @@ test("pricing page shows clear fee model", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /pay for verified milestones/i })).toBeVisible();
   await expect(page.getByText("8%").first()).toBeVisible();
   await expect(page.getByText("0% platform fee on facilitator earnings")).toBeVisible();
+  await expect(page.getByText(/does not publish generic project prices/i)).toBeVisible();
 });

@@ -9,8 +9,8 @@ import type { ProposalAdvisorPacket } from "@/lib/proposal-advisor";
 type Mode = "SELECTION" | "QUICK" | "FULL_1" | "FULL_2" | "FULL_3";
 type Milestone = {
   title: string;
-  amount: number;
-  days: number;
+  amount: string;
+  days: string;
   description: string;
   deliverables?: string[];
   acceptance_criteria?: string[];
@@ -59,6 +59,16 @@ function buildAdvisorApproach(packet?: ProposalAdvisorPacket | null) {
   ];
 
   return sections.join("\n").trim();
+}
+
+function parsePositiveNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parsePositiveInteger(value: string) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function ProofPlanPanel({ plans, compact = false }: { plans: MilestoneProofPlan[]; compact?: boolean }) {
@@ -131,8 +141,8 @@ export default function BidModal({
   const advisorApproach = buildAdvisorApproach(advisorPacket);
 
   // Quick bid fields
-  const [bidAmount, setBidAmount] = useState(advisorPacket?.proposedAmount || totalValue);
-  const [days, setDays] = useState(advisorPacket?.estimatedDays || 14);
+  const [bidAmount, setBidAmount] = useState("");
+  const [days, setDays] = useState("");
   const [approach, setApproach] = useState(advisorApproach);
   const [escrowPct, setEscrowPct] = useState(100);
 
@@ -144,25 +154,27 @@ export default function BidModal({
     advisorPacket?.milestoneStrategy.length
       ? advisorPacket.milestoneStrategy.map((milestone) => ({
           title: milestone.title,
-          amount: milestone.amount,
-          days: milestone.days || 7,
+          amount: "",
+          days: "",
           description: milestone.outcome,
         }))
       : originalMilestones && originalMilestones.length > 0
       ? originalMilestones.map((m) => ({
           title: m.title,
-          amount: Number(m.amount),
-          days: m.estimated_duration_days || 7,
+          amount: "",
+          days: "",
           description: m.description || "",
           deliverables: m.deliverables ?? [],
           acceptance_criteria: m.acceptance_criteria ?? [],
         }))
-      : [{ title: "Milestone 1", amount: totalValue, days: 14, description: "" }]
+      : [{ title: "Milestone 1", amount: "", days: "", description: "" }]
   );
 
-  const proposedTotal = milestones.reduce((a, m) => a + m.amount, 0);
+  const proposedTotal = milestones.reduce((a, m) => a + (parsePositiveNumber(m.amount) ?? 0), 0);
+  const proposedDays = milestones.reduce((a, m) => a + (parsePositiveInteger(m.days) ?? 0), 0);
   const originalProofPlans = (originalMilestones ?? []).map((milestone) => getMilestoneProofPlan(milestone));
   const budgetDiff = proposedTotal - totalValue;
+  const quickBidAmount = parsePositiveNumber(bidAmount) ?? 0;
   const approachLength = approach.trim().length;
   const approachReady = approachLength >= MIN_APPROACH_LENGTH;
   const approachHelp =
@@ -183,7 +195,7 @@ export default function BidModal({
 
   const removeTag = (tag: string) => setTechStack(techStack.filter((t) => t !== tag));
 
-  const updateMilestone = (i: number, field: keyof Milestone, value: string | number) => {
+  const updateMilestone = (i: number, field: keyof Milestone, value: string) => {
     const updated = [...milestones];
     updated[i] = { ...updated[i], [field]: value };
     setMilestones(updated);
@@ -191,7 +203,7 @@ export default function BidModal({
   };
 
   const addMilestone = () =>
-    setMilestones([...milestones, { title: `Milestone ${milestones.length + 1}`, amount: 0, days: 7, description: "" }]);
+    setMilestones([...milestones, { title: `Milestone ${milestones.length + 1}`, amount: "", days: "", description: "" }]);
 
   const removeMilestone = (i: number) => {
     if (milestones.length === 1) return;
@@ -206,8 +218,8 @@ export default function BidModal({
 
   const validateCoreProposal = () => {
     if (!approachReady) return "Add a technical approach of at least 20 characters before submitting.";
-    if (bidAmount <= 0) return "Enter a proposal price greater than $0.";
-    if (days <= 0) return "Enter a delivery timeline of at least 1 day.";
+    if (!parsePositiveNumber(bidAmount)) return "Enter a proposal price greater than $0.";
+    if (!parsePositiveInteger(days)) return "Enter a delivery timeline of at least 1 day.";
     return null;
   };
 
@@ -215,7 +227,7 @@ export default function BidModal({
     if (!approachReady) return "Add a technical approach of at least 20 characters before submitting.";
     if (proposedTotal <= 0) return "Your milestone total must be greater than $0.";
     if (milestones.some((m) => !m.title.trim())) return "Every milestone needs a title before submitting.";
-    if (milestones.some((m) => !Number.isInteger(m.days) || m.days <= 0)) return "Every milestone needs a timeline of at least 1 day.";
+    if (milestones.some((m) => !parsePositiveInteger(m.days))) return "Every milestone needs a timeline of at least 1 day.";
     return null;
   };
 
@@ -227,7 +239,10 @@ export default function BidModal({
       return;
     }
     startTransition(async () => {
-      const res = await submitBid({ projectId: project.id, proposedAmount: bidAmount, estimatedDays: days, technicalApproach: approach, requiredEscrowPct: escrowPct });
+      const parsedAmount = parsePositiveNumber(bidAmount);
+      const parsedDays = parsePositiveInteger(days);
+      if (!parsedAmount || !parsedDays) return;
+      const res = await submitBid({ projectId: project.id, proposedAmount: parsedAmount, estimatedDays: parsedDays, technicalApproach: approach, requiredEscrowPct: escrowPct });
       if (res?.success) { setSuccess(true); setTimeout(() => router.push("/marketplace"), 1800); }
       else setSubmitError(res?.error || "Failed to submit proposal.");
     });
@@ -243,11 +258,15 @@ export default function BidModal({
       const res = await submitBid({
         projectId: project.id,
         proposedAmount: proposedTotal,
-        estimatedDays: milestones.reduce((a, m) => a + m.days, 0),
+        estimatedDays: proposedDays,
         technicalApproach: approach,
         proposedTechStack: techStack.join(", "),
         techStackReason: stackReason || undefined,
-        proposedMilestones: milestones,
+        proposedMilestones: milestones.map((milestone) => ({
+          ...milestone,
+          amount: parsePositiveNumber(milestone.amount) ?? 0,
+          days: parsePositiveInteger(milestone.days) ?? 0,
+        })),
         requiredEscrowPct: escrowPct,
       });
       if (res?.success) { setSuccess(true); setTimeout(() => router.push("/marketplace"), 1800); }
@@ -281,8 +300,8 @@ export default function BidModal({
         {mode !== "SELECTION" && (
           <div className="px-7 pb-2 shrink-0">
             <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-3 flex justify-between items-center text-xs">
-              <span className="font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Client Budget</span>
-              <span className="font-black text-on-surface">{format(totalValue)}</span>
+              <span className="font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Buyer Budget Reference</span>
+              <span className="font-black text-on-surface">{totalValue > 0 ? format(totalValue) : "Buyer TBD"}</span>
             </div>
           </div>
         )}
@@ -320,7 +339,7 @@ export default function BidModal({
                     Advisor draft loaded
                   </p>
                   <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">
-                    Pre-filled from the SOW milestones, proof plan, risks, and buyer questions. Edit it before submitting.
+                    Pre-filled with approach, proof plan, risks, and buyer questions. Enter your own price and timeline before submitting.
                   </p>
                 </div>
               </div>
@@ -350,7 +369,7 @@ export default function BidModal({
                   <span className="material-symbols-outlined text-on-surface group-hover:text-primary transition-colors">bolt</span>
                 </div>
                 <h4 className="font-black text-base text-on-surface mb-1">Quick Bid</h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">I know exactly what to build. Set price, timeline, and write your approach in one step.</p>
+                <p className="text-xs text-on-surface-variant leading-relaxed">I know exactly what to build. Enter your price, timeline, and approach in one step.</p>
               </button>
 
               <button
@@ -361,7 +380,7 @@ export default function BidModal({
                   <span className="material-symbols-outlined text-tertiary">architecture</span>
                 </div>
                 <h4 className="font-black text-base text-on-surface mb-1">Full Proposal</h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">Propose your tech stack, build a custom milestone structure, and get AI analysis before you submit.</p>
+                <p className="text-xs text-on-surface-variant leading-relaxed">Propose your tech stack, quote milestone amounts, and get AI analysis before you submit.</p>
                 <span className="inline-block mt-3 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-tertiary/10 text-tertiary border border-tertiary/20">Recommended</span>
               </button>
             </div>
@@ -374,13 +393,15 @@ export default function BidModal({
                   <label className="text-[9px] font-bold uppercase tracking-widest block text-on-surface-variant mb-2">Your Price (USD)</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-sm">$</span>
-                    <input type="number" required min={1} value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))}
+                    <input type="number" min={1} value={bidAmount} onChange={(e) => setBidAmount(e.target.value)}
+                      placeholder="Enter your quote"
                       className="w-full bg-surface border border-outline-variant/30 rounded-xl pl-8 pr-4 py-3 text-lg font-black text-on-surface focus:border-primary outline-none transition-colors" />
                   </div>
                 </div>
                 <div>
                   <label className="text-[9px] font-bold uppercase tracking-widest block text-on-surface-variant mb-2">Delivery (Days)</label>
-                  <input type="number" required min={1} value={days} onChange={(e) => setDays(Number(e.target.value))}
+                  <input type="number" min={1} value={days} onChange={(e) => setDays(e.target.value)}
+                    placeholder="Enter days"
                     className="w-full bg-surface border border-outline-variant/30 rounded-xl px-4 py-3 text-lg font-black text-on-surface focus:border-primary outline-none transition-colors" />
                 </div>
               </div>
@@ -407,7 +428,7 @@ export default function BidModal({
                     <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Escrow Funding Required Before Start</p>
                     <p className="text-[10px] text-on-surface-variant mt-0.5">What % of the project value must be in escrow before you begin?</p>
                   </div>
-                  <span className="text-sm font-black text-primary">{format(bidAmount * escrowPct / 100)}</span>
+                  <span className="text-sm font-black text-primary">{format(quickBidAmount * escrowPct / 100)}</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {[10, 25, 50, 75, 100].map(pct => (
@@ -419,7 +440,7 @@ export default function BidModal({
                 </div>
                 {escrowPct < 100 && (
                   <p className="text-[9px] text-on-surface-variant italic">
-                    Remainder ({format(bidAmount * (100 - escrowPct) / 100)}) due upon milestone completion.
+                    Remainder ({format(quickBidAmount * (100 - escrowPct) / 100)}) due upon milestone completion.
                   </p>
                 )}
               </div>
@@ -494,13 +515,24 @@ export default function BidModal({
               <div>
                 <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Step 2 of 3 - Milestone Structure</p>
                 <h4 className="text-base font-black text-on-surface">How will you structure delivery?</h4>
-                <p className="text-xs text-on-surface-variant mt-1">Edit, split, or restructure the milestones. Each milestone is a separate Escrow payment.</p>
+                <p className="text-xs text-on-surface-variant mt-1">Edit, split, or restructure the milestones. Buyer amounts are references only; quote your own milestone price and days.</p>
               </div>
 
               {/* Budget tracker */}
-              <div className={`flex items-center justify-between px-4 py-3 rounded-xl border text-xs font-bold ${Math.abs(budgetDiff) < 100 ? "bg-[#059669]/10 border-[#059669]/30 text-[#059669]" : budgetDiff > 0 ? "bg-secondary/10 border-secondary/30 text-secondary" : "bg-error/10 border-error/30 text-error"}`}>
-                <span>Proposed Total</span>
-                <span>{format(proposedTotal)} {budgetDiff !== 0 && <span className="opacity-70">({budgetDiff > 0 ? "+" : ""}{format(budgetDiff)} vs. client budget)</span>}</span>
+              <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-xs font-bold">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-on-surface-variant">Your entered total</span>
+                  <span className="text-on-surface">{proposedTotal > 0 ? format(proposedTotal) : "Enter milestone prices"}</span>
+                </div>
+                {totalValue > 0 && (
+                  <div className="mt-1 flex items-center justify-between gap-4 text-[10px] text-on-surface-variant">
+                    <span>Buyer budget reference</span>
+                    <span>
+                      {format(totalValue)}
+                      {proposedTotal > 0 && budgetDiff !== 0 ? ` (${budgetDiff > 0 ? "+" : ""}${format(budgetDiff)} vs reference)` : ""}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <ProofPlanPanel plans={originalProofPlans} />
@@ -520,11 +552,13 @@ export default function BidModal({
                     <div className="grid grid-cols-2 gap-3">
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs font-bold">$</span>
-                        <input type="number" min={0} value={m.amount} onChange={(e) => updateMilestone(i, "amount", Number(e.target.value))}
+                        <input type="number" min={1} value={m.amount} onChange={(e) => updateMilestone(i, "amount", e.target.value)}
+                          placeholder="Quote"
                           className="w-full bg-surface border border-outline-variant/20 rounded-lg pl-6 pr-3 py-2 text-sm font-black text-on-surface outline-none focus:border-primary transition-colors" />
                       </div>
                       <div className="relative">
-                        <input type="number" min={1} value={m.days} onChange={(e) => updateMilestone(i, "days", Number(e.target.value))}
+                        <input type="number" min={1} value={m.days} onChange={(e) => updateMilestone(i, "days", e.target.value)}
+                          placeholder="Days"
                           className="w-full bg-surface border border-outline-variant/20 rounded-lg px-3 py-2 text-sm font-black text-on-surface outline-none focus:border-primary transition-colors" />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs font-bold">days</span>
                       </div>
@@ -563,7 +597,7 @@ export default function BidModal({
                 </div>
                 <div className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-3">
                   <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Total Days</p>
-                  <p className="text-lg font-black text-on-surface">{milestones.reduce((a, m) => a + m.days, 0)}d</p>
+                  <p className="text-lg font-black text-on-surface">{proposedDays > 0 ? `${proposedDays}d` : "Enter days"}</p>
                 </div>
               </div>
 
@@ -587,9 +621,9 @@ export default function BidModal({
                   <div key={i} className={`flex items-center justify-between px-4 py-2.5 text-xs ${i !== 0 ? "border-t border-outline-variant/10" : ""}`}>
                     <div>
                       <p className="font-bold text-on-surface">{m.title}</p>
-                      <p className="text-on-surface-variant">{m.days} days</p>
+                      <p className="text-on-surface-variant">{m.days ? `${m.days} days` : "Timeline TBD"}</p>
                     </div>
-                    <p className="font-black text-on-surface">{format(m.amount)}</p>
+                    <p className="font-black text-on-surface">{m.amount ? format(Number(m.amount)) : "Price TBD"}</p>
                   </div>
                 ))}
               </div>

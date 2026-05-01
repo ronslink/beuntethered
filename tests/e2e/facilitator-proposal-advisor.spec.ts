@@ -58,6 +58,8 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
 
     await expect(page.getByRole("heading", { name: /proposal advisor/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Verified Stripe Portal" })).toBeVisible();
+    await expect(page.getByText("Buyer budget reference").first()).toBeVisible();
+    await expect(page.getByText("Buyer timeline reference").first()).toBeVisible();
     await expect(page.getByText("Marketplace award readiness is incomplete")).toBeVisible();
     await expect(page.getByRole("link", { name: /finish verification/i })).toHaveAttribute("href", "/settings");
     await expect(page.getByRole("heading", { name: "Proposal packet" }).first()).toBeVisible();
@@ -76,7 +78,11 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await expect(page.getByText("Submit when ready, but complete verification before a buyer can award this proposal.")).toBeVisible();
     await page.getByRole("button", { name: /quick bid/i }).click();
     await expect(page.getByText("Advisor draft loaded")).toBeVisible();
+    await expect(page.getByPlaceholder("Enter your quote")).toHaveValue("");
+    await expect(page.getByPlaceholder("Enter days")).toHaveValue("");
     await expect(page.locator("textarea").first()).toHaveValue(/facilitator-led execution/);
+    await page.getByRole("button", { name: /submit bid/i }).click();
+    await expect(page.getByText("Enter a proposal price greater than $0.")).toBeVisible();
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

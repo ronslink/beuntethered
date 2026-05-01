@@ -6,8 +6,20 @@ export type FeeBreakdown = {
   feeRate: number;
 };
 
+export const MARKETPLACE_CLIENT_FEE_RATE = 0.08;
+export const BYOC_CLIENT_FEE_RATE = 0.05;
+export const FACILITATOR_PLATFORM_FEE_RATE = 0;
+
+export function formatFeeRate(rate: number) {
+  return `${Math.round(rate * 100)}%`;
+}
+
+export function getFacilitatorFeeLabel() {
+  return formatFeeRate(FACILITATOR_PLATFORM_FEE_RATE);
+}
+
 export function getPlatformFeeRate({ isByoc }: { isByoc: boolean }) {
-  return isByoc ? 0.05 : 0.08;
+  return isByoc ? BYOC_CLIENT_FEE_RATE : MARKETPLACE_CLIENT_FEE_RATE;
 }
 
 export function calculateMilestoneFees({

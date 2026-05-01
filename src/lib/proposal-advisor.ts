@@ -15,12 +15,12 @@ type ProposalProjectLike = {
 
 export type ProposalAdvisorPacket = {
   positioning: string;
-  proposedAmount: number;
-  estimatedDays: number;
+  buyerBudgetTotal: number | null;
+  buyerTimelineDays: number | null;
   milestoneStrategy: {
     title: string;
-    amount: number;
-    days: number | null;
+    buyerAmount: number | null;
+    buyerDays: number | null;
     outcome: string;
   }[];
   evidencePlan: string[];
@@ -60,8 +60,8 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
     ]),
   ].join(" ").toLowerCase();
 
-  const proposedAmount = project.milestones.reduce((total, milestone) => total + asNumber(milestone.amount), 0);
-  const estimatedDays = project.milestones.reduce(
+  const buyerBudgetTotal = project.milestones.reduce((total, milestone) => total + asNumber(milestone.amount), 0);
+  const buyerTimelineDays = project.milestones.reduce(
     (total, milestone) => total + (milestone.estimated_duration_days ?? 0),
     0,
   );
@@ -70,15 +70,15 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
     project.milestones.length > 0
       ? project.milestones.slice(0, 5).map((milestone) => ({
           title: milestone.title || "Outcome milestone",
-          amount: asNumber(milestone.amount),
-          days: milestone.estimated_duration_days ?? null,
+          buyerAmount: asNumber(milestone.amount) || null,
+          buyerDays: milestone.estimated_duration_days ?? null,
           outcome: compact(milestone.description, "Deliver the buyer-visible outcome and attach review evidence."),
         }))
       : [
           {
             title: "Discovery and verification baseline",
-            amount: 0,
-            days: null,
+            buyerAmount: null,
+            buyerDays: null,
             outcome: "Convert the buyer SOW into priced milestones with evidence and acceptance checks.",
           },
         ];
@@ -118,10 +118,10 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
   }
 
   const risks = new Set<string>();
-  if (proposedAmount === 0) risks.add("Buyer budget is not explicit; confirm pricing before submitting.");
-  if (estimatedDays === 0) risks.add("Timeline is not explicit; propose realistic delivery windows.");
-  if (project.milestones.length <= 1 && proposedAmount > 5000) {
-    risks.add("Large single milestone may weaken escrow protection; split delivery into smaller checkpoints.");
+  if (buyerBudgetTotal === 0) risks.add("Buyer budget is not explicit; price after clarification instead of guessing.");
+  if (buyerTimelineDays === 0) risks.add("Buyer timeline is not explicit; confirm delivery window before quoting.");
+  if (project.milestones.length <= 1 && buyerBudgetTotal > 5000) {
+    risks.add("Buyer baseline is concentrated in one milestone; consider proposing smaller funded checkpoints.");
   }
   if (includesAny(scopeText, [/\b(legacy|migration|data import|existing system)\b/])) {
     risks.add("Existing-system access could change scope; make access a start condition.");
@@ -130,8 +130,8 @@ export function buildProposalAdvisorPacket(project: ProposalProjectLike): Propos
 
   return {
     positioning: `Propose outcome-based delivery for ${project.title}, with facilitator-led execution and AI-assisted evidence preparation.`,
-    proposedAmount,
-    estimatedDays,
+    buyerBudgetTotal: buyerBudgetTotal > 0 ? buyerBudgetTotal : null,
+    buyerTimelineDays: buyerTimelineDays > 0 ? buyerTimelineDays : null,
     milestoneStrategy,
     evidencePlan: Array.from(evidence).slice(0, 6),
     buyerQuestions: Array.from(questions).slice(0, 5),
