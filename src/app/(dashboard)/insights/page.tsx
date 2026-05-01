@@ -176,6 +176,7 @@ export default async function InsightsTrafficController() {
         milestones: { include: { audits: { orderBy: { created_at: "desc" }, take: 1 } } },
         received_project_invites: { where: { status: "SENT" } },
         bids: { where: { status: { in: ["PENDING", "SHORTLISTED", "UNDER_NEGOTIATION"] } } },
+        verifications: { select: { type: true, status: true } },
       },
     });
     const openDisputes = await prisma.dispute.findMany({
@@ -269,6 +270,12 @@ export default async function InsightsTrafficController() {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       })
       .slice(0, 4);
+    const verificationStatus = (type: "IDENTITY" | "STRIPE" | "PORTFOLIO") =>
+      expert.verifications.find((verification) => verification.type === type)?.status ?? "PENDING";
+    const profileComplete = Boolean(expert.bio && expert.skills.length > 0 && expert.ai_agent_stack.length > 0 && expert.portfolio_url);
+    const identityStatus = verificationStatus("IDENTITY");
+    const stripeStatus = verificationStatus("STRIPE");
+    const portfolioStatus = verificationStatus("PORTFOLIO");
 
     return (
       <FacilitatorInsights
@@ -287,6 +294,44 @@ export default async function InsightsTrafficController() {
         profileViewsTotal={profileViewsTotal}
         newOpenProjectCount={newOpenProjectCount}
         opportunityRadar={opportunityRadar}
+        readinessItems={[
+          {
+            label: "Profile completeness",
+            status: profileComplete ? "READY" : "ACTION",
+            detail: profileComplete
+              ? "Bio, skills, AI stack, and portfolio URL are visible to buyers."
+              : "Add buyer-visible bio, skills, AI stack, and portfolio evidence.",
+            href: "/settings#professional-profile",
+            icon: "account_circle",
+          },
+          {
+            label: "Identity verification",
+            status: identityStatus,
+            detail: identityStatus === "VERIFIED"
+              ? "Identity verification is complete for award eligibility."
+              : "Complete identity verification before winning paid marketplace work.",
+            href: "/settings#payments-payouts",
+            icon: "badge",
+          },
+          {
+            label: "Stripe payouts",
+            status: stripeStatus,
+            detail: stripeStatus === "VERIFIED"
+              ? "Stripe payout verification is recorded."
+              : "Connect and verify Stripe before escrow release can pay out.",
+            href: "/settings#payments-payouts",
+            icon: "account_balance",
+          },
+          {
+            label: "Portfolio evidence",
+            status: portfolioStatus,
+            detail: portfolioStatus === "VERIFIED"
+              ? "Portfolio evidence is verified for buyer review."
+              : "Submit a credible portfolio URL for manual review.",
+            href: "/settings#professional-profile",
+            icon: "work_history",
+          },
+        ]}
         disputeQueue={openDisputes.map((dispute) => ({
           id: dispute.id,
           projectId: dispute.project.id,

@@ -24,6 +24,14 @@ type OpportunityRadarItem = {
   matchedTerms: string[];
 };
 
+type ReadinessItem = {
+  label: string;
+  status: "READY" | "ACTION" | "PENDING" | "VERIFIED" | "REJECTED";
+  detail: string;
+  href: string;
+  icon: string;
+};
+
 export default function FacilitatorInsights({
   trustScore,
   totalSprints,
@@ -40,6 +48,7 @@ export default function FacilitatorInsights({
   profileViewsTotal,
   newOpenProjectCount,
   opportunityRadar = [],
+  readinessItems = [],
   disputeQueue = [],
 }: {
   trustScore: number;
@@ -57,6 +66,7 @@ export default function FacilitatorInsights({
   profileViewsTotal: number;
   newOpenProjectCount: number;
   opportunityRadar?: OpportunityRadarItem[];
+  readinessItems?: ReadinessItem[];
   disputeQueue?: DisputeQueueItem[];
 }) {
   const formatCurrency = (val: number) =>
@@ -66,6 +76,7 @@ export default function FacilitatorInsights({
   const formatDate = (value: string) =>
     new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
   const bestFitScore = opportunityRadar[0]?.fitScore ?? 0;
+  const readyCount = readinessItems.filter((item) => item.status === "READY" || item.status === "VERIFIED").length;
 
   return (
     <main className="min-h-screen bg-background px-4 py-8 text-on-surface lg:px-6">
@@ -292,6 +303,28 @@ export default function FacilitatorInsights({
               </div>
             </div>
 
+            {readinessItems.length > 0 && (
+              <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Trust Readiness</h2>
+                    <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+                      Buyer-facing checks that affect shortlist confidence and award eligibility.
+                    </p>
+                  </div>
+                  <span className="rounded-lg border border-tertiary/20 bg-tertiary/10 px-2 py-1 text-[10px] font-black text-tertiary">
+                    {readyCount}/{readinessItems.length}
+                  </span>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {readinessItems.map((item) => (
+                    <ReadinessRow key={item.label} item={item} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
               <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Trust Position</h2>
               <div className="mt-5 space-y-4">
@@ -309,6 +342,40 @@ export default function FacilitatorInsights({
         </section>
       </div>
     </main>
+  );
+}
+
+function readinessClasses(status: ReadinessItem["status"]) {
+  if (status === "READY" || status === "VERIFIED") return "border-tertiary/25 bg-tertiary/10 text-tertiary";
+  if (status === "REJECTED") return "border-error/25 bg-error/10 text-error";
+  return "border-secondary/25 bg-secondary/10 text-secondary";
+}
+
+function readinessLabel(status: ReadinessItem["status"]) {
+  if (status === "READY" || status === "VERIFIED") return "Ready";
+  if (status === "REJECTED") return "Needs review";
+  return "Pending";
+}
+
+function ReadinessRow({ item }: { item: ReadinessItem }) {
+  return (
+    <Link
+      href={item.href}
+      className="group flex gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 transition-colors hover:border-tertiary/40 hover:bg-surface-container-high"
+    >
+      <span className={`material-symbols-outlined mt-0.5 rounded-lg border p-1.5 text-[18px] ${readinessClasses(item.status)}`}>
+        {item.icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-black text-on-surface group-hover:text-tertiary">{item.label}</p>
+          <span className={`shrink-0 rounded-md border px-2 py-1 text-[9px] font-black uppercase tracking-widest ${readinessClasses(item.status)}`}>
+            {readinessLabel(item.status)}
+          </span>
+        </div>
+        <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">{item.detail}</p>
+      </div>
+    </Link>
   );
 }
 

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { signInAs } from "./support/auth";
-import { cleanupByEmailPrefix, prisma, seedUser } from "./support/db";
+import { cleanupByEmailPrefix, prisma, seedFacilitatorVerifications, seedUser } from "./support/db";
 
 test("buyer insights show durable audit evidence metrics", async ({ page }) => {
   const prefix = `playwright-insights-${Date.now()}`;
@@ -151,6 +151,7 @@ test("facilitator insights show profile demand and opportunity radar", async ({ 
       availability: "AVAILABLE",
     },
   });
+  await seedFacilitatorVerifications({ userId: facilitator.id, includePortfolio: false });
 
   await prisma.profileView.create({
     data: {
@@ -191,6 +192,10 @@ test("facilitator insights show profile demand and opportunity radar", async ({ 
     await expect(page.getByText(/fit/).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /active milestones/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /pending invites/i })).toBeVisible();
+    await expect(page.getByText("Trust Readiness")).toBeVisible();
+    await expect(page.getByRole("link", { name: /identity verification ready/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /stripe payouts ready/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /portfolio evidence pending/i })).toBeVisible();
   } finally {
     await cleanupByEmailPrefix(prefix);
   }
