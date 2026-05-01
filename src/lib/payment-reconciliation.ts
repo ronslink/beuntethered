@@ -137,7 +137,7 @@ export async function markMilestoneFundingFailed({
   status: "FAILED" | "CANCELLED";
   source: "webhook_checkout_expired" | "webhook_payment_failed";
 }) {
-  return prisma.paymentRecord.updateMany({
+  const updated = await prisma.paymentRecord.updateMany({
     where: {
       milestone_id: milestoneId,
       kind: "MILESTONE_FUNDING",
@@ -150,6 +150,44 @@ export async function markMilestoneFundingFailed({
       metadata: buildPaymentFailureMetadata(source),
     },
   });
+
+  if (updated.count === 0) return updated;
+
+  const milestone = await prisma.milestone.findUnique({
+    where: { id: milestoneId },
+    include: { project: true },
+  });
+
+  if (!milestone) return updated;
+
+  const fees = calculateMilestoneFees({
+    amount: Number(milestone.amount),
+    isByoc: milestone.project.is_byoc,
+  });
+
+  await recordActivity({
+    projectId: milestone.project_id,
+    actorId: milestone.project.client_id ?? milestone.project.creator_id,
+    milestoneId,
+    action: "SYSTEM_EVENT",
+    entityType: "PaymentRecord",
+    entityId: `fund_${milestone.id}`,
+    metadata: {
+      operation: status === "CANCELLED" ? "MILESTONE_CHECKOUT_CANCELLED" : "MILESTONE_PAYMENT_FAILED",
+      payment_status: status,
+      payment_intent_id: paymentIntentId ?? null,
+      checkout_session_id: checkoutSessionId ?? null,
+      gross_amount_cents: fees.grossAmountCents,
+      platform_fee_cents: fees.platformFeeCents,
+      facilitator_payout_cents: fees.facilitatorPayoutCents,
+      client_total_cents: fees.clientTotalCents,
+      fee_rate: fees.feeRate,
+      fee_model: milestone.project.is_byoc ? "BYOC" : "MARKETPLACE",
+      reconciliation_source: source,
+    },
+  });
+
+  return updated;
 }
 
 export async function reconcileEscrowTransfer({

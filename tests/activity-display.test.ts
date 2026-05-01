@@ -14,6 +14,7 @@ test("activity labels use operation metadata for system events", () => {
   assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "SOW_UPDATED" }), "Scope updated");
   assert.equal(getActivityLabel("PROJECT_CREATED", { operation: "BYOC_INVITE_CREATED" }), "BYOC invite created");
   assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "BYOC_INVITE_CLAIMED" }), "BYOC invite claimed");
+  assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "MILESTONE_CHECKOUT_STARTED" }), "Escrow checkout started");
   assert.equal(getActivityLabel("SYSTEM_EVENT", { operation: "ARBITRATION_REFUND" }), "Arbitration refund");
   assert.equal(
     getActivityLabel("SYSTEM_EVENT", { operation: "BYOC_INVITE_DELIVERY_RECORDED" }),
@@ -24,6 +25,26 @@ test("activity labels use operation metadata for system events", () => {
     "BYOC client project created",
   );
   assert.equal(getActivityLabel("BID_SHORTLISTED"), "Bid shortlisted");
+});
+
+test("activity evidence details make payment checkout lifecycle readable", () => {
+  assert.deepEqual(
+    getActivityEvidenceDetails({
+      operation: "MILESTONE_CHECKOUT_CANCELLED",
+      payment_status: "CANCELLED",
+      gross_amount_cents: 120000,
+      platform_fee_cents: 9600,
+      client_total_cents: 129600,
+      fee_model: "MARKETPLACE",
+    }),
+    [
+      { label: "Fee model", value: "marketplace", tone: "neutral" },
+      { label: "Escrow", value: "$1,200", tone: "neutral" },
+      { label: "Client fee", value: "$96", tone: "neutral" },
+      { label: "Total due", value: "$1,296", tone: "neutral" },
+      { label: "Status", value: "cancelled", tone: "attention" },
+    ],
+  );
 });
 
 test("activity evidence details make arbitration outcomes readable", () => {

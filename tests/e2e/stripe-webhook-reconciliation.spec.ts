@@ -242,6 +242,21 @@ test("stripe webhook reconciles checkout expiration and transfer confirmation", 
     stripe_payment_intent_id: "pi_playwright_expired",
   });
 
+  await expect
+    .poll(async () =>
+      prisma.activityLog.count({
+        where: {
+          project_id: project.id,
+          action: "SYSTEM_EVENT",
+          metadata: {
+            path: ["operation"],
+            equals: "MILESTONE_CHECKOUT_CANCELLED",
+          },
+        },
+      })
+    )
+    .toBe(1);
+
   const transferEvent = signedStripeEvent({
     id: `evt_${prefix}_transfer`,
     object: "event",

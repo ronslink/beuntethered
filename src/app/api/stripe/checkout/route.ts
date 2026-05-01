@@ -4,6 +4,7 @@ import { prisma } from "@/lib/auth";
 import { calculateMilestoneFees } from "@/lib/platform-fees";
 import { createStripeClient, getAppBaseUrl, isPaymentConfigurationError } from "@/lib/stripe";
 import { userCanManageBuyerProject } from "@/lib/project-access";
+import { recordActivity } from "@/lib/activity";
 import {
   getPendingCheckoutBlock,
   getPaymentRecordClientId,
@@ -129,6 +130,25 @@ export async function POST(req: Request) {
         stripe_checkout_session_id: session.id,
         idempotency_key: `fund_${milestone.id}`,
         metadata: { fee_rate: fees.feeRate },
+      },
+    });
+
+    await recordActivity({
+      projectId: milestone.project.id,
+      actorId: user.id,
+      milestoneId: milestone.id,
+      action: "SYSTEM_EVENT",
+      entityType: "PaymentRecord",
+      entityId: `fund_${milestone.id}`,
+      metadata: {
+        operation: "MILESTONE_CHECKOUT_STARTED",
+        stripe_checkout_session_id: session.id,
+        gross_amount_cents: fees.grossAmountCents,
+        platform_fee_cents: fees.platformFeeCents,
+        facilitator_payout_cents: fees.facilitatorPayoutCents,
+        client_total_cents: fees.clientTotalCents,
+        fee_rate: fees.feeRate,
+        fee_model: milestone.project.is_byoc ? "BYOC" : "MARKETPLACE",
       },
     });
 

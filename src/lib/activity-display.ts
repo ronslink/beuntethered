@@ -28,6 +28,9 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   SOW_UPDATED: "Scope updated",
   SQUAD_ACCEPTED: "Squad accepted",
   MESSAGE_SENT: "Message sent",
+  MILESTONE_CHECKOUT_STARTED: "Escrow checkout started",
+  MILESTONE_CHECKOUT_CANCELLED: "Escrow checkout cancelled",
+  MILESTONE_PAYMENT_FAILED: "Escrow payment failed",
   MILESTONE_FUNDED: "Milestone funded",
   MILESTONE_SUBMITTED: "Milestone submitted",
   AUDIT_COMPLETED: "Audit completed",
@@ -193,6 +196,33 @@ export function getActivityEvidenceDetails(metadata: ActivityMetadata): Activity
       firstMilestoneAmount ? { label: "Funding target", value: firstMilestoneAmount, tone: "neutral" } : null,
       metadata.next_action
         ? { label: "Next action", value: formatMetadataValue(metadata.next_action) ?? String(metadata.next_action), tone: "attention" }
+        : null,
+    ];
+    return details.filter((detail): detail is ActivityEvidenceDetail => Boolean(detail));
+  }
+
+  if (
+    operation === "MILESTONE_CHECKOUT_STARTED" ||
+    operation === "MILESTONE_CHECKOUT_CANCELLED" ||
+    operation === "MILESTONE_PAYMENT_FAILED"
+  ) {
+    const escrow = formatCents(metadata.gross_amount_cents);
+    const clientFee = formatCents(metadata.platform_fee_cents);
+    const clientTotal = formatCents(metadata.client_total_cents);
+    const paymentStatus = formatMetadataValue(metadata.payment_status);
+    const details: Array<ActivityEvidenceDetail | null> = [
+      metadata.fee_model
+        ? { label: "Fee model", value: String(metadata.fee_model).toLowerCase(), tone: "neutral" }
+        : null,
+      escrow ? { label: "Escrow", value: escrow, tone: "neutral" } : null,
+      clientFee ? { label: "Client fee", value: clientFee, tone: "neutral" } : null,
+      clientTotal ? { label: "Total due", value: clientTotal, tone: "neutral" } : null,
+      paymentStatus
+        ? {
+            label: "Status",
+            value: paymentStatus,
+            tone: operation === "MILESTONE_CHECKOUT_STARTED" ? "neutral" : "attention",
+          }
         : null,
     ];
     return details.filter((detail): detail is ActivityEvidenceDetail => Boolean(detail));
