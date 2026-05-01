@@ -15,7 +15,7 @@ import {
   type ScopeConstraints,
 } from "@/lib/scope-constraints";
 import { assessScopeFeasibility, type ScopeFeasibilityAssessment } from "@/lib/scope-feasibility";
-import { applySowGuardrails } from "@/lib/sow-guardrails";
+import { applySowGuardrails, buildSowGuardrailReport } from "@/lib/sow-guardrails";
 import {
   createSowGenerationCacheKey,
   getCachedSowGeneration,
@@ -504,7 +504,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const parsed = applySowGuardrails(normalizeSowDeliverables(parsedJson), scopeConstraints);
+    const guarded = applySowGuardrails(normalizeSowDeliverables(parsedJson), scopeConstraints);
+    const parsed = {
+      ...guarded,
+      guardrailReport: buildSowGuardrailReport(guarded, scopeConstraints),
+    };
     setCachedSowGeneration(cacheKey, parsed);
     return NextResponse.json(parsed);
 

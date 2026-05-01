@@ -99,12 +99,12 @@ function splitTextList(value: unknown) {
     return value.map(cleanMilestoneText).filter(Boolean);
   }
 
-  const text = cleanMilestoneText(value);
+  const text = typeof value === "string" ? value.trim() : "";
   if (!text) return [];
 
   return text
     .split(/\n|;|\s-\s|(?:^|\s)\d+\.\s/g)
-    .map((item) => item.replace(/^[-*]\s*/, "").trim())
+    .map((item) => cleanMilestoneText(item.replace(/^[-*]\s*/, "")))
     .filter((item) => item.length > 0);
 }
 

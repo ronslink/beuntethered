@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applySowGuardrails } from "../src/lib/sow-guardrails.ts";
+import { applySowGuardrails, buildSowGuardrailReport } from "../src/lib/sow-guardrails.ts";
 
 const payrollConstraints = {
   regions: ["North America", "Middle East", "Asia"],
@@ -24,18 +24,24 @@ test("guards generated SOWs against ignored buyer budget, timeline, regions, and
         "Multi-country payroll application covering US, Canada, UAE, and Philippines with compliance features.",
       milestones: [
         {
-          title: "Payroll Setup",
-          description: "Build the payroll setup workflow for admins.",
-          deliverables: ["Payroll setup workflow"],
-          acceptance_criteria: "Admin can review payroll setup in a staging preview.",
+          title: "Payroll Configuration Workflow",
+          description: "Build the payroll setup workflow so admins can configure employee payroll rules and verify regional settings.",
+          deliverables: ["Payroll setup workflow", "Regional payroll configuration screen"],
+          acceptance_criteria: [
+            "Admin can configure payroll rules in a staging preview.",
+            "Submission includes screenshots and setup notes for regional payroll settings.",
+          ],
           estimated_duration_days: 7,
           amount: 2000,
         },
         {
-          title: "Employee Payslips",
+          title: "Employee Payslip Download",
           description: "Create employee payslip generation for buyer review.",
-          deliverables: ["Payslip generation screen"],
-          acceptance_criteria: "Employee can download a payslip and the submission includes screenshot evidence.",
+          deliverables: ["Payslip generation screen", "Payslip download flow"],
+          acceptance_criteria: [
+            "Employee can download a payslip from the staging preview.",
+            "Submission includes screenshot evidence and generated payslip files.",
+          ],
           estimated_duration_days: 7,
           amount: 3000,
         },
@@ -59,6 +65,13 @@ test("guards generated SOWs against ignored buyer budget, timeline, regions, and
   assert.match(serialized, /payslip generation/);
   assert.match(serialized, /AI chatbot for employee inquiries/);
   assert.match(serialized, /admin reporting dashboard/);
+
+  const report = buildSowGuardrailReport(guarded, payrollConstraints);
+  assert.equal(report.overallStatus, "passed");
+  assert.equal(report.items.find((item) => item.key === "budget")?.status, "passed");
+  assert.equal(report.items.find((item) => item.key === "timeline")?.status, "passed");
+  assert.equal(report.items.find((item) => item.key === "regions")?.missing?.length, 0);
+  assert.equal(report.items.find((item) => item.key === "components")?.missing?.length, 0);
 });
 
 test("guards generated milestones against process-only deliverables", () => {
@@ -99,4 +112,30 @@ test("guards generated milestones against process-only deliverables", () => {
   assert.equal(milestone.amount, 1000);
   assert.equal(milestone.estimated_duration_days, 5);
   assert.match(milestone.acceptance_criteria, /preview|evidence|handoff|source|screenshot|log/i);
+});
+
+test("reports unresolved guardrail gaps for buyer review", () => {
+  const report = buildSowGuardrailReport(
+    {
+      executiveSummary: "Build a payroll app for North America.",
+      milestones: [
+        {
+          title: "Payroll Setup",
+          description: "Create the payroll setup workflow.",
+          deliverables: ["Payroll setup workflow"],
+          acceptance_criteria: "Admin can review setup.",
+          estimated_duration_days: 5,
+          amount: 2000,
+        },
+      ],
+    },
+    payrollConstraints
+  );
+
+  assert.equal(report.overallStatus, "needs_attention");
+  assert.equal(report.items.find((item) => item.key === "budget")?.status, "needs_attention");
+  assert.equal(report.items.find((item) => item.key === "timeline")?.status, "needs_attention");
+  assert.deepEqual(report.items.find((item) => item.key === "regions")?.missing, ["Middle East", "Asia"]);
+  assert.ok(report.items.find((item) => item.key === "components")?.missing?.includes("AI chatbot for employee inquiries"));
+  assert.equal(report.items.find((item) => item.key === "milestoneEvidence")?.status, "needs_attention");
 });

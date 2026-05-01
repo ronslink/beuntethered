@@ -117,6 +117,20 @@ test("normalizes milestones into storage-ready arrays", () => {
   assert.deepEqual(normalized.deliverables.slice(0, 2), ["Customer billing dashboard", "Stripe checkout and billing flow"]);
 });
 
+test("splits newline-delimited acceptance criteria before quality scoring", () => {
+  const quality = assessMilestoneQuality({
+    title: "Payment Checkout Flow",
+    description: "Build a checkout flow where buyers can complete payment and review confirmation state.",
+    deliverables: ["Stripe checkout flow", "Payment confirmation screen", "Webhook event record"],
+    acceptance_criteria:
+      "Buyer can complete checkout in a staging preview.\nSubmission includes screenshots and webhook logs as proof evidence.",
+    estimated_duration_days: 5,
+    amount: 1200,
+  });
+
+  assert.equal(quality.passes, true);
+});
+
 test("extracts requested timeline from natural language prompts", () => {
   assert.equal(extractRequestedTimelineDays("Need this completed in 30 days"), 30);
   assert.equal(extractRequestedTimelineDays("Target timeline is 4-6 weeks"), 42);

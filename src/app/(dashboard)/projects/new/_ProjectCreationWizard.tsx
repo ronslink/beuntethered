@@ -28,7 +28,7 @@ import {
   type ProjectProblemStarter,
   type ProjectScopeStarter,
 } from "@/lib/project-scope-starters";
-import { applySowGuardrails } from "@/lib/sow-guardrails";
+import { applySowGuardrails, buildSowGuardrailReport } from "@/lib/sow-guardrails";
 
 const SCOPE_PROCESS_STEPS = [
   {
@@ -559,6 +559,10 @@ export default function ProjectCreationWizard() {
     budgetAmount: capturedBudgetAmount,
     timelineDays: requestedTimelineDays,
   });
+  const currentGuardrailConstraints = buildGuardrailConstraints(capturedBudgetAmount, requestedTimelineDays);
+  const sowGuardrailReport = editableSoW
+    ? buildSowGuardrailReport(editableSoW, currentGuardrailConstraints)
+    : null;
   const intakeAssessment = assessScopeIntake(prompt);
   const intakeBlockers = intakeAssessment.issues.filter((issue) => issue.severity === "blocker");
   const intakeWarnings = intakeAssessment.issues.filter((issue) => issue.severity === "warning");
@@ -1355,6 +1359,54 @@ export default function ProjectCreationWizard() {
                               {constraint}
                            </span>
                         ))}
+                     </div>
+                  )}
+                  {sowGuardrailReport && (
+                     <div className={`mt-4 rounded-lg border p-4 ${sowGuardrailReport.overallStatus === "passed" ? "border-secondary/20 bg-secondary/5" : "border-tertiary/25 bg-tertiary/5"}`}>
+                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                           <div>
+                              <p className={`text-[10px] font-black uppercase tracking-widest ${sowGuardrailReport.overallStatus === "passed" ? "text-secondary" : "text-tertiary"}`}>
+                                 Scope validation report
+                              </p>
+                              <h4 className="mt-1 text-sm font-black text-on-surface">
+                                 {sowGuardrailReport.overallStatus === "passed"
+                                    ? "Buyer constraints are preserved."
+                                    : "Review items before posting."}
+                              </h4>
+                              <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                 This checks the generated SOW against budget, timeline, regions, components, and milestone evidence.
+                              </p>
+                           </div>
+                        </div>
+                        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                           {sowGuardrailReport.items.map((item) => {
+                              const passed = item.status === "passed";
+                              const muted = item.status === "not_applicable";
+                              return (
+                                 <div
+                                    key={item.key}
+                                    className={`rounded-md border bg-surface p-3 ${passed ? "border-secondary/20" : muted ? "border-outline-variant/20" : "border-tertiary/25"}`}
+                                 >
+                                    <div className="flex items-start gap-2">
+                                       <span className={`material-symbols-outlined mt-0.5 text-[16px] ${passed ? "text-secondary" : muted ? "text-on-surface-variant" : "text-tertiary"}`}>
+                                          {passed ? "verified" : muted ? "remove_circle" : "priority_high"}
+                                       </span>
+                                       <div className="min-w-0">
+                                          <p className="text-xs font-black text-on-surface">{item.label}</p>
+                                          {(item.expected || item.actual) && (
+                                             <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                                                {item.expected ? `Expected ${item.expected}` : ""}
+                                                {item.expected && item.actual ? " · " : ""}
+                                                {item.actual ? `Actual ${item.actual}` : ""}
+                                             </p>
+                                          )}
+                                          <p className="mt-1 text-[11px] leading-5 text-on-surface-variant">{item.detail}</p>
+                                       </div>
+                                    </div>
+                                 </div>
+                              );
+                           })}
+                        </div>
                      </div>
                   )}
                   <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
