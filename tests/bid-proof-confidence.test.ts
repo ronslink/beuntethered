@@ -45,3 +45,25 @@ test("keeps proof risks visible when AI flags evidence gaps", () => {
   assert.ok(confidence.score < 68);
   assert.ok(confidence.gaps.some((gap) => gap.includes("AI bid review")));
 });
+
+test("supports proposal composer scoring without facilitator readiness penalties", () => {
+  const confidence = getBidProofConfidence({
+    technicalApproach:
+      "I will deliver through GitHub pull requests, Vercel previews, migration logs, and a release report for each milestone.",
+    proposedMilestones: [
+      {
+        title: "Verified release",
+        description: "Ship the workflow with reviewable deployment and repository evidence.",
+        deliverables: ["GitHub pull request", "Vercel preview URL"],
+        acceptance_criteria: ["Buyer can review the deployed workflow before release"],
+      },
+    ],
+    connectedEvidenceSourceCount: 2,
+    connectedEvidenceContext: "project",
+    includeFacilitatorReadiness: false,
+  });
+
+  assert.ok(confidence.score > 50);
+  assert.ok(confidence.strengths.some((strength) => strength.includes("Project has connected evidence sources")));
+  assert.ok(!confidence.gaps.some((gap) => gap.includes("Facilitator proof readiness")));
+});

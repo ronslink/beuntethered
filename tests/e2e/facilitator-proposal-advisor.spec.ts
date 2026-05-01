@@ -150,6 +150,8 @@ test("facilitator proposal advisor maps live SOWs into bid guidance", async ({ p
     await page.getByRole("button", { name: /quick bid/i }).click();
     await expect(page.getByText("Advisor draft loaded")).toBeVisible();
     await expect(page.getByText("Evidence confidence", { exact: true })).toBeVisible();
+    await expect(page.getByText("Bid Proof Confidence")).toBeVisible();
+    await expect(page.getByText(/Provider-backed proof beats screenshots/i)).toBeVisible();
     await expect(page.getByText(/Reference connected sources such as deployments/i)).toBeVisible();
     await expect(page.getByPlaceholder("Enter your quote")).toHaveValue("");
     await expect(page.getByPlaceholder("Enter days")).toHaveValue("");

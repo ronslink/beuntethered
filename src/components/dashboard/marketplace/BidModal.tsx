@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { submitBid } from "@/app/actions/bids";
 import { useRouter } from "next/navigation";
+import { getBidProofConfidence, type BidProofConfidence, type BidProofMilestoneLike } from "@/lib/bid-proof-confidence";
 import { getMilestoneProofPlan, type MilestoneProofPlan } from "@/lib/milestone-proof";
 import type { ProposalAdvisorPacket } from "@/lib/proposal-advisor";
 
@@ -71,6 +72,48 @@ function parsePositiveInteger(value: string) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function toBidProofMilestones(milestones?: Array<Milestone | OriginalMilestone> | null): BidProofMilestoneLike[] {
+  return (milestones ?? []).map((milestone) => ({
+    title: milestone.title,
+    description: milestone.description,
+    deliverables: milestone.deliverables ?? [],
+    acceptance_criteria: milestone.acceptance_criteria ?? [],
+  }));
+}
+
+function proofConfidenceTone(level: BidProofConfidence["level"]) {
+  if (level === "audit_ready") {
+    return {
+      border: "border-tertiary/30",
+      bg: "bg-tertiary/10",
+      icon: "text-tertiary",
+      badge: "bg-tertiary/15 text-tertiary border-tertiary/25",
+    };
+  }
+  if (level === "high") {
+    return {
+      border: "border-primary/25",
+      bg: "bg-primary/5",
+      icon: "text-primary",
+      badge: "bg-primary/10 text-primary border-primary/20",
+    };
+  }
+  if (level === "medium") {
+    return {
+      border: "border-secondary/25",
+      bg: "bg-secondary/10",
+      icon: "text-secondary",
+      badge: "bg-secondary/15 text-secondary border-secondary/25",
+    };
+  }
+  return {
+    border: "border-error/25",
+    bg: "bg-error/10",
+    icon: "text-error",
+    badge: "bg-error/10 text-error border-error/25",
+  };
+}
+
 function ProofPlanPanel({ plans, compact = false }: { plans: MilestoneProofPlan[]; compact?: boolean }) {
   if (plans.length === 0) return null;
 
@@ -112,6 +155,54 @@ function ProofPlanPanel({ plans, compact = false }: { plans: MilestoneProofPlan[
               </p>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProposalProofConfidencePanel({ confidence, compact = false }: { confidence: BidProofConfidence; compact?: boolean }) {
+  const tone = proofConfidenceTone(confidence.level);
+  const firstProviders = confidence.detectedEvidenceProviders.slice(0, 4);
+  const gaps = confidence.gaps.slice(0, compact ? 2 : 3);
+
+  return (
+    <div className={`rounded-xl border ${tone.border} ${tone.bg} p-4`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <span className={`material-symbols-outlined mt-0.5 text-[18px] ${tone.icon}`}>fact_check</span>
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+              Bid Proof Confidence
+            </p>
+            <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">
+              Provider-backed proof beats screenshots. Name the repo, preview, database migration, domain, or release report you will attach.
+            </p>
+          </div>
+        </div>
+        <span className={`shrink-0 rounded-md border px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${tone.badge}`}>
+          {confidence.label} · {confidence.score}/100
+        </span>
+      </div>
+
+      {firstProviders.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {firstProviders.map((provider) => (
+            <span key={provider} className="rounded-md border border-outline-variant/20 bg-surface px-2 py-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+              {provider}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {gaps.length > 0 && (
+        <div className="mt-3 space-y-1.5 border-t border-outline-variant/15 pt-3">
+          {gaps.map((gap) => (
+            <p key={gap} className="flex items-start gap-1.5 text-[10px] font-medium leading-4 text-on-surface-variant">
+              <span className={`material-symbols-outlined mt-0.5 text-[12px] ${tone.icon}`}>priority_high</span>
+              {gap}
+            </p>
+          ))}
         </div>
       )}
     </div>
@@ -173,6 +264,26 @@ export default function BidModal({
   const proposedTotal = milestones.reduce((a, m) => a + (parsePositiveNumber(m.amount) ?? 0), 0);
   const proposedDays = milestones.reduce((a, m) => a + (parsePositiveInteger(m.days) ?? 0), 0);
   const originalProofPlans = (originalMilestones ?? []).map((milestone) => getMilestoneProofPlan(milestone));
+  const advisorRiskFlags = advisorPacket?.riskNotes ?? [];
+  const connectedEvidenceSourceCount = advisorPacket?.evidenceConfidence.connectedCount ?? 0;
+  const quickProofConfidence = getBidProofConfidence({
+    technicalApproach: approach,
+    proposedMilestones: toBidProofMilestones(originalMilestones?.length ? originalMilestones : milestones),
+    aiFlags: advisorRiskFlags,
+    connectedEvidenceSourceCount,
+    connectedEvidenceContext: "project",
+    includeFacilitatorReadiness: false,
+  });
+  const fullProofConfidence = getBidProofConfidence({
+    technicalApproach: approach,
+    techStackReason: stackReason,
+    proposedTechStack: techStack.join(", "),
+    proposedMilestones: toBidProofMilestones(milestones),
+    aiFlags: advisorRiskFlags,
+    connectedEvidenceSourceCount,
+    connectedEvidenceContext: "project",
+    includeFacilitatorReadiness: false,
+  });
   const budgetDiff = proposedTotal - totalValue;
   const quickBidAmount = parsePositiveNumber(bidAmount) ?? 0;
   const approachLength = approach.trim().length;
@@ -427,6 +538,7 @@ export default function BidModal({
                 </div>
               </div>
               <ProofPlanPanel plans={originalProofPlans} compact />
+              <ProposalProofConfidencePanel confidence={quickProofConfidence} compact />
               <div>
                 <label className="text-[9px] font-bold uppercase tracking-widest block text-on-surface-variant mb-2">Technical Approach</label>
                 <textarea required minLength={MIN_APPROACH_LENGTH} value={approach} onChange={(e) => handleApproachChange(e.target.value)} rows={5}
@@ -623,6 +735,7 @@ export default function BidModal({
               </div>
 
               <ProofPlanPanel plans={originalProofPlans} compact />
+              <ProposalProofConfidencePanel confidence={fullProofConfidence} compact />
 
               {/* Stack preview */}
               {techStack.length > 0 && (

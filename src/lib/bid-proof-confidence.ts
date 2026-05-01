@@ -17,8 +17,10 @@ export type BidProofConfidenceInput = {
   aiFlags?: string[];
   facilitatorProofScore?: number | null;
   facilitatorProofLevel?: FacilitatorProofLevel | null;
+  includeFacilitatorReadiness?: boolean;
   connectedEvidenceProviderLabels?: string[];
   connectedEvidenceSourceCount?: number;
+  connectedEvidenceContext?: "facilitator" | "project";
 };
 
 export type BidProofConfidence = {
@@ -96,9 +98,11 @@ export function getBidProofConfidence(input: BidProofConfidenceInput): BidProofC
     .filter(Boolean)
     .join(" ");
   const aiFlags = input.aiFlags ?? [];
+  const includeFacilitatorReadiness = input.includeFacilitatorReadiness ?? true;
   const facilitatorProofScore = Math.min(100, Math.max(0, input.facilitatorProofScore ?? 0));
   const connectedProviderLabels = input.connectedEvidenceProviderLabels ?? [];
   const connectedEvidenceSourceCount = input.connectedEvidenceSourceCount ?? 0;
+  const connectedEvidenceContext = input.connectedEvidenceContext ?? "facilitator";
 
   const mentionedProviders = PROVIDER_PATTERNS
     .filter((provider) => provider.pattern.test(fullText))
@@ -118,9 +122,11 @@ export function getBidProofConfidence(input: BidProofConfidenceInput): BidProofC
   if (hasStrongArtifactLanguage) score += 12;
   if (hasProviderSpecificProof) score += 14;
   if (hasConnectedEvidenceHistory) score += Math.min(10, 4 + connectedEvidenceSourceCount * 2);
-  score += Math.round(facilitatorProofScore * 0.28);
-  if (input.facilitatorProofLevel === "enterprise_ready") score += 6;
-  if (input.facilitatorProofLevel === "trusted") score += 3;
+  if (includeFacilitatorReadiness) {
+    score += Math.round(facilitatorProofScore * 0.28);
+    if (input.facilitatorProofLevel === "enterprise_ready") score += 6;
+    if (input.facilitatorProofLevel === "trusted") score += 3;
+  }
   if (hasRiskFlag) score -= 12;
 
   const strengths: string[] = [];
@@ -136,11 +142,22 @@ export function getBidProofConfidence(input: BidProofConfidenceInput): BidProofC
   if (hasProviderSpecificProof) strengths.push(`Proposal references ${mentionedProviders.slice(0, 3).join(", ")} proof.`);
   else gaps.push("Ask for provider-backed proof such as GitHub, deployment, database, or domain evidence rather than screenshots alone.");
 
-  if (hasConnectedEvidenceHistory) strengths.push(`Facilitator has connected evidence history${connectedProviderLabels.length ? `: ${connectedProviderLabels.slice(0, 3).join(", ")}` : ""}.`);
-  else gaps.push("No connected evidence provider history is visible for this facilitator.");
+  if (hasConnectedEvidenceHistory) {
+    const sourceLabel =
+      connectedEvidenceContext === "project" ? "Project has connected evidence sources" : "Facilitator has connected evidence history";
+    strengths.push(`${sourceLabel}${connectedProviderLabels.length ? `: ${connectedProviderLabels.slice(0, 3).join(", ")}` : ""}.`);
+  } else {
+    gaps.push(
+      connectedEvidenceContext === "project"
+        ? "No connected project evidence source is available yet."
+        : "No connected evidence provider history is visible for this facilitator.",
+    );
+  }
 
-  if (facilitatorProofScore >= 70) strengths.push(`Facilitator proof readiness is ${Math.round(facilitatorProofScore)}/100.`);
-  else gaps.push(`Facilitator proof readiness is ${Math.round(facilitatorProofScore)}/100; review trust setup before award.`);
+  if (includeFacilitatorReadiness) {
+    if (facilitatorProofScore >= 70) strengths.push(`Facilitator proof readiness is ${Math.round(facilitatorProofScore)}/100.`);
+    else gaps.push(`Facilitator proof readiness is ${Math.round(facilitatorProofScore)}/100; review trust setup before award.`);
+  }
 
   if (hasRiskFlag) gaps.unshift("AI bid review raised proof or risk flags that should be resolved before acceptance.");
 
