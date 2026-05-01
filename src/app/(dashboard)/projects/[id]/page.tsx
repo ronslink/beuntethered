@@ -9,6 +9,8 @@ import { ScopeValidationReportCard } from "@/components/dashboard/projects/Scope
 import ProjectActivityLedger from "@/components/dashboard/ProjectActivityLedger";
 import { canManageBuyerProjectRole, getBuyerProjectRoleFromMembership } from "@/lib/project-access";
 import { getSowGuardrailReportFromMetadata, type SowGuardrailReport } from "@/lib/sow-guardrails";
+import { getFacilitatorTrustProfile } from "@/lib/facilitator-trust-profile";
+import type { EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,7 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
               id: true, name: true, email: true, image: true,
               trust_score: true, platform_tier: true, total_sprints_completed: true,
               average_ai_audit_score: true,
+              bio: true,
               skills: true,
               ai_agent_stack: true,
               portfolio_url: true,
@@ -34,6 +37,18 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
               stripe_account_id: true,
               verifications: {
                 select: { type: true, status: true },
+              },
+              created_evidence_sources: {
+                select: { type: true, status: true },
+                orderBy: { updated_at: "desc" },
+                take: 20,
+              },
+              _count: {
+                select: {
+                  facilitator_disputes: true,
+                  profile_views_received: true,
+                  bids: true,
+                },
               },
             },
           },
@@ -293,40 +308,76 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
               }}
               projectBudget={totalBudget}
               canManageProposals={canManageProposals}
-              bids={project.bids.map((b: any) => ({
-                id: b.id,
-                proposed_amount: Number(b.proposed_amount),
-                estimated_days: b.estimated_days,
-                technical_approach: b.technical_approach,
-                proposed_tech_stack: b.proposed_tech_stack ?? null,
-                tech_stack_reason: b.tech_stack_reason ?? null,
-                proposed_milestones: b.proposed_milestones ?? null,
-                counter_amount: b.counter_amount ? Number(b.counter_amount) : null,
-                counter_reason: b.counter_reason ?? null,
-                counter_milestones: b.counter_milestones ?? null,
-                last_action_by: b.last_action_by ?? null,
-                negotiation_rounds: b.negotiation_rounds ?? 0,
-                required_escrow_pct: (b as any).required_escrow_pct ?? 100,
-                counter_escrow_pct: (b as any).counter_escrow_pct ?? null,
-                status: b.status,
-                ai_score_card: b.ai_score_card ?? null,
-                developer: {
-                  id: b.developer.id,
-                  name: b.developer.name,
-                  email: b.developer.email,
-                  image: b.developer.image ?? null,
-                  trust_score: b.developer.trust_score,
-                  platform_tier: b.developer.platform_tier,
-                  total_sprints_completed: b.developer.total_sprints_completed,
-                  average_ai_audit_score: b.developer.average_ai_audit_score,
-                  skills: b.developer.skills ?? [],
-                  ai_agent_stack: b.developer.ai_agent_stack ?? [],
-                  portfolio_url: b.developer.portfolio_url ?? null,
+              bids={project.bids.map((b: any) => {
+                const stripeVerified = b.developer.verifications?.some((verification: { type: string; status: string }) => verification.type === "STRIPE" && verification.status === "VERIFIED") ?? false;
+                const identityVerified = b.developer.verifications?.some((verification: { type: string; status: string }) => verification.type === "IDENTITY" && verification.status === "VERIFIED") ?? false;
+                const portfolioVerified = b.developer.verifications?.some((verification: { type: string; status: string }) => verification.type === "PORTFOLIO" && verification.status === "VERIFIED") ?? false;
+                const skills = b.developer.skills ?? [];
+                const aiAgentStack = b.developer.ai_agent_stack ?? [];
+                const profileComplete = Boolean(b.developer.bio && b.developer.portfolio_url && skills.length > 0);
+                const connectedEvidenceSources = (b.developer.created_evidence_sources ?? []).filter((source: { status: string }) => source.status === "CONNECTED");
+                const trustProfile = getFacilitatorTrustProfile({
+                  stripeVerified,
+                  identityVerified,
+                  portfolioVerified,
+                  profileComplete,
+                  completedMilestones: b.developer.total_sprints_completed ?? 0,
+                  averageAuditScore: b.developer.average_ai_audit_score ?? 0,
+                  disputeCount: b.developer._count?.facilitator_disputes ?? 0,
+                  aiAgentStackCount: aiAgentStack.length,
+                  skillsCount: skills.length,
                   availability: b.developer.availability ?? null,
-                  stripe_account_id: b.developer.stripe_account_id ?? null,
-                  verifications: b.developer.verifications ?? [],
-                },
-              }))}
+                  connectedEvidenceSourceCount: connectedEvidenceSources.length,
+                  evidenceProviderTypes: connectedEvidenceSources.map((source: { type: string }) => source.type as EvidenceSourceTypeValue),
+                  profileViewCount: b.developer._count?.profile_views_received ?? 0,
+                  bidCount: b.developer._count?.bids ?? 0,
+                });
+
+                return {
+                  id: b.id,
+                  proposed_amount: Number(b.proposed_amount),
+                  estimated_days: b.estimated_days,
+                  technical_approach: b.technical_approach,
+                  proposed_tech_stack: b.proposed_tech_stack ?? null,
+                  tech_stack_reason: b.tech_stack_reason ?? null,
+                  proposed_milestones: b.proposed_milestones ?? null,
+                  counter_amount: b.counter_amount ? Number(b.counter_amount) : null,
+                  counter_reason: b.counter_reason ?? null,
+                  counter_milestones: b.counter_milestones ?? null,
+                  last_action_by: b.last_action_by ?? null,
+                  negotiation_rounds: b.negotiation_rounds ?? 0,
+                  required_escrow_pct: (b as any).required_escrow_pct ?? 100,
+                  counter_escrow_pct: (b as any).counter_escrow_pct ?? null,
+                  status: b.status,
+                  ai_score_card: b.ai_score_card ?? null,
+                  developer: {
+                    id: b.developer.id,
+                    name: b.developer.name,
+                    email: b.developer.email,
+                    image: b.developer.image ?? null,
+                    trust_score: b.developer.trust_score,
+                    platform_tier: b.developer.platform_tier,
+                    total_sprints_completed: b.developer.total_sprints_completed,
+                    average_ai_audit_score: b.developer.average_ai_audit_score,
+                    skills,
+                    ai_agent_stack: aiAgentStack,
+                    portfolio_url: b.developer.portfolio_url ?? null,
+                    availability: b.developer.availability ?? null,
+                    stripe_account_id: b.developer.stripe_account_id ?? null,
+                    verifications: b.developer.verifications ?? [],
+                    dispute_count: b.developer._count?.facilitator_disputes ?? 0,
+                    profile_view_count: b.developer._count?.profile_views_received ?? 0,
+                    connected_evidence_count: connectedEvidenceSources.length,
+                    evidence_provider_labels: trustProfile.evidenceProviderLabels,
+                    proof_score: trustProfile.proofScore,
+                    proof_level: trustProfile.proofLevel,
+                    proof_label: trustProfile.proofLabel,
+                    buyer_signals: trustProfile.buyerSignals,
+                    trust_highlights: trustProfile.highlights,
+                    trust_gaps: trustProfile.gaps,
+                  },
+                };
+              })}
             />
           )}
         </section>

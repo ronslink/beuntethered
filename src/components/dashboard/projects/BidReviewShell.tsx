@@ -4,6 +4,10 @@ import { useState, useTransition } from "react";
 import { acceptBid, counterBid, enterNegotiation, rejectBid, reopenBidding, shortlistBid } from "@/app/actions/bids";
 import { useRouter } from "next/navigation";
 import { getFacilitatorAwardReadiness } from "@/lib/bid-award-rules";
+import { getBidProofConfidence } from "@/lib/bid-proof-confidence";
+import type { FacilitatorProofLevel, FacilitatorProofSignal } from "@/lib/facilitator-trust-profile";
+
+type BuyerSignal = FacilitatorProofSignal;
 
 type Bid = {
   id: string;
@@ -37,6 +41,16 @@ type Bid = {
     availability?: string | null;
     stripe_account_id?: string | null;
     verifications?: { type: string; status: string }[];
+    dispute_count?: number;
+    profile_view_count?: number;
+    connected_evidence_count?: number;
+    evidence_provider_labels?: string[];
+    proof_score?: number;
+    proof_level?: FacilitatorProofLevel;
+    proof_label?: string;
+    buyer_signals?: BuyerSignal[];
+    trust_highlights?: string[];
+    trust_gaps?: string[];
   };
 };
 
@@ -55,7 +69,14 @@ const STATUS_BADGE: Record<string, string> = {
   REJECTED: "bg-error/10 text-error border-error/30",
 };
 
-function safeMilestones(value: any): Array<{ title?: string; amount?: number; days?: number; description?: string }> | null {
+function safeMilestones(value: any): Array<{
+  title?: string;
+  amount?: number;
+  days?: number;
+  description?: string;
+  deliverables?: unknown;
+  acceptance_criteria?: unknown;
+}> | null {
   if (!value) return null;
   try {
     const parsed = typeof value === "string" ? JSON.parse(value) : value;
@@ -75,23 +96,37 @@ function verificationSummary(verifications?: { type: string; status: string }[])
   };
 }
 
+function proofLevelClasses(level?: FacilitatorProofLevel | null) {
+  if (level === "enterprise_ready") return "border-primary/30 bg-primary/10 text-primary";
+  if (level === "trusted") return "border-tertiary/30 bg-tertiary/10 text-tertiary";
+  if (level === "verified") return "border-[#2563eb]/30 bg-[#2563eb]/10 text-[#2563eb]";
+  return "border-outline-variant/30 bg-surface text-on-surface-variant";
+}
+
 function TrustEvidence({ developer }: { developer: Bid["developer"] }) {
   const verifications = verificationSummary(developer.verifications);
   const topSkills = (developer.skills ?? []).slice(0, 4);
   const agentStack = (developer.ai_agent_stack ?? []).slice(0, 3);
   const auditScore = developer.average_ai_audit_score ?? 0;
+  const proofScore = developer.proof_score ?? Math.round(developer.trust_score ?? 0);
+  const proofLabel = developer.proof_label ?? "Emerging profile";
+  const proofSignals = developer.buyer_signals ?? [];
+  const attentionSignals = proofSignals.filter((signal) => signal.status === "attention");
+  const evidenceProviders = developer.evidence_provider_labels ?? [];
 
   return (
     <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/45 p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Facilitator Trust Signals</p>
-        <span className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${
-          verifications.verified.length > 0 ? "border-[#059669]/30 bg-[#059669]/10 text-[#059669]" : "border-outline-variant/30 text-on-surface-variant"
-        }`}>
-          {verifications.label}
+        <span className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${proofLevelClasses(developer.proof_level)}`}>
+          {proofLabel} · {proofScore}/100
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-5">
+        <div>
+          <p className="font-bold uppercase tracking-widest text-on-surface-variant">Verification</p>
+          <p className="mt-0.5 font-black text-on-surface">{verifications.label}</p>
+        </div>
         <div>
           <p className="font-bold uppercase tracking-widest text-on-surface-variant">Completed</p>
           <p className="mt-0.5 font-black text-on-surface">{developer.total_sprints_completed ?? 0} milestones</p>
@@ -114,7 +149,23 @@ function TrustEvidence({ developer }: { developer: Bid["developer"] }) {
             <p className="mt-0.5 font-black text-on-surface">Missing</p>
           )}
         </div>
+        <div className="col-span-2 sm:col-span-1">
+          <p className="font-bold uppercase tracking-widest text-on-surface-variant">Evidence</p>
+          <p className="mt-0.5 truncate font-black text-on-surface">
+            {evidenceProviders.length ? evidenceProviders.slice(0, 2).join(", ") : "None yet"}
+          </p>
+        </div>
       </div>
+      {attentionSignals.length > 0 && (
+        <div className="mt-3 rounded-md border border-error/20 bg-error/5 p-2">
+          {attentionSignals.slice(0, 2).map((signal) => (
+            <p key={signal.key} className="flex items-start gap-1.5 text-[10px] font-medium text-error">
+              <span className="material-symbols-outlined mt-0.5 text-[12px]">warning</span>
+              {signal.detail}
+            </p>
+          ))}
+        </div>
+      )}
       {(topSkills.length > 0 || agentStack.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {topSkills.map((skill) => (
@@ -142,6 +193,83 @@ function hasEvidenceLanguage(bid: Bid, milestones: ReturnType<typeof safeMilesto
   ].join(" ").toLowerCase();
 
   return /\b(acceptance|audit|evidence|demo|staging|release|handoff|verification|verified|artifact|report|criteria|test|quality)\b/.test(proposalText);
+}
+
+function proofConfidenceClasses(level: ReturnType<typeof getBidProofConfidence>["level"]) {
+  if (level === "audit_ready") return "border-[#059669]/30 bg-[#059669]/10 text-[#059669]";
+  if (level === "high") return "border-tertiary/30 bg-tertiary/10 text-tertiary";
+  if (level === "medium") return "border-secondary/30 bg-secondary/10 text-secondary";
+  return "border-error/30 bg-error/10 text-error";
+}
+
+function getBidProof(bid: Bid, milestones: ReturnType<typeof safeMilestones>) {
+  return getBidProofConfidence({
+    technicalApproach: bid.technical_approach,
+    techStackReason: bid.tech_stack_reason,
+    proposedTechStack: bid.proposed_tech_stack,
+    proposedMilestones: milestones,
+    aiFlags: Array.isArray(bid.ai_score_card?.flags) ? bid.ai_score_card.flags : [],
+    facilitatorProofScore: bid.developer.proof_score ?? bid.developer.trust_score ?? 0,
+    facilitatorProofLevel: bid.developer.proof_level ?? null,
+    connectedEvidenceProviderLabels: bid.developer.evidence_provider_labels ?? [],
+    connectedEvidenceSourceCount: bid.developer.connected_evidence_count ?? 0,
+  });
+}
+
+function ProofConfidenceCard({
+  bid,
+  milestones,
+}: {
+  bid: Bid;
+  milestones: ReturnType<typeof safeMilestones>;
+}) {
+  const confidence = getBidProof(bid, milestones);
+
+  return (
+    <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low/45 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[15px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>fact_check</span>
+          <p className="text-[9px] font-black uppercase tracking-widest text-primary">Proof Confidence</p>
+        </div>
+        <span className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${proofConfidenceClasses(confidence.level)}`}>
+          {confidence.label} · {confidence.score}/100
+        </span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">What strengthens this bid</p>
+          <div className="mt-2 space-y-1.5">
+            {(confidence.strengths.length ? confidence.strengths : ["No concrete proof strengths detected yet."]).map((item) => (
+              <p key={item} className="flex items-start gap-1.5 text-[10px] font-medium leading-4 text-on-surface-variant">
+                <span className="material-symbols-outlined mt-0.5 text-[12px] text-[#059669]">check_circle</span>
+                {item}
+              </p>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Clarify before award</p>
+          <div className="mt-2 space-y-1.5">
+            {(confidence.gaps.length ? confidence.gaps : ["No major proof gaps detected."]).map((item) => (
+              <p key={item} className="flex items-start gap-1.5 text-[10px] font-medium leading-4 text-on-surface-variant">
+                <span className="material-symbols-outlined mt-0.5 text-[12px] text-secondary">error</span>
+                {item}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 rounded-md border border-outline-variant/20 bg-surface px-2.5 py-2">
+        <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Provider-backed proof</p>
+        <p className="mt-1 text-[10px] font-bold text-on-surface">
+          {confidence.detectedEvidenceProviders.length
+            ? confidence.detectedEvidenceProviders.slice(0, 5).join(", ")
+            : "Not named yet. Ask for GitHub, deployment, database, domain, or operational proof."}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function AwardGateChecklist({
@@ -368,6 +496,7 @@ function BidCard({
         </div>
 
         <TrustEvidence developer={bid.developer} />
+        <ProofConfidenceCard bid={bid} milestones={proposedMs} />
         <AwardGateChecklist bid={bid} milestones={proposedMs} awardReadiness={awardReadiness} />
 
         {!awardReadiness.ok && (
@@ -657,7 +786,7 @@ export default function BidReviewShell({
   projectBudget: number;
   canManageProposals?: boolean;
 }) {
-  const [sortBy, setSortBy] = useState<"price" | "days" | "trust" | "ai">("ai");
+  const [sortBy, setSortBy] = useState<"price" | "days" | "trust" | "ai" | "proof">("proof");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [counterTarget, setCounterTarget] = useState<Bid | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -671,6 +800,7 @@ export default function BidReviewShell({
       if (sortBy === "price") return a.proposed_amount - b.proposed_amount;
       if (sortBy === "days") return a.estimated_days - b.estimated_days;
       if (sortBy === "trust") return (b.developer.trust_score || 0) - (a.developer.trust_score || 0);
+      if (sortBy === "proof") return getBidProof(b, safeMilestones(b.proposed_milestones)).score - getBidProof(a, safeMilestones(a.proposed_milestones)).score;
       if (sortBy === "ai") {
         const rOrder: Record<string, number> = { TOP_PICK: 0, STRONG: 1, REVIEW: 2, CAUTION: 3 };
         return (rOrder[a.ai_score_card?.recommendation] ?? 4) - (rOrder[b.ai_score_card?.recommendation] ?? 4);
@@ -765,7 +895,7 @@ export default function BidReviewShell({
 
       {bids.length > 0 && (
         <div className="mb-6 overflow-x-auto border border-outline-variant/20 rounded-lg bg-surface">
-          <table className="w-full min-w-[760px] text-left text-xs">
+          <table className="w-full min-w-[860px] text-left text-xs">
             <thead className="bg-surface-container-low border-b border-outline-variant/20">
               <tr className="text-[9px] uppercase tracking-widest text-on-surface-variant">
                 <th className="px-4 py-3 font-black">Facilitator</th>
@@ -774,6 +904,7 @@ export default function BidReviewShell({
                 <th className="px-4 py-3 font-black">Timeline</th>
                 <th className="px-4 py-3 font-black">Escrow</th>
                 <th className="px-4 py-3 font-black">Trust</th>
+                <th className="px-4 py-3 font-black">Proof</th>
                 <th className="px-4 py-3 font-black">AI Evidence</th>
               </tr>
             </thead>
@@ -782,6 +913,7 @@ export default function BidReviewShell({
                 const rec = bid.ai_score_card ? RECOMMENDATION_CONFIG[bid.ai_score_card.recommendation] || RECOMMENDATION_CONFIG.REVIEW : null;
                 const budgetDelta = projectBudget > 0 ? bid.proposed_amount - projectBudget : 0;
                 const verifications = verificationSummary(bid.developer.verifications);
+                const proof = getBidProof(bid, safeMilestones(bid.proposed_milestones));
                 return (
                   <tr key={bid.id} className="hover:bg-surface-container-low/40">
                     <td className="px-4 py-3 font-bold text-on-surface">{bid.developer.name || bid.developer.email}</td>
@@ -803,6 +935,10 @@ export default function BidReviewShell({
                     <td className="px-4 py-3">
                       <p className="font-bold text-on-surface">{bid.developer.trust_score ?? "-"}{bid.developer.platform_tier ? ` / ${bid.developer.platform_tier}` : ""}</p>
                       <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">{verifications.label}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-black text-on-surface">{proof.score}/100</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">{proof.label}</p>
                     </td>
                     <td className="px-4 py-3">
                       {rec ? (
@@ -874,10 +1010,10 @@ export default function BidReviewShell({
       {bids.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-3 relative z-10">
           <div className="flex items-center gap-1 bg-surface-container-low border border-outline-variant/20 rounded-lg p-1">
-            {(["ai", "price", "days", "trust"] as const).map((s) => (
+            {(["proof", "ai", "price", "days", "trust"] as const).map((s) => (
               <button key={s} onClick={() => setSortBy(s)}
                 className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors ${sortBy === s ? "bg-primary text-on-primary" : "text-on-surface-variant hover:text-on-surface"}`}>
-                {s === "ai" ? "AI Score" : s === "price" ? "Price ↑" : s === "days" ? "Speed ↑" : "Trust ↓"}
+                {s === "proof" ? "Proof ↓" : s === "ai" ? "AI Score" : s === "price" ? "Price ↑" : s === "days" ? "Speed ↑" : "Trust ↓"}
               </button>
             ))}
           </div>

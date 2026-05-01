@@ -66,6 +66,20 @@ test("client sees enterprise bid comparison evidence", async ({ page }) => {
   });
   const bid = project.bids[0];
 
+  await prisma.projectEvidenceSource.create({
+    data: {
+      project_id: project.id,
+      created_by_id: facilitator.id,
+      type: "VERCEL",
+      label: "Staging preview",
+      url: "https://vendor-portal-preview.vercel.app",
+      status: "CONNECTED",
+      metadata: {
+        verification_note: "Maps to the portal foundation milestone and proves the staging release.",
+      },
+    },
+  });
+
   await prisma.activityLog.create({
     data: {
       project_id: project.id,
@@ -89,8 +103,12 @@ test("client sees enterprise bid comparison evidence", async ({ page }) => {
     await expect(page.getByText("Bid Review Evidence Project").first()).toBeVisible();
     await expect(page.getByText("AI Comparative Analysis")).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "AI Evidence" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Proof" })).toBeVisible();
     await expect(page.getByText("Evidence Facilitator").first()).toBeVisible();
     await expect(page.getByText("Top Pick").first()).toBeVisible();
+    await expect(page.getByText("Proof Confidence").first()).toBeVisible();
+    await expect(page.getByText("Provider-backed proof").first()).toBeVisible();
+    await expect(page.getByText("Vercel").first()).toBeVisible();
     await expect(page.getByText("Award Gate Checklist").first()).toBeVisible();
     await expect(page.getByText("4/5 ready").first()).toBeVisible();
     await expect(page.getByText("Facilitator verified").first()).toBeVisible();
