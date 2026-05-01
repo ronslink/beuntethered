@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applySowGuardrails, buildSowGuardrailReport } from "../src/lib/sow-guardrails.ts";
+import { applySowGuardrails, buildSowGuardrailReport, isSowGuardrailReport } from "../src/lib/sow-guardrails.ts";
 
 const payrollConstraints = {
   regions: ["North America", "Middle East", "Asia"],
@@ -138,4 +138,31 @@ test("reports unresolved guardrail gaps for buyer review", () => {
   assert.deepEqual(report.items.find((item) => item.key === "regions")?.missing, ["Middle East", "Asia"]);
   assert.ok(report.items.find((item) => item.key === "components")?.missing?.includes("AI chatbot for employee inquiries"));
   assert.equal(report.items.find((item) => item.key === "milestoneEvidence")?.status, "needs_attention");
+});
+
+test("recognizes persisted SOW guardrail reports in activity metadata", () => {
+  const report = buildSowGuardrailReport(
+    {
+      executiveSummary: "Build a payroll app for North America, Middle East, and Asia.",
+      milestones: [
+        {
+          title: "Payroll Evidence Slice",
+          description: "Build a staging payroll slice covering automated tax calculations, payslip generation, AI chatbot for employee inquiries, and admin reporting dashboard.",
+          deliverables: ["Payroll staging preview", "Audit evidence packet"],
+          acceptance_criteria: [
+            "Buyer can inspect screenshots, source links, and staging proof.",
+            "Submission includes evidence for each named component.",
+          ],
+          estimated_duration_days: 30,
+          amount: 15000,
+        },
+      ],
+    },
+    payrollConstraints
+  );
+
+  assert.equal(isSowGuardrailReport(report), true);
+  assert.equal(isSowGuardrailReport({ ...report, overallStatus: "unknown" }), false);
+  assert.equal(isSowGuardrailReport({ ...report, items: [{ key: "budget", status: "passed" }] }), false);
+  assert.equal(isSowGuardrailReport(null), false);
 });

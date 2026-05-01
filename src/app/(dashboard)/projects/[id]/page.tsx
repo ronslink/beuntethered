@@ -5,10 +5,19 @@ import Link from "next/link";
 import AcceptSquadButton from "@/components/marketplace/AcceptSquadButton";
 import ListingControlArray from "@/components/dashboard/projects/ListingControlArray";
 import BidReviewShell from "@/components/dashboard/projects/BidReviewShell";
+import { ScopeValidationReportCard } from "@/components/dashboard/projects/ScopeValidationReportCard";
 import ProjectActivityLedger from "@/components/dashboard/ProjectActivityLedger";
 import { canManageBuyerProjectRole, getBuyerProjectRoleFromMembership } from "@/lib/project-access";
+import { isSowGuardrailReport, type SowGuardrailReport } from "@/lib/sow-guardrails";
 
 export const dynamic = "force-dynamic";
+
+function getScopeValidationReport(metadata: unknown): SowGuardrailReport | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+
+  const report = (metadata as Record<string, unknown>).scope_validation_report;
+  return isSowGuardrailReport(report) ? report : null;
+}
 
 export default async function ProjectReviewPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -56,7 +65,7 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
       },
       activity_logs: {
         orderBy: { created_at: "desc" },
-        take: 8,
+        take: 20,
         include: { actor: { select: { name: true, email: true, role: true } } },
       },
     },
@@ -97,6 +106,9 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
     : hoursRemaining != null
     ? `${hoursRemaining}h left`
     : null;
+  const scopeValidationReport = project.activity_logs
+    .map((log) => getScopeValidationReport(log.metadata))
+    .find((report): report is SowGuardrailReport => Boolean(report));
 
   return (
     <main className="lg:p-6 min-h-full pb-20 relative overflow-hidden">
@@ -185,6 +197,16 @@ export default async function ProjectReviewPage(props: { params: Promise<{ id: s
               Workspace member view. Owners and admins manage listing changes and proposal decisions.
             </p>
           </div>
+        )}
+
+        {scopeValidationReport && (
+          <ScopeValidationReportCard
+            report={scopeValidationReport}
+            eyebrow="Scope evidence"
+            titlePassed="Posted scope checks passed."
+            titleAttention="Posted scope has review items."
+            description="Captured when the project entered the marketplace so proposal review can reference buyer constraints and evidence readiness."
+          />
         )}
 
         {project.activity_logs.length > 0 && (

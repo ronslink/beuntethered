@@ -32,6 +32,43 @@ export type SowGuardrailReport = {
   items: SowGuardrailReportItem[];
 };
 
+const REPORT_ITEM_KEYS = new Set<SowGuardrailReportItem["key"]>([
+  "budget",
+  "timeline",
+  "regions",
+  "components",
+  "milestoneEvidence",
+]);
+
+const REPORT_ITEM_STATUSES = new Set<SowGuardrailReportItem["status"]>([
+  "passed",
+  "needs_attention",
+  "not_applicable",
+]);
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function isSowGuardrailReport(value: unknown): value is SowGuardrailReport {
+  if (!isPlainRecord(value)) return false;
+
+  const { overallStatus, items } = value;
+  if (overallStatus !== "passed" && overallStatus !== "needs_attention") return false;
+  if (!Array.isArray(items)) return false;
+
+  return items.every((item) => {
+    if (!isPlainRecord(item)) return false;
+
+    return (
+      REPORT_ITEM_KEYS.has(item.key as SowGuardrailReportItem["key"]) &&
+      REPORT_ITEM_STATUSES.has(item.status as SowGuardrailReportItem["status"]) &&
+      typeof item.label === "string" &&
+      typeof item.detail === "string"
+    );
+  });
+}
+
 function formatMoney(value: number) {
   return value.toLocaleString("en-US", {
     style: "currency",
