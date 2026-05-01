@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import ClientInsights from "@/components/dashboard/insights/client/ClientInsights";
 import FacilitatorInsights from "@/components/dashboard/insights/facilitator/FacilitatorInsights";
 import { buyerProjectListWhere } from "@/lib/project-access";
+import { computeOpportunityFit } from "@/lib/opportunity-fit";
+import { getProfileViewWindowStart } from "@/lib/profile-view-rules";
 
 export default async function InsightsTrafficController() {
   const user = await getCurrentUser();
@@ -109,6 +111,42 @@ export default async function InsightsTrafficController() {
 
     if (!expert) redirect("/dashboard");
 
+    const profileViewSince = getProfileViewWindowStart();
+    const [profileViews7d, profileViewsTotal, newOpenProjectCount, opportunityProjects] = await Promise.all([
+      prisma.profileView.count({
+        where: {
+          facilitator_id: user.id,
+          created_at: { gte: profileViewSince },
+        },
+      }),
+      prisma.profileView.count({
+        where: { facilitator_id: user.id },
+      }),
+      prisma.project.count({
+        where: {
+          status: "OPEN_BIDDING",
+          created_at: { gte: profileViewSince },
+        },
+      }),
+      prisma.project.findMany({
+        where: {
+          status: "OPEN_BIDDING",
+          bids: { none: { developer_id: user.id } },
+          invites: { none: { facilitator_id: user.id, status: { in: ["SENT", "VIEWED", "ACCEPTED"] } } },
+        },
+        include: {
+          milestones: { orderBy: { id: "asc" } },
+          invites: {
+            where: { facilitator_id: user.id, status: { in: ["SENT", "VIEWED", "ACCEPTED"] } },
+            select: { id: true, status: true },
+          },
+          _count: { select: { bids: true } },
+        },
+        orderBy: { created_at: "desc" },
+        take: 8,
+      }),
+    ]);
+
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const revenueMap: Record<string, number> = {};
     const now = new Date();
@@ -131,6 +169,26 @@ export default async function InsightsTrafficController() {
     const auditPassRate = latestAudits.length > 0
       ? Math.round((latestAudits.filter((audit) => audit.is_passing).length / latestAudits.length) * 100)
       : 0;
+    const opportunityRadar = opportunityProjects
+      .map((project) => {
+        const totalValue = project.milestones.reduce((sum, milestone) => sum + Number(milestone.amount), 0);
+        const opportunityFit = computeOpportunityFit(project, expert);
+        return {
+          id: project.id,
+          title: project.title,
+          totalValue,
+          bidCount: project._count.bids,
+          createdAt: project.created_at.toISOString(),
+          fitScore: opportunityFit.score,
+          fitReasons: opportunityFit.reasons.slice(0, 2),
+          matchedTerms: opportunityFit.matchedTerms.slice(0, 4),
+        };
+      })
+      .sort((a, b) => {
+        if (b.fitScore !== a.fitScore) return b.fitScore - a.fitScore;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, 4);
 
     return (
       <FacilitatorInsights
@@ -145,6 +203,10 @@ export default async function InsightsTrafficController() {
         auditPassRate={auditPassRate}
         durableAuditScore={durableAuditScore}
         disputedMilestones={expert.milestones.filter((m) => m.status === "DISPUTED").length}
+        profileViews7d={profileViews7d}
+        profileViewsTotal={profileViewsTotal}
+        newOpenProjectCount={newOpenProjectCount}
+        opportunityRadar={opportunityRadar}
         disputeQueue={openDisputes.map((dispute) => ({
           id: dispute.id,
           projectId: dispute.project.id,

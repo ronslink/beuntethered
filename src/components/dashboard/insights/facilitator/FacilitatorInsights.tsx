@@ -13,6 +13,17 @@ type DisputeQueueItem = {
   createdAt: string;
 };
 
+type OpportunityRadarItem = {
+  id: string;
+  title: string;
+  totalValue: number;
+  bidCount: number;
+  createdAt: string;
+  fitScore: number;
+  fitReasons: string[];
+  matchedTerms: string[];
+};
+
 export default function FacilitatorInsights({
   trustScore,
   totalSprints,
@@ -25,6 +36,10 @@ export default function FacilitatorInsights({
   auditPassRate,
   durableAuditScore,
   disputedMilestones,
+  profileViews7d,
+  profileViewsTotal,
+  newOpenProjectCount,
+  opportunityRadar = [],
   disputeQueue = [],
 }: {
   trustScore: number;
@@ -38,6 +53,10 @@ export default function FacilitatorInsights({
   auditPassRate: number;
   durableAuditScore: number;
   disputedMilestones: number;
+  profileViews7d: number;
+  profileViewsTotal: number;
+  newOpenProjectCount: number;
+  opportunityRadar?: OpportunityRadarItem[];
   disputeQueue?: DisputeQueueItem[];
 }) {
   const formatCurrency = (val: number) =>
@@ -46,6 +65,7 @@ export default function FacilitatorInsights({
   const maxRevenue = Math.max(...revenueData.map((row) => row.revenue), 1);
   const formatDate = (value: string) =>
     new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+  const bestFitScore = opportunityRadar[0]?.fitScore ?? 0;
 
   return (
     <main className="min-h-screen bg-background px-4 py-8 text-on-surface lg:px-6">
@@ -72,6 +92,45 @@ export default function FacilitatorInsights({
           <Metric label="Completed Milestones" value={String(totalSprints)} icon="verified" tone="tertiary" />
           <Metric label="Average Audit" value={durableAuditScore ? `${durableAuditScore.toFixed(0)}%` : "Pending"} icon="fact_check" tone="primary" />
           <Metric label="Active Bids" value={String(activeBids)} icon="contract_edit" tone="tertiary" />
+        </section>
+
+        <section className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-tertiary">Marketplace Signals</p>
+              <h2 className="mt-1 text-sm font-black uppercase tracking-widest text-on-surface">Demand And Opportunity</h2>
+            </div>
+            <Link href="/marketplace?sort=best_match" className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary">
+              Open marketplace
+              <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+            </Link>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <SignalCard
+              label="New projects listed"
+              value={String(newOpenProjectCount)}
+              detail="Open opportunities added in the last 7 days."
+              icon="fiber_new"
+            />
+            <SignalCard
+              label="Profile views"
+              value={String(profileViews7d)}
+              detail={`${profileViewsTotal} total buyer view${profileViewsTotal === 1 ? "" : "s"} tracked.`}
+              icon="visibility"
+            />
+            <SignalCard
+              label="Best fit available"
+              value={bestFitScore ? `${bestFitScore}%` : "—"}
+              detail={bestFitScore ? "Highest currently open profile-fit score." : "No open unmatched projects found."}
+              icon="travel_explore"
+            />
+            <SignalCard
+              label="Pipeline pressure"
+              value={String(activeBids + pendingInvites)}
+              detail="Active bids plus unaccepted client invites."
+              icon="view_kanban"
+            />
+          </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_420px]">
@@ -106,6 +165,64 @@ export default function FacilitatorInsights({
           </div>
 
           <aside className="space-y-6">
+            <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Opportunity Radar</h2>
+                  <p className="mt-1 text-xs font-medium leading-5 text-on-surface-variant">
+                    Open projects ranked against your skills, AI stack, trust score, and delivery history.
+                  </p>
+                </div>
+                <span className="material-symbols-outlined text-[20px] text-tertiary">radar</span>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {opportunityRadar.length === 0 ? (
+                  <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-5 text-center">
+                    <p className="text-sm font-bold text-on-surface">No open matches yet</p>
+                    <p className="mt-1 text-xs font-medium text-on-surface-variant">
+                      Add skills, AI tools, and availability to improve matching.
+                    </p>
+                  </div>
+                ) : (
+                  opportunityRadar.map((project) => (
+                    <Link
+                      key={project.id}
+                      href={`/marketplace/project/${project.id}`}
+                      className="group block rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 transition-colors hover:border-primary/40 hover:bg-surface-container-high"
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="rounded-lg border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-black text-primary">
+                          {project.fitScore}% fit
+                        </span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                          {project.bidCount} bid{project.bidCount === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 text-sm font-black leading-5 text-on-surface group-hover:text-primary">
+                        {project.title}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {project.matchedTerms.length > 0 ? project.matchedTerms.slice(0, 3).map((term) => (
+                          <span key={term} className="rounded-md border border-outline-variant/20 bg-surface px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                            {term}
+                          </span>
+                        )) : (
+                          <span className="rounded-md border border-outline-variant/20 bg-surface px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
+                            profile fit
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        <span>{formatCurrency(project.totalValue)}</span>
+                        <span>{formatDate(project.createdAt)}</span>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
               <h2 className="text-sm font-black uppercase tracking-widest text-on-surface">Work Queue</h2>
               <div className="mt-5 space-y-3">
@@ -192,6 +309,19 @@ export default function FacilitatorInsights({
         </section>
       </div>
     </main>
+  );
+}
+
+function SignalCard({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: string }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="material-symbols-outlined text-[20px] text-tertiary">{icon}</span>
+        <p className="text-2xl font-black text-on-surface">{value}</p>
+      </div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{label}</p>
+      <p className="mt-2 min-h-10 text-xs font-medium leading-5 text-on-surface-variant">{detail}</p>
+    </div>
   );
 }
 
