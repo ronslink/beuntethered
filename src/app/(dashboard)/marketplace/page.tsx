@@ -52,6 +52,7 @@ export default async function MarketplaceDealFeed({
       platform_tier: true,
       availability: true,
       portfolio_url: true,
+      proof_capabilities: true,
     },
   });
   const savedSearches = await prisma.savedSearch.findMany({

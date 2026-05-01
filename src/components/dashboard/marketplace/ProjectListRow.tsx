@@ -1,5 +1,8 @@
 "use client";
 
+import type { EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
+import { getEvidenceProviderBrand } from "@/lib/evidence-provider-branding";
+
 function timeAgo(date: Date | string): string {
   const now = Date.now();
   const diff = now - new Date(date).getTime();
@@ -32,6 +35,7 @@ export default function ProjectListRow({
   const bidCount = project._count?.bids ?? 0;
   const fit = project.opportunityFit;
   const matchedTerms = fit?.matchedTerms ?? [];
+  const matchedProofCapabilities = (fit?.matchedProofCapabilities ?? []) as EvidenceSourceTypeValue[];
 
   return (
     <button
@@ -90,6 +94,16 @@ export default function ProjectListRow({
                 ))}
               </div>
             )}
+            {matchedProofCapabilities.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="rounded-md border border-tertiary/20 bg-tertiary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-tertiary">
+                  Proof fit
+                </span>
+                {matchedProofCapabilities.slice(0, 3).map((type) => (
+                  <EvidenceProviderChip key={`${project.id}-${type}`} type={type} />
+                ))}
+              </div>
+            )}
             <p className="text-on-surface-variant text-xs font-medium leading-relaxed mt-1 line-clamp-2 opacity-80">
               {project.ai_generated_sow?.slice(0, 120)}...
             </p>
@@ -124,7 +138,7 @@ export default function ProjectListRow({
 
           <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
             <span className="material-symbols-outlined text-[12px]">rule</span>
-            {fit?.source === "profile-fallback" ? "Profile fit" : "Matched"}
+            {fit?.source === "profile-proof-fit" ? "Proof fit" : fit?.source === "profile-fallback" ? "Profile fit" : "Matched"}
           </span>
 
           <span className="text-[10px] text-on-surface-variant font-medium ml-auto">
@@ -133,5 +147,25 @@ export default function ProjectListRow({
         </div>
       </div>
     </button>
+  );
+}
+
+function EvidenceProviderChip({ type }: { type: EvidenceSourceTypeValue }) {
+  const brand = getEvidenceProviderBrand(type);
+
+  return (
+    <span
+      className="inline-flex max-w-full items-center gap-1 rounded-md border border-outline-variant/20 bg-surface px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-on-surface-variant"
+      title={`${brand.label} proof capability`}
+    >
+      {brand.icon ? (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3 w-3 shrink-0" fill="currentColor">
+          <path d={brand.icon.path} />
+        </svg>
+      ) : (
+        <span className="text-[8px]">{brand.fallbackText}</span>
+      )}
+      <span className="truncate">{brand.label}</span>
+    </span>
   );
 }
