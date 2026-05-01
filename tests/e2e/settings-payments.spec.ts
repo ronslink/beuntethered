@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { signInAs } from "./support/auth";
-import { cleanupByEmailPrefix, seedFacilitatorVerifications, seedUser } from "./support/db";
+import { cleanupByEmailPrefix, prisma, seedFacilitatorVerifications, seedUser } from "./support/db";
 
 test("client sees settings payment readiness and fee model", async ({ page }) => {
   const prefix = `playwright-settings-${Date.now()}`;
@@ -47,6 +47,17 @@ test("facilitator sees award eligibility trust gates in settings", async ({ page
     await expect(checklist.getByRole("link", { name: /portfolio evidence/i })).toBeVisible();
     await expect(checklist.getByText("2/3")).toBeVisible();
     await expect(checklist.getByText("Add a credible portfolio URL")).toBeVisible();
+
+    await page.getByRole("button", { name: /save profile/i }).click();
+    await expect(page.getByText("Saved. Portfolio evidence queued for manual review.")).toBeVisible();
+    await expect
+      .poll(async () =>
+        prisma.verification.findUnique({
+          where: { user_id_type: { user_id: facilitator.id, type: "PORTFOLIO" } },
+          select: { status: true, provider: true },
+        }),
+      )
+      .toEqual({ status: "PENDING", provider: "profile_evidence" });
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

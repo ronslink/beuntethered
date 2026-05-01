@@ -19,7 +19,7 @@ export type OnboardingStepData =
 // ─── Partial step save (allows resuming) ─────────────
 export async function saveOnboardingStep(
   input: unknown
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; portfolioVerificationStatus?: "PENDING" | "VERIFIED" | "REJECTED" }> {
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: "Not authenticated." };
@@ -82,19 +82,21 @@ export async function saveOnboardingStep(
 
     await prisma.user.update({ where: { id: user.id }, data: update });
 
+    let portfolioVerificationStatus: "PENDING" | "VERIFIED" | "REJECTED" | undefined;
     if (data.step === "profile" && user.role === "FACILITATOR") {
-      await syncPortfolioVerification({
+      const portfolioVerification = await syncPortfolioVerification({
         userId: user.id,
         portfolioUrl: data.portfolioUrl || null,
         bio: data.bio,
         skills: data.skills,
         aiToolStack: data.aiAgentStack,
       });
+      portfolioVerificationStatus = portfolioVerification.status;
     }
 
     revalidatePath("/settings");
     revalidatePath("/talent");
-    return { success: true };
+    return { success: true, portfolioVerificationStatus };
   } catch (e: any) {
     if (isRateLimitError(e)) {
       return { success: false, error: e.message };

@@ -85,6 +85,7 @@ export function FacilitatorProfileSettings({ initial }: {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   const [bio, setBio] = useState(initial.bio ?? "");
   const [skills, setSkills] = useState<string[]>(initial.skills);
@@ -97,10 +98,24 @@ export function FacilitatorProfileSettings({ initial }: {
 
   const handleSave = () => {
     setSaved(false);
+    setStatusMessage("");
     startTransition(async () => {
-      await saveOnboardingStep({ step: "profile", bio, skills, aiAgentStack: aiStack, portfolioUrl, availability, yearsExperience: yearsExp, preferredProjectSize: projectSize });
-      await saveOnboardingStep({ step: "pricing", hourlyRate });
+      const profileResult = await saveOnboardingStep({ step: "profile", bio, skills, aiAgentStack: aiStack, portfolioUrl, availability, yearsExperience: yearsExp, preferredProjectSize: projectSize });
+      if (!profileResult.success) {
+        setStatusMessage(profileResult.error || "Profile could not be saved.");
+        return;
+      }
+      const pricingResult = await saveOnboardingStep({ step: "pricing", hourlyRate });
+      if (!pricingResult.success) {
+        setStatusMessage(pricingResult.error || "Pricing could not be saved.");
+        return;
+      }
       setSaved(true);
+      setStatusMessage(
+        profileResult.portfolioVerificationStatus === "PENDING" && portfolioUrl
+          ? "Saved. Portfolio evidence queued for manual review."
+          : "Saved."
+      );
       router.refresh();
     });
   };
@@ -187,7 +202,14 @@ export function FacilitatorProfileSettings({ initial }: {
           className="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2">
           {isPending ? <><span className="material-symbols-outlined animate-spin text-[15px]">refresh</span> Saving...</> : "Save Profile"}
         </button>
-        {saved && <p className="text-xs text-[#059669] font-bold flex items-center gap-1"><span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span> Saved</p>}
+        {statusMessage && (
+          <p className={`text-xs font-bold flex items-center gap-1 ${saved ? "text-[#059669]" : "text-error"}`}>
+            <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+              {saved ? "check_circle" : "error"}
+            </span>
+            {statusMessage}
+          </p>
+        )}
       </div>
     </div>
   );
