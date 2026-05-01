@@ -15,6 +15,10 @@ export default async function InsightsTrafficController() {
     const clientProjects = await prisma.project.findMany({
       where: buyerProjectListWhere(user.id),
       include: {
+        bids: {
+          where: { status: { in: ["PENDING", "SHORTLISTED", "UNDER_NEGOTIATION"] } },
+          select: { id: true, status: true },
+        },
         milestones: {
           include: {
             facilitator: true,
@@ -68,6 +72,80 @@ export default async function InsightsTrafficController() {
     const avgCodeQuality = facilitatorCount > 0 ? (totalAuditScore / facilitatorCount) : 0;
     const avgAuditScore = auditedMilestones > 0 ? latestAuditScoreTotal / auditedMilestones : avgCodeQuality;
     const auditPassRate = auditedMilestones > 0 ? Math.round((passingAudits / auditedMilestones) * 100) : 0;
+    const projectHealth = clientProjects
+      .map((project) => {
+        const totalValue = project.milestones.reduce((acc, milestone) => acc + Number(milestone.amount), 0);
+        const pendingFundingCount = project.milestones.filter((milestone) => milestone.status === "PENDING").length;
+        const fundedCount = project.milestones.filter((milestone) => milestone.status === "FUNDED_IN_ESCROW").length;
+        const reviewCount = project.milestones.filter((milestone) => milestone.status === "SUBMITTED_FOR_REVIEW").length;
+        const paidCount = project.milestones.filter((milestone) => milestone.status === "APPROVED_AND_PAID").length;
+        const disputedCount = project.milestones.filter((milestone) => milestone.status === "DISPUTED").length + (project.status === "DISPUTED" ? 1 : 0);
+        const latestAuditScore = project.milestones
+          .map((milestone) => milestone.audits[0]?.score)
+          .find((score): score is number => typeof score === "number");
+        const facilitatorNames = Array.from(
+          new Set(
+            project.milestones
+              .map((milestone) => milestone.facilitator?.name || milestone.facilitator?.email)
+              .filter((name): name is string => Boolean(name))
+          )
+        );
+
+        return {
+          id: project.id,
+          title: project.title,
+          status: project.status,
+          totalValue,
+          bidCount: project.bids.length,
+          pendingFundingCount,
+          fundedCount,
+          reviewCount,
+          paidCount,
+          disputedCount,
+          latestAuditScore: latestAuditScore ?? null,
+          facilitatorNames: facilitatorNames.slice(0, 2),
+          href: project.status === "ACTIVE" || project.status === "COMPLETED" || project.status === "DISPUTED"
+            ? `/command-center/${project.id}`
+            : `/projects/${project.id}`,
+        };
+      })
+      .sort((a, b) => {
+        const priorityA = a.disputedCount * 10 + a.reviewCount * 6 + a.pendingFundingCount * 4 + a.bidCount * 3 + a.fundedCount;
+        const priorityB = b.disputedCount * 10 + b.reviewCount * 6 + b.pendingFundingCount * 4 + b.bidCount * 3 + b.fundedCount;
+        if (priorityB !== priorityA) return priorityB - priorityA;
+        return b.totalValue - a.totalValue;
+      })
+      .slice(0, 5);
+    const buyerActionCards = [
+      {
+        label: "Proposal decisions",
+        value: clientProjects.reduce((count, project) => count + project.bids.length, 0),
+        body: "Open bids waiting for shortlist, negotiation, or award decisions.",
+        href: projectHealth.find((project) => project.bidCount > 0)?.href ?? "/projects",
+        icon: "gavel",
+      },
+      {
+        label: "Escrow funding",
+        value: pendingMilestones,
+        body: "Pending milestones that need funding before delivery work can proceed.",
+        href: projectHealth.find((project) => project.pendingFundingCount > 0)?.href ?? "/wallet",
+        icon: "account_balance_wallet",
+      },
+      {
+        label: "Delivery review",
+        value: reviewMilestones,
+        body: "Submitted milestones awaiting evidence review and release decision.",
+        href: projectHealth.find((project) => project.reviewCount > 0)?.href ?? "/dashboard",
+        icon: "rate_review",
+      },
+      {
+        label: "Exception watch",
+        value: disputedMilestones,
+        body: "Disputes or flagged milestones that need evidence attention.",
+        href: projectHealth.find((project) => project.disputedCount > 0)?.href ?? "/insights",
+        icon: "warning",
+      },
+    ];
 
     return (
       <ClientInsights
@@ -85,6 +163,8 @@ export default async function InsightsTrafficController() {
         auditedMilestones={auditedMilestones}
         auditPassRate={auditPassRate}
         durableAvgAuditScore={avgAuditScore}
+        actionCards={buyerActionCards}
+        projectHealth={projectHealth}
       />
     );
   }

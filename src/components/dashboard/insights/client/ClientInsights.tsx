@@ -1,5 +1,31 @@
 "use client";
 
+import Link from "next/link";
+
+type BuyerActionCard = {
+  label: string;
+  value: number;
+  body: string;
+  href: string;
+  icon: string;
+};
+
+type BuyerProjectHealth = {
+  id: string;
+  title: string;
+  status: string;
+  totalValue: number;
+  bidCount: number;
+  pendingFundingCount: number;
+  fundedCount: number;
+  reviewCount: number;
+  paidCount: number;
+  disputedCount: number;
+  latestAuditScore: number | null;
+  facilitatorNames: string[];
+  href: string;
+};
+
 export default function ClientInsights({
   totalSpend,
   activeExposure,
@@ -15,6 +41,8 @@ export default function ClientInsights({
   auditedMilestones,
   auditPassRate,
   durableAvgAuditScore,
+  actionCards,
+  projectHealth,
 }: {
   totalSpend: number;
   activeExposure: number;
@@ -30,6 +58,8 @@ export default function ClientInsights({
   auditedMilestones: number;
   auditPassRate: number;
   durableAvgAuditScore: number;
+  actionCards: BuyerActionCard[];
+  projectHealth: BuyerProjectHealth[];
 }) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
@@ -71,6 +101,40 @@ export default function ClientInsights({
           <Metric label="Completed Milestones" value={String(totalSprintClears)} icon="verified" tone="tertiary" />
           <Metric label="Facilitators Engaged" value={String(facilitatorCount)} icon="groups" tone="primary" />
           <Metric label="Avg Audit Quality" value={durableAvgAuditScore ? `${Math.round(durableAvgAuditScore)}%` : "Pending"} icon="fact_check" tone="tertiary" />
+        </section>
+
+        <section className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary">Buyer Operations</p>
+              <h2 className="mt-1 text-sm font-black uppercase tracking-widest text-on-surface">Action Radar</h2>
+            </div>
+            <Link href="/projects" className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary">
+              Open projects
+              <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+            </Link>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {actionCards.map((card) => (
+              <Link
+                key={card.label}
+                href={card.href}
+                className="group rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-high"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="material-symbols-outlined text-[20px] text-primary">{card.icon}</span>
+                  <p className="text-2xl font-black text-on-surface">{card.value}</p>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{card.label}</p>
+                <p className="mt-2 min-h-12 text-xs font-medium leading-5 text-on-surface-variant">{card.body}</p>
+                <p className="mt-3 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                  Review
+                  <span className="material-symbols-outlined text-[13px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
+                </p>
+              </Link>
+            ))}
+          </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_420px]">
@@ -135,6 +199,66 @@ export default function ClientInsights({
           </aside>
         </section>
 
+        <section className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary">Project Health</p>
+              <h2 className="mt-1 text-sm font-black uppercase tracking-widest text-on-surface">Priority Workspaces</h2>
+            </div>
+            <p className="max-w-xl text-xs font-medium leading-5 text-on-surface-variant">
+              Projects are ranked by disputes, review work, funding needs, proposals, and funded delivery exposure.
+            </p>
+          </div>
+
+          {projectHealth.length === 0 ? (
+            <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 text-center">
+              <p className="text-sm font-bold text-on-surface">No project health data yet.</p>
+              <p className="mt-1 text-xs font-medium text-on-surface-variant">Post a project or claim a BYOC packet to start building your delivery ledger.</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 xl:grid-cols-2">
+              {projectHealth.map((project) => (
+                <Link
+                  key={project.id}
+                  href={project.href}
+                  className="group rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-high"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="line-clamp-1 text-sm font-black text-on-surface group-hover:text-primary">{project.title}</p>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        {project.status.toLowerCase().replaceAll("_", " ")} · {formatCurrency(project.totalValue)}
+                      </p>
+                    </div>
+                    {project.latestAuditScore !== null && (
+                      <span className="shrink-0 rounded-lg border border-tertiary/20 bg-tertiary/10 px-2 py-1 text-[10px] font-black text-tertiary">
+                        {project.latestAuditScore}% audit
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2">
+                    <HealthPill label="Bids" value={project.bidCount} />
+                    <HealthPill label="Fund" value={project.pendingFundingCount} />
+                    <HealthPill label="Escrow" value={project.fundedCount} />
+                    <HealthPill label="Review" value={project.reviewCount} />
+                    <HealthPill label="Issues" value={project.disputedCount} attention={project.disputedCount > 0} />
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <p className="truncate text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                      {project.facilitatorNames.length > 0 ? project.facilitatorNames.join(", ") : `${project.paidCount} paid milestone${project.paidCount === 1 ? "" : "s"}`}
+                    </p>
+                    <span className="material-symbols-outlined text-[15px] text-outline-variant transition-colors group-hover:text-primary">
+                      arrow_forward
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-[1fr_420px]">
           <div className="rounded-2xl border border-outline-variant/30 bg-surface p-6 shadow-sm">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -163,6 +287,15 @@ export default function ClientInsights({
         </section>
       </div>
     </main>
+  );
+}
+
+function HealthPill({ label, value, attention = false }: { label: string; value: number; attention?: boolean }) {
+  return (
+    <div className={`rounded-lg border px-2 py-2 text-center ${attention ? "border-error/20 bg-error/10" : "border-outline-variant/25 bg-surface"}`}>
+      <p className={`text-lg font-black ${attention ? "text-error" : "text-on-surface"}`}>{value}</p>
+      <p className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+    </div>
   );
 }
 

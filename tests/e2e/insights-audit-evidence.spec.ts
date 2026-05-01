@@ -34,6 +34,58 @@ test("buyer insights show durable audit evidence metrics", async ({ page }) => {
     },
     include: { milestones: true },
   });
+  await prisma.project.create({
+    data: {
+      creator_id: client.id,
+      client_id: client.id,
+      title: "Insights Active Portal",
+      ai_generated_sow: "Build a buyer portal with escrow funding, delivery review, and evidence reporting.",
+      status: "ACTIVE",
+      milestones: {
+        create: [
+          {
+            facilitator_id: facilitator.id,
+            title: "Fund the integration milestone",
+            amount: 2400,
+            description: "Integration milestone awaiting escrow funding.",
+            acceptance_criteria: ["Escrow can be funded"],
+            deliverables: ["Funding plan"],
+            status: "PENDING",
+          },
+          {
+            facilitator_id: facilitator.id,
+            title: "Review delivered dashboard",
+            amount: 3200,
+            description: "Dashboard submitted with evidence.",
+            acceptance_criteria: ["Buyer can review staging"],
+            deliverables: ["Preview URL", "Screenshots"],
+            status: "SUBMITTED_FOR_REVIEW",
+          },
+        ],
+      },
+    },
+  });
+  const biddingProject = await prisma.project.create({
+    data: {
+      creator_id: client.id,
+      client_id: client.id,
+      title: "Insights Proposal Queue",
+      ai_generated_sow: "Collect proposals for a verified reporting workflow.",
+      status: "OPEN_BIDDING",
+    },
+  });
+  await prisma.bid.create({
+    data: {
+      project_id: biddingProject.id,
+      developer_id: facilitator.id,
+      proposed_amount: 4100,
+      estimated_days: 14,
+      technical_approach: "Deliver with verified checkpoints and audit-ready evidence.",
+      proposed_tech_stack: "Next.js, TypeScript, Stripe",
+      ai_translation_summary: "Outcome-based milestone proposal.",
+      status: "PENDING",
+    },
+  });
 
   await prisma.milestoneAudit.create({
     data: {
@@ -55,6 +107,13 @@ test("buyer insights show durable audit evidence metrics", async ({ page }) => {
     await signInAs(page, clientEmail);
 
     await page.goto("/insights");
+    await expect(page.getByText("Action Radar")).toBeVisible();
+    await expect(page.getByText("Proposal decisions")).toBeVisible();
+    await expect(page.getByText("Escrow funding")).toBeVisible();
+    await expect(page.getByText("Delivery review")).toBeVisible();
+    await expect(page.getByText("Priority Workspaces")).toBeVisible();
+    await expect(page.getByText("Insights Active Portal")).toBeVisible();
+    await expect(page.getByText("Insights Proposal Queue")).toBeVisible();
     await expect(page.getByText("Audit-Backed Delivery Evidence")).toBeVisible();
     await expect(page.getByText("1 audited")).toBeVisible();
     await expect(page.getByTestId("audit-pass-rate")).toContainText("Pass rate");
