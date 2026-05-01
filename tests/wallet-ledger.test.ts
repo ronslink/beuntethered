@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getPendingMilestoneFundingBreakdown,
   getLatestLedgerPaymentRecord,
+  summarizePendingClientFunding,
   sumSucceededClientFundingFeesCents,
   sumSucceededFacilitatorPayoutCents,
   type WalletLedgerPaymentRecord,
@@ -47,4 +49,36 @@ test("latest wallet ledger record does not mutate the source order", () => {
 
   assert.equal(getLatestLedgerPaymentRecord(records)?.created_at.toISOString(), "2026-04-03T00:00:00.000Z");
   assert.deepEqual(records, [first, latest]);
+});
+
+test("wallet funding forecast separates escrow, client fee, and total due", () => {
+  const forecast = summarizePendingClientFunding([
+    { status: "PENDING", amount: 1000, project: { is_byoc: false } },
+    { status: "PENDING", amount: 2000, project: { is_byoc: true } },
+    { status: "FUNDED_IN_ESCROW", amount: 5000, project: { is_byoc: false } },
+  ]);
+
+  assert.deepEqual(forecast, {
+    milestoneCount: 2,
+    marketplaceMilestoneCount: 1,
+    byocMilestoneCount: 1,
+    escrowAmountCents: 300000,
+    platformFeeCents: 18000,
+    clientTotalCents: 318000,
+  });
+});
+
+test("pending milestone funding breakdown uses the correct fee model", () => {
+  assert.equal(
+    getPendingMilestoneFundingBreakdown({ status: "PENDING", amount: 1000, project: { is_byoc: false } })?.clientTotalCents,
+    108000
+  );
+  assert.equal(
+    getPendingMilestoneFundingBreakdown({ status: "PENDING", amount: 1000, project: { is_byoc: true } })?.clientTotalCents,
+    105000
+  );
+  assert.equal(
+    getPendingMilestoneFundingBreakdown({ status: "FUNDED_IN_ESCROW", amount: 1000, project: { is_byoc: false } }),
+    null
+  );
 });

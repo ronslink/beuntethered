@@ -4,10 +4,15 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { buyerProjectListWhere } from "@/lib/project-access";
 import {
+  getPendingMilestoneFundingBreakdown,
   getLatestLedgerPaymentRecord,
+  summarizePendingClientFunding,
   sumSucceededClientFundingFeesCents,
   sumSucceededFacilitatorPayoutCents,
+  type WalletFundingForecast,
+  type WalletFundingMilestone,
 } from "@/lib/wallet-ledger";
+import { BYOC_CLIENT_FEE_RATE, formatFeeRate, MARKETPLACE_CLIENT_FEE_RATE } from "@/lib/platform-fees";
 
 const FACILITATOR_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   APPROVED_AND_PAID:    { label: "Paid Out",       color: "text-tertiary",           bg: "bg-tertiary/10 border-tertiary/20",    icon: "check_circle" },
@@ -47,13 +52,14 @@ type LedgerMilestone = {
   id: string;
   project_id: string;
   title: string;
-  amount: unknown;
+  amount: WalletFundingMilestone["amount"];
   status: string;
   paid_at?: Date | null;
   project: {
     id: string;
     title: string;
     status: string;
+    is_byoc?: boolean | null;
   };
   payment_records?: LedgerPaymentRecord[];
 };
@@ -144,6 +150,7 @@ function PaymentActionQueue({
         ) : (
           <div className="divide-y divide-outline-variant/10">
             {actionItems.map(milestone => {
+              const fundingBreakdown = role === "CLIENT" ? getPendingMilestoneFundingBreakdown(milestone) : null;
               const label =
                 role === "CLIENT" && milestone.status === "PENDING"
                   ? "Fund milestone"
@@ -164,6 +171,11 @@ function PaymentActionQueue({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-black text-on-surface">{label}</p>
                     <p className="truncate text-xs font-medium text-on-surface-variant">{milestone.project.title} - {milestone.title}</p>
+                    {fundingBreakdown && (
+                      <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        Total due {centsToCurrency(fundingBreakdown.clientTotalCents)} incl. {centsToCurrency(fundingBreakdown.platformFeeCents)} client fee
+                      </p>
+                    )}
                   </div>
                   <p className="shrink-0 text-sm font-black text-on-surface">{formatCurrency(Number(milestone.amount))}</p>
                 </Link>
@@ -171,6 +183,55 @@ function PaymentActionQueue({
             })}
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+function ClientFundingForecastPanel({ forecast }: { forecast: WalletFundingForecast }) {
+  const feeModelLabel =
+    forecast.marketplaceMilestoneCount > 0 && forecast.byocMilestoneCount > 0
+      ? "Mixed 8% marketplace / 5% BYOC fee model"
+      : forecast.byocMilestoneCount > 0
+      ? "BYOC client fee model"
+      : "Marketplace client fee model";
+
+  return (
+    <section className="relative z-10 px-4 lg:px-0 mb-6">
+      <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-outline-variant/10 px-6 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">price_check</span>
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Funding Forecast</h2>
+              <p className="mt-1 text-[11px] font-medium leading-5 text-on-surface-variant">
+                Checkout estimate for milestones that still need escrow funding. Final Stripe checkout remains the source of truth.
+              </p>
+            </div>
+          </div>
+          <span className="w-fit rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
+            {feeModelLabel}
+          </span>
+        </div>
+
+        <div className="grid gap-3 p-5 sm:grid-cols-4">
+          {[
+            ["Awaiting funding", String(forecast.milestoneCount), `${forecast.marketplaceMilestoneCount} marketplace / ${forecast.byocMilestoneCount} BYOC`],
+            ["Escrow amount", centsToCurrency(forecast.escrowAmountCents), "Paid to facilitator after approval"],
+            [
+              "Client fee",
+              centsToCurrency(forecast.platformFeeCents),
+              `${formatFeeRate(MARKETPLACE_CLIENT_FEE_RATE)} marketplace or ${formatFeeRate(BYOC_CLIENT_FEE_RATE)} BYOC`,
+            ],
+            ["Estimated total due", centsToCurrency(forecast.clientTotalCents), "Escrow amount plus client fee"],
+          ].map(([label, value, detail]) => (
+            <div key={label} className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-on-surface">{value}</p>
+              <p className="mt-2 text-[10px] font-medium leading-4 text-on-surface-variant">{detail}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -185,7 +246,7 @@ export default async function WalletPage() {
     const milestones = await prisma.milestone.findMany({
       where: { facilitator_id: user.id },
       include: {
-        project: { select: { id: true, title: true, status: true } },
+        project: { select: { id: true, title: true, status: true, is_byoc: true } },
         payment_records: { orderBy: { created_at: "desc" } },
       },
       orderBy: { id: "desc" },
@@ -298,6 +359,7 @@ export default async function WalletPage() {
       id: true,
       title: true,
       status: true,
+      is_byoc: true,
       created_at: true,
       milestones: {
         include: {
@@ -320,6 +382,7 @@ export default async function WalletPage() {
   const totalFeesCents = sumSucceededClientFundingFeesCents(paymentRecords);
   const pendingFunding = allMilestones.filter(m => m.status === "PENDING").length;
   const reviewCount = allMilestones.filter(m => m.status === "SUBMITTED_FOR_REVIEW").length;
+  const fundingForecast = summarizePendingClientFunding(allMilestones);
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
@@ -372,6 +435,7 @@ export default async function WalletPage() {
       </header>
 
       <PaymentExplainer role="CLIENT" />
+      <ClientFundingForecastPanel forecast={fundingForecast} />
       <PaymentActionQueue role="CLIENT" milestones={allMilestones} />
       <LedgerSection milestones={allMilestones} statusConfig={CLIENT_STATUS_CONFIG} role="CLIENT" />
     </main>
