@@ -2,13 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { linkProjectRepository, saveProjectEvidenceSource } from "@/app/actions/integrations";
+import { linkProjectRepository, saveProjectEvidenceSource, verifyProjectEvidenceSource } from "@/app/actions/integrations";
 import EvidenceProviderMark from "@/components/evidence/EvidenceProviderMark";
 import type {
   EvidenceSourceStatusValue,
   EvidenceSourceSummary,
   EvidenceSourceTypeValue,
 } from "@/lib/delivery-evidence";
+import {
+  evaluateEvidenceSourceVerification,
+  getEvidenceVerificationProfile,
+  getVerificationModeLabel,
+  type EvidenceSourceVerificationResult,
+  type EvidenceVerificationStage,
+} from "@/lib/evidence-verification";
 
 type EvidenceSource = {
   id: string;
@@ -177,8 +184,77 @@ function CoveragePill({ status }: { status: EvidenceSourceSummary["status"] }) {
   );
 }
 
+const VERIFICATION_STAGE_CONFIG: Record<EvidenceVerificationStage, { label: string; icon: string; className: string }> = {
+  ready: {
+    label: "Ready",
+    icon: "verified_user",
+    className: "border-tertiary/30 bg-tertiary/10 text-tertiary",
+  },
+  pending: {
+    label: "Needs context",
+    icon: "pending_actions",
+    className: "border-secondary/30 bg-secondary/10 text-secondary",
+  },
+  needs_attention: {
+    label: "Needs attention",
+    icon: "error",
+    className: "border-error/30 bg-error/10 text-error",
+  },
+};
+
+const CHECK_STATUS_CONFIG: Record<EvidenceSourceVerificationResult["checks"][number]["status"], { icon: string; className: string }> = {
+  passed: {
+    icon: "check_circle",
+    className: "border-tertiary/20 bg-tertiary/10 text-tertiary",
+  },
+  pending: {
+    icon: "schedule",
+    className: "border-secondary/20 bg-secondary/10 text-secondary",
+  },
+  attention: {
+    icon: "error",
+    className: "border-error/20 bg-error/10 text-error",
+  },
+};
+
+function VerificationStagePill({ verification }: { verification: EvidenceSourceVerificationResult }) {
+  const config = VERIFICATION_STAGE_CONFIG[verification.stage];
+  return (
+    <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${config.className}`}>
+      <span className="material-symbols-outlined text-[13px]">{config.icon}</span>
+      {config.label} · {verification.confidenceScore}
+    </span>
+  );
+}
+
+function VerificationCheckRow({ check }: { check: EvidenceSourceVerificationResult["checks"][number] }) {
+  const config = CHECK_STATUS_CONFIG[check.status];
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-outline-variant/15 bg-surface-container-low px-3 py-2">
+      <span className={`material-symbols-outlined mt-0.5 rounded-full border p-0.5 text-[13px] ${config.className}`}>{config.icon}</span>
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{check.label}</p>
+        <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">
+          {getVerificationModeLabel(check.mode)} · {check.detail}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function sourceLabel(type: EvidenceSourceTypeValue) {
   return SOURCE_OPTIONS.find((option) => option.type === type)?.label ?? "Evidence";
+}
+
+function setupOwnerLabel(owner: ReturnType<typeof getEvidenceVerificationProfile>["setupOwner"]) {
+  switch (owner) {
+    case "FACILITATOR":
+      return "Facilitator setup";
+    case "CLIENT":
+      return "Client setup";
+    case "BOTH":
+      return "Shared setup";
+  }
 }
 
 export default function IntegrationsTab({
@@ -198,16 +274,38 @@ export default function IntegrationsTab({
     url: "",
     verificationNote: "",
   });
+  const [verifyingSourceId, setVerifyingSourceId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const canManageRepository = viewerRole === "FACILITATOR";
   const canManageEvidence = true;
-  const connectedSourceCount = project.evidence_sources.filter((source) => source.status === "CONNECTED").length;
+  const sourceVerificationSummaries = project.evidence_sources.map((source) => ({
+    source,
+    verification: evaluateEvidenceSourceVerification(source),
+  }));
+  const readySourceCount = sourceVerificationSummaries.filter((item) => item.verification.stage === "ready").length;
   const readyPacketCount = project.milestone_evidence_packets.filter((packet) => packet.ready).length;
 
   const selectedSource = useMemo(
     () => SOURCE_OPTIONS.find((option) => option.type === sourceForm.type) ?? SOURCE_OPTIONS[0],
     [sourceForm.type],
   );
+  const selectedVerificationProfile = useMemo(() => getEvidenceVerificationProfile(sourceForm.type), [sourceForm.type]);
+
+  const handleVerifySource = (sourceId: string) => {
+    setMessage(null);
+    setVerifyingSourceId(sourceId);
+
+    startTransition(async () => {
+      const res = await verifyProjectEvidenceSource({ sourceId });
+      if (res.success) {
+        setMessage({ tone: "success", text: "Source check recorded for milestone verification." });
+        router.refresh();
+      } else {
+        setMessage({ tone: "error", text: res.error || "Evidence source could not be verified." });
+      }
+      setVerifyingSourceId(null);
+    });
+  };
 
   const handleSaveGithub = (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,15 +362,15 @@ export default function IntegrationsTab({
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-2xl border border-outline-variant/20 bg-surface px-4 py-3">
             <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Sources</p>
-            <p className="mt-1 text-2xl font-black text-on-surface">{connectedSourceCount}</p>
+            <p className="mt-1 text-2xl font-black text-on-surface">{project.evidence_sources.length}</p>
+          </div>
+          <div className="rounded-2xl border border-outline-variant/20 bg-surface px-4 py-3">
+            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Verified</p>
+            <p className="mt-1 text-2xl font-black text-on-surface">{readySourceCount}</p>
           </div>
           <div className="rounded-2xl border border-outline-variant/20 bg-surface px-4 py-3">
             <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Packets</p>
             <p className="mt-1 text-2xl font-black text-on-surface">{readyPacketCount}/{project.milestone_evidence_packets.length}</p>
-          </div>
-          <div className="rounded-2xl border border-outline-variant/20 bg-surface px-4 py-3">
-            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Mode</p>
-            <p className="mt-1 text-sm font-black text-on-surface">{project.is_byoc ? "BYOC" : "Escrow"}</p>
           </div>
         </div>
       </div>
@@ -286,6 +384,32 @@ export default function IntegrationsTab({
           {message.text}
         </div>
       ) : null}
+
+      <section className="mb-5 rounded-2xl border border-outline-variant/20 bg-surface p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="material-symbols-outlined text-[18px] text-primary">route</span>
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-on-surface">Verification flow</h3>
+            <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
+              Setup proves access to evidence. Source checks prove reviewability. Milestone packets map evidence to acceptance. Buyer review confirms the delivered outcome.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-4">
+          {[
+            ["1", "Setup", "Connect a provider link without sharing secrets."],
+            ["2", "Source check", "Record provider fit, context, and gaps."],
+            ["3", "Milestone packet", "Attach proof to preview, source, criteria, and handoff."],
+            ["4", "Acceptance", "AI audit and buyer review decide release readiness."],
+          ].map(([step, title, body]) => (
+            <div key={step} className="rounded-lg border border-outline-variant/15 bg-surface-container-low p-4">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-black text-primary">{step}</span>
+              <p className="mt-3 text-xs font-black uppercase tracking-widest text-on-surface">{title}</p>
+              <p className="mt-2 text-[11px] font-medium leading-5 text-on-surface-variant">{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {project.evidence_source_coverage.summary.map((item) => (
@@ -312,10 +436,10 @@ export default function IntegrationsTab({
               </div>
             </div>
             <div className="divide-y divide-outline-variant/10">
-              {project.evidence_sources.length > 0 ? project.evidence_sources.map((source) => (
-                <div key={source.id} className="px-6 py-4">
+              {sourceVerificationSummaries.length > 0 ? sourceVerificationSummaries.map(({ source, verification }) => (
+                <div key={source.id} className="px-6 py-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
                         <EvidenceProviderMark type={source.type} size="sm" decorative />
                         <p className="text-sm font-black text-on-surface">{source.label}</p>
@@ -339,8 +463,39 @@ export default function IntegrationsTab({
                       <p className="mt-2 text-[11px] font-medium text-on-surface-variant">
                         Added by {source.created_by?.name || source.created_by?.email || "project participant"} · {new Date(source.created_at).toLocaleDateString()}
                       </p>
+                      <div className="mt-4 rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">Verification contract</p>
+                            <p className="mt-2 text-xs font-medium leading-5 text-on-surface-variant">{verification.summary}</p>
+                          </div>
+                          <VerificationStagePill verification={verification} />
+                        </div>
+                        <div className="mt-3 grid gap-2 md:grid-cols-2">
+                          {verification.checks.slice(0, 4).map((check) => (
+                            <VerificationCheckRow key={check.key} check={check} />
+                          ))}
+                        </div>
+                        {verification.nextActions.length > 0 ? (
+                          <div className="mt-3 rounded-lg border border-secondary/20 bg-secondary/10 px-3 py-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Next proof step</p>
+                            <p className="mt-1 text-[11px] font-medium leading-5 text-on-surface-variant">{verification.nextActions[0]}</p>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                    <SourceStatusPill status={source.status} />
+                    <div className="flex shrink-0 flex-col items-start gap-2 md:items-end">
+                      <SourceStatusPill status={source.status} />
+                      <button
+                        type="button"
+                        onClick={() => handleVerifySource(source.id)}
+                        disabled={isPending || !canManageEvidence}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-surface transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">{verifyingSourceId === source.id ? "sync" : "fact_check"}</span>
+                        {source.status === "CONNECTED" ? "Refresh Check" : "Run Source Check"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )) : (
@@ -376,6 +531,19 @@ export default function IntegrationsTab({
                               Missing: {label}
                             </span>
                           ))}
+                        </div>
+                      ) : null}
+                      {readySourceCount > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {sourceVerificationSummaries
+                            .filter((item) => item.verification.stage === "ready")
+                            .slice(0, 5)
+                            .map(({ source }) => (
+                              <span key={`${packet.id}-${source.id}`} className="inline-flex items-center gap-1.5 rounded-full border border-tertiary/20 bg-tertiary/10 px-2.5 py-1 text-[10px] font-bold text-tertiary">
+                                <EvidenceProviderMark type={source.type} size="sm" decorative className="h-5 w-5 rounded-md border-tertiary/10 bg-surface" />
+                                {sourceLabel(source.type)}
+                              </span>
+                            ))}
                         </div>
                       ) : null}
                     </div>
@@ -420,6 +588,26 @@ export default function IntegrationsTab({
                   <EvidenceProviderMark type={sourceForm.type} size="sm" decorative />
                   <p className="text-[11px] font-medium leading-5 text-on-surface-variant">{selectedSource.helper}</p>
                 </div>
+                <div className="mt-4 rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">Setup contract</p>
+                    <span className="rounded-full border border-outline-variant/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                      {setupOwnerLabel(selectedVerificationProfile.setupOwner)}
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-2">
+                    {selectedVerificationProfile.setupSteps.slice(0, 3).map((step) => (
+                      <li key={step} className="flex gap-2 text-[11px] font-medium leading-5 text-on-surface-variant">
+                        <span className="material-symbols-outlined mt-0.5 text-[13px] text-primary">check</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-primary">Milestone proof</p>
+                  <p className="mt-1 text-[11px] font-medium leading-5 text-on-surface-variant">
+                    {selectedVerificationProfile.milestoneUse.slice(0, 3).join(" · ")}
+                  </p>
+                </div>
               </div>
               <div>
                 <label htmlFor="evidence-source-label" className="mb-2 block text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Display name</label>
@@ -451,7 +639,7 @@ export default function IntegrationsTab({
                   value={sourceForm.verificationNote}
                   onChange={(event) => setSourceForm((current) => ({ ...current, verificationNote: event.target.value }))}
                   rows={4}
-                  placeholder="Example: This deployment maps to commit abc123 and covers Milestone 1 acceptance checks."
+                  placeholder={`Example: This ${selectedVerificationProfile.label} evidence maps to Milestone 1, deployment abc123, and the buyer acceptance checks.`}
                   className="w-full resize-none rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface outline-none transition-colors focus:border-primary"
                 />
               </div>

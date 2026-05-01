@@ -52,6 +52,8 @@ test("facilitator adds project delivery evidence source", async ({ page }) => {
     await expect(page.getByText("Evidence source added to the project packet.")).toBeVisible();
     await expect(page.getByText("Render webhook worker")).toBeVisible();
     await expect(page.getByText("https://evidence-worker.onrender.com")).toBeVisible();
+    await expect(page.getByText("Verification contract").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /run source check/i })).toBeVisible();
 
     await expect
       .poll(async () =>
@@ -64,6 +66,21 @@ test("facilitator adds project delivery evidence source", async ({ page }) => {
         label: "Render webhook worker",
         url: "https://evidence-worker.onrender.com",
         status: "PENDING_VERIFICATION",
+      });
+
+    await page.getByRole("button", { name: /run source check/i }).click();
+    await expect(page.getByText("Source check recorded for milestone verification.")).toBeVisible();
+    await expect(page.getByText(/ready ·/i).first()).toBeVisible();
+
+    await expect
+      .poll(async () =>
+        prisma.projectEvidenceSource.findFirst({
+          where: { project_id: project.id, type: "RENDER" },
+          select: { status: true, metadata: true },
+        }),
+      )
+      .toMatchObject({
+        status: "CONNECTED",
       });
   } finally {
     await cleanupByEmailPrefix(prefix);

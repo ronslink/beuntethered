@@ -4,8 +4,13 @@ import { prisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { encryptApiKey } from "@/lib/encryption";
+import { evaluateEvidenceSourceVerification } from "@/lib/evidence-verification";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
-import { projectEvidenceSourceInputSchema, projectRepositoryInputSchema } from "@/lib/validators";
+import {
+  projectEvidenceSourceInputSchema,
+  projectEvidenceSourceVerificationSchema,
+  projectRepositoryInputSchema,
+} from "@/lib/validators";
 
 async function getEvidenceManageableProject(projectId: string, user: { id: string; role: string }) {
   const project = await prisma.project.findUnique({
@@ -35,6 +40,10 @@ async function getEvidenceManageableProject(projectId: string, user: { id: strin
   }
 
   return { project, isFacilitator, isClient };
+}
+
+function metadataRecord(metadata: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
 }
 
 function getEvidenceSourceOwnershipHint(type: string) {
@@ -227,5 +236,103 @@ export async function saveProjectEvidenceSource(input: unknown) {
       return { success: false, error: error.message };
     }
     return { success: false, error: error.message || "Evidence source could not be saved." };
+  }
+}
+
+export async function verifyProjectEvidenceSource(input: unknown) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Sign in before verifying evidence sources.");
+
+    await assertDurableRateLimit({
+      key: rateLimitKey("integration.evidence-source.verify", user.id),
+      limit: 40,
+      windowMs: 60 * 60 * 1000,
+    });
+
+    const parsed = projectEvidenceSourceVerificationSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message || "Choose an evidence source to verify.",
+      };
+    }
+
+    const source = await prisma.projectEvidenceSource.findUnique({
+      where: { id: parsed.data.sourceId },
+      include: {
+        project: {
+          include: {
+            milestones: { select: { facilitator_id: true } },
+            organization: {
+              select: {
+                members: {
+                  where: { user_id: user.id },
+                  select: { role: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!source) throw new Error("Evidence source not found.");
+    const project = source.project;
+    const isFacilitator = user.role === "FACILITATOR" && project.milestones.some((milestone) => milestone.facilitator_id === user.id);
+    const isClient =
+      user.role === "CLIENT" &&
+      (project.client_id === user.id || project.creator_id === user.id || (project.organization?.members.length ?? 0) > 0);
+    if (!isFacilitator && !isClient) {
+      throw new Error("You do not have permission to verify this evidence source.");
+    }
+
+    const verification = evaluateEvidenceSourceVerification({
+      id: source.id,
+      type: source.type,
+      label: source.label,
+      url: source.url,
+      status: source.status,
+      metadata: source.metadata,
+    });
+    const existingMetadata = metadataRecord(source.metadata);
+
+    await prisma.projectEvidenceSource.update({
+      where: { id: source.id },
+      data: {
+        status: verification.recommendedStatus,
+        metadata: {
+          ...existingMetadata,
+          verification_result: verification,
+          verification_checked_at: new Date().toISOString(),
+          verification_checked_by_role: user.role,
+        },
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        project_id: source.project_id,
+        actor_id: user.id,
+        action: "SYSTEM_EVENT",
+        entity_type: "ProjectEvidenceSource",
+        entity_id: source.id,
+        metadata: {
+          event: "evidence_source_verification_checked",
+          source_type: source.type,
+          recommended_status: verification.recommendedStatus,
+          confidence_score: verification.confidenceScore,
+          stage: verification.stage,
+        },
+      },
+    });
+
+    revalidatePath(`/command-center/${source.project_id}`);
+    return { success: true, verification };
+  } catch (error: any) {
+    if (isRateLimitError(error)) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: error.message || "Evidence source could not be verified." };
   }
 }

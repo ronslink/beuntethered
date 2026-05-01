@@ -387,6 +387,10 @@ export const projectEvidenceSourceInputSchema = z.object({
   }
 });
 
+export const projectEvidenceSourceVerificationSchema = z.object({
+  sourceId: trimmed.min(1, "Choose an evidence source to verify."),
+});
+
 const scopeValidationReportSchema = z.object({
   overallStatus: z.enum(["passed", "needs_attention"]),
   items: z.array(z.object({

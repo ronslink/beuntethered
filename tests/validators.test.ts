@@ -25,6 +25,7 @@ import {
   passwordResetInputSchema,
   passwordResetRequestInputSchema,
   promptTriageInputSchema,
+  projectEvidenceSourceVerificationSchema,
   projectRepositoryInputSchema,
   projectPostingSchema,
   projectInviteInputSchema,
@@ -488,6 +489,8 @@ test("validates auth, review, and integration mutation inputs", () => {
     projectId: "project_1",
     repoUrl: "not-a-url",
   }).success, false);
+  assert.equal(projectEvidenceSourceVerificationSchema.safeParse({ sourceId: "source_1" }).success, true);
+  assert.equal(projectEvidenceSourceVerificationSchema.safeParse({ sourceId: "" }).success, false);
 });
 
 test("validates marketplace project milestones for verifiable delivery", () => {
