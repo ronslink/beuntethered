@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import EvidenceProviderMark from "@/components/evidence/EvidenceProviderMark";
 import PublicNavbar from "@/components/layout/PublicNavbar";
+import type { EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
 
 export const metadata: Metadata = {
   title: "Untether - Verified Software Delivery Marketplace",
@@ -34,23 +36,47 @@ const trustRows = [
   ["Release", "Funds release only after review, approval, and evidence-backed handoff."],
 ];
 
-const proofNetworks = [
+type ProofNetworkProvider = {
+  label: string;
+  type: EvidenceSourceTypeValue;
+};
+
+const proofNetworks: Array<{
+  title: string;
+  icon: string;
+  providers: ProofNetworkProvider[];
+  body: string;
+}> = [
   {
     title: "Frontend previews",
     icon: "web_asset",
-    providers: ["Vercel", "Netlify", "Cloudflare Pages"],
+    providers: [
+      { label: "Vercel", type: "VERCEL" },
+      { label: "Netlify", type: "NETLIFY" },
+      { label: "Cloudflare Pages", type: "CLOUDFLARE" },
+    ],
     body: "Buyers can open a real preview URL and test the workflow before releasing escrow.",
   },
   {
     title: "Backend services",
     icon: "dns",
-    providers: ["Railway", "Render", "Fly.io", "Heroku", "DigitalOcean"],
+    providers: [
+      { label: "Railway", type: "RAILWAY" },
+      { label: "Render", type: "RENDER" },
+      { label: "Fly.io", type: "FLY" },
+      { label: "Heroku", type: "HEROKU" },
+      { label: "DigitalOcean", type: "DIGITALOCEAN" },
+    ],
     body: "Facilitators can attach service URLs, deployment logs, workers, cron runs, and health checks.",
   },
   {
     title: "Code and data proof",
     icon: "fact_check",
-    providers: ["GitHub", "Supabase", "Domains"],
+    providers: [
+      { label: "GitHub", type: "GITHUB" },
+      { label: "Supabase", type: "SUPABASE" },
+      { label: "Domains", type: "DOMAIN" },
+    ],
     body: "Repositories, migrations, pull requests, DNS, and launch checks become reviewable evidence.",
   },
 ];
@@ -186,8 +212,9 @@ export default function LandingPage() {
                       </div>
                       <div className="flex max-w-md flex-wrap gap-1.5 md:justify-end">
                         {network.providers.map((provider) => (
-                          <span key={provider} className="rounded-md border border-outline-variant/30 bg-surface-container-low px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                            {provider}
+                          <span key={provider.label} className="inline-flex items-center gap-2 rounded-md border border-outline-variant/30 bg-surface-container-low px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                            <EvidenceProviderMark type={provider.type} size="sm" decorative className="-ml-1 border-outline-variant/10 bg-surface/80" />
+                            {provider.label}
                           </span>
                         ))}
                       </div>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { linkProjectRepository, saveProjectEvidenceSource } from "@/app/actions/integrations";
+import EvidenceProviderMark from "@/components/evidence/EvidenceProviderMark";
 import type {
   EvidenceSourceStatusValue,
   EvidenceSourceSummary,
@@ -52,77 +53,65 @@ type IntegrationProject = {
   milestone_evidence_packets: EvidencePacket[];
 };
 
-const SOURCE_OPTIONS: Array<{ type: EvidenceSourceTypeValue; label: string; icon: string; helper: string }> = [
+const SOURCE_OPTIONS: Array<{ type: EvidenceSourceTypeValue; label: string; helper: string }> = [
   {
     type: "GITHUB",
     label: "GitHub",
-    icon: "code",
     helper: "Repository, branch, PR, commit, and check evidence.",
   },
   {
     type: "VERCEL",
     label: "Vercel",
-    icon: "rocket_launch",
     helper: "Preview/production deployment and build evidence.",
   },
   {
     type: "NETLIFY",
     label: "Netlify",
-    icon: "deployed_code",
     helper: "Deploy preview, production URL, build, and function evidence.",
   },
   {
     type: "CLOUDFLARE",
     label: "Cloudflare",
-    icon: "cloud",
     helper: "Pages, Workers, routes, DNS, and edge deployment evidence.",
   },
   {
     type: "RAILWAY",
     label: "Railway",
-    icon: "dns",
     helper: "Backend service, worker, API, environment, and deployment evidence.",
   },
   {
     type: "RENDER",
     label: "Render",
-    icon: "settings_system_daydream",
     helper: "Web service, background worker, cron, database, and deploy evidence.",
   },
   {
     type: "FLY",
     label: "Fly.io",
-    icon: "flight_takeoff",
     helper: "Container app, machine, region, health check, and deploy evidence.",
   },
   {
     type: "DIGITALOCEAN",
     label: "DigitalOcean",
-    icon: "water_drop",
     helper: "App Platform service, deployment, database, and managed component evidence.",
   },
   {
     type: "HEROKU",
     label: "Heroku",
-    icon: "apps",
     helper: "Dyno, review app, release, pipeline, and add-on evidence.",
   },
   {
     type: "SUPABASE",
     label: "Supabase",
-    icon: "database",
     helper: "Migration, schema, RLS, edge function, and test data evidence.",
   },
   {
     type: "DOMAIN",
     label: "Domain",
-    icon: "language",
     helper: "DNS TXT, well-known file, SSL, and launch URL proof.",
   },
   {
     type: "OTHER",
     label: "Other",
-    icon: "folder_open",
     helper: "Reports, walkthroughs, external tools, files, and handoff proof.",
   },
 ];
@@ -190,10 +179,6 @@ function CoveragePill({ status }: { status: EvidenceSourceSummary["status"] }) {
 
 function sourceLabel(type: EvidenceSourceTypeValue) {
   return SOURCE_OPTIONS.find((option) => option.type === type)?.label ?? "Evidence";
-}
-
-function sourceIcon(type: EvidenceSourceTypeValue) {
-  return SOURCE_OPTIONS.find((option) => option.type === type)?.icon ?? "folder_open";
 }
 
 export default function IntegrationsTab({
@@ -306,9 +291,7 @@ export default function IntegrationsTab({
         {project.evidence_source_coverage.summary.map((item) => (
           <div key={item.type} className="rounded-2xl border border-outline-variant/20 bg-surface p-4 shadow-sm">
             <div className="mb-4 flex items-start justify-between gap-3">
-              <span className="material-symbols-outlined rounded-xl border border-outline-variant/20 bg-surface-container-low p-2 text-[20px] text-on-surface-variant">
-                {sourceIcon(item.type)}
-              </span>
+              <EvidenceProviderMark type={item.type} size="md" decorative />
               <CoveragePill status={item.status} />
             </div>
             <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{item.label}</p>
@@ -334,7 +317,7 @@ export default function IntegrationsTab({
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="min-w-0">
                       <div className="mb-2 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[17px] text-primary">{sourceIcon(source.type)}</span>
+                        <EvidenceProviderMark type={source.type} size="sm" decorative />
                         <p className="text-sm font-black text-on-surface">{source.label}</p>
                         <span className="rounded-full border border-outline-variant/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
                           {sourceLabel(source.type)}
@@ -433,7 +416,10 @@ export default function IntegrationsTab({
                     <option key={option.type} value={option.type}>{option.label}</option>
                   ))}
                 </select>
-                <p className="mt-2 text-[11px] font-medium leading-5 text-on-surface-variant">{selectedSource.helper}</p>
+                <div className="mt-2 flex items-start gap-2">
+                  <EvidenceProviderMark type={sourceForm.type} size="sm" decorative />
+                  <p className="text-[11px] font-medium leading-5 text-on-surface-variant">{selectedSource.helper}</p>
+                </div>
               </div>
               <div>
                 <label htmlFor="evidence-source-label" className="mb-2 block text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Display name</label>
