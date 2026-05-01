@@ -31,21 +31,6 @@ import { sowGenerationInputSchema } from "@/lib/validators";
 // Single-pass generation — 60s is plenty
 export const maxDuration = 60;
 
-// ─── Pricing guides by category (market-realistic ranges) ─────────────────
-const PRICING: Record<string, { simple: string; medium: string; complex: string }> = {
-  software_mvp:      { simple: "$800–$2,500", medium: "$2,500–$10,000", complex: "$10,000–$40,000" },
-  web_app:           { simple: "$500–$1,500", medium: "$1,500–$6,000",  complex: "$6,000–$25,000" },
-  internal_tool:     { simple: "$500–$1,500", medium: "$1,500–$6,000",  complex: "$6,000–$20,000" },
-  mobile_app:        { simple: "$800–$2,500", medium: "$2,500–$10,000", complex: "$10,000–$35,000" },
-  api_integration:   { simple: "$300–$1,200", medium: "$1,200–$5,000",  complex: "$5,000–$18,000" },
-  ai_automation:     { simple: "$500–$1,500", medium: "$1,500–$7,500",  complex: "$7,500–$25,000" },
-  data_dashboard:    { simple: "$400–$1,200", medium: "$1,200–$5,000",  complex: "$5,000–$18,000" },
-  app_modernization: { simple: "$800–$2,000", medium: "$2,000–$8,000",  complex: "$8,000–$30,000" },
-  qa_hardening:      { simple: "$300–$1,000", medium: "$1,000–$4,000",  complex: "$4,000–$12,000" },
-  discovery_sow:     { simple: "$1,000",      medium: "$1,000–$2,500",  complex: "$2,500–$5,000" },
-  other_software:    { simple: "$500–$1,500", medium: "$1,500–$6,000",  complex: "$6,000–$20,000" },
-};
-
 // ─── Banned jargon (enforced in simple/medium tiers) ──────────────────────
 const BANNED_SIMPLE = `
 BANNED phrases for this tier — do NOT use any of these:
@@ -298,21 +283,19 @@ function buildSowPrompt(
   marketAssessment: ScopeFeasibilityAssessment,
   conversationHistory = ""
 ) {
-  const priceRange = PRICING[category] || PRICING.other_software;
-  const tierPrice = priceRange[complexity as keyof typeof priceRange] || priceRange.medium;
   const examples = EXAMPLES[complexity as keyof typeof EXAMPLES] || EXAMPLES.medium;
   const scopeConstraintSummary = summarizeScopeConstraints(scopeConstraints);
-  const marketFitContext = marketAssessment.estimatedMarketBudget && marketAssessment.estimatedMarketDays
+  const constraintFitContext = marketAssessment.estimatedMarketBudget && marketAssessment.estimatedMarketDays
     ? `
-MARKET FIT CONTEXT:
+CONSTRAINT FIT CONTEXT:
 - Planning band: ${marketAssessment.label}.
-- Rough marketplace estimate: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(marketAssessment.estimatedMarketBudget)} and about ${marketAssessment.estimatedMarketDays} days.
 - Client-entered budget and timeline are hard planning inputs, not suggestions. Do not silently increase them.
-- If the band is Aggressive constraints, keep the milestone set lean and call out what should be deferred.
-- If the band is Unrealistic constraints, draft a constrained first release or discovery-style path. Do not claim full launch-ready delivery for advanced, regulated, or multi-market scope inside impossible constraints.`
+- If the band is Tight constraints, keep the milestone set lean and call out what should be deferred.
+- If the band is Needs revision, draft a constrained first release or discovery-style path. Do not claim full launch-ready delivery for advanced, regulated, or multi-market scope inside impossible constraints.
+- The generated milestone amounts must distribute the buyer budget across verifiable checkpoints; do not invent a generic market price.`
     : `
-MARKET FIT CONTEXT:
-- Budget and timeline were not complete enough for market-fit estimation. Keep the generated scope conservative and ask for missing planning inputs through milestone assumptions.`;
+CONSTRAINT FIT CONTEXT:
+- Budget and timeline were not complete enough for constraint-fit estimation. Keep the generated scope conservative and ask for missing planning inputs through milestone assumptions.`;
   
   const timelineHint = desiredTimeline 
     ? `\nThe client wants this done within: "${desiredTimeline}". Fit your timeline to this.`
@@ -342,7 +325,7 @@ Return ONLY a JSON object. No markdown, no extra text.
 This is a $1,000 discovery/architecture session — single milestone only.
 The milestone must be meaningful, realistic, actionable, and verifiable. Acceptance criteria must be a short pass/fail checklist.
 ${preservedConstraints}
-${marketFitContext}
+${constraintFitContext}
 ${revisionContext}
 
 ${MILESTONE_QUALITY_RUBRIC}
@@ -371,11 +354,11 @@ Return this exact JSON structure:
   }
 
   const milestoneRules = complexity === 'simple'
-    ? `Create exactly 1 milestone. Keep the total scope under 150 words. Price should be realistic for this type of work: ${tierPrice}.
+    ? `Create exactly 1 milestone. Keep the total scope under 150 words.
 ${BANNED_SIMPLE}`
     : complexity === 'medium'
-    ? `Create exactly 2 milestones. Keep the total scope under 400 words. Total price should be in the range: ${tierPrice}.`
-    : `Create 3-5 milestones depending on scope. Keep the total scope under 800 words. Total price should be in the range: ${tierPrice}.`;
+    ? "Create exactly 2 milestones. Keep the total scope under 400 words."
+    : "Create 3-5 milestones depending on scope. Keep the total scope under 800 words.";
 
   return {
     system: `You are an accountable software facilitator writing a project scope for a client on BeUntethered, a human-led, AI-assisted software delivery marketplace.
@@ -399,9 +382,9 @@ ${VERIFICATION_PATTERN_GUIDE}
 - Avoid generic phase names like "Phase 1", "Milestone 2", "Testing", "Polish", or "Deployment".
 - Acceptance criteria must include at least two pass/fail checks tied to user-visible behavior, delivered artifacts, preview links, source archives, logs, reports, or handoff evidence.
 - Milestones should usually be 3-15 days; split anything too broad into smaller reviewable outcomes.
-- Price realistically for this category (${category.replace(/_/g, ' ')}).${timelineHint}
+- Use the buyer-entered budget as the project total and distribute it across milestones according to effort and risk.${timelineHint}
 ${preservedConstraints}
-${marketFitContext}
+${constraintFitContext}
 ${revisionContext}
 
 Here are examples of the tone and structure I want:

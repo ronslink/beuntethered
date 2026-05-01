@@ -18,7 +18,7 @@ test("requires explicit budget and timeline fields", () => {
   assert.match(assessment.reasons[0], /required/);
 });
 
-test("flags complex scopes that are unrealistic against market budget or timeline", () => {
+test("flags complex scopes that are unrealistic against buyer budget or timeline", () => {
   const assessment = assessScopeFeasibility({
     prompt: payrollPrompt,
     budgetAmount: 3000,
@@ -26,7 +26,7 @@ test("flags complex scopes that are unrealistic against market budget or timelin
   });
 
   assert.equal(assessment.status, "unrealistic");
-  assert.equal(assessment.label, "Unrealistic constraints");
+  assert.equal(assessment.label, "Needs revision");
   assert.equal(assessment.canPostExecution, false);
   assert.ok(assessment.estimatedMarketBudget && assessment.estimatedMarketBudget > 3000);
   assert.ok(assessment.estimatedMarketDays && assessment.estimatedMarketDays > 7);
@@ -36,7 +36,7 @@ test("flags complex scopes that are unrealistic against market budget or timelin
   assert.ok(assessment.recommendedBudget && assessment.recommendedBudget >= assessment.estimatedMarketBudget);
   assert.ok(assessment.recommendedTimelineDays && assessment.recommendedTimelineDays >= assessment.estimatedMarketDays);
   assert.ok(assessment.phasedScopePrompt?.includes("phased first release"));
-  assert.ok(assessment.nextSteps.some((step) => /Raise the budget|Extend the timeline/.test(step)));
+  assert.ok(assessment.nextSteps.some((step) => /Increase the buyer budget|Extend the timeline/.test(step)));
   assert.ok(assessment.leanScopeOptions.some((option) => /Launch one region first/.test(option)));
 });
 
@@ -48,7 +48,7 @@ test("allows aggressive scopes with warnings", () => {
   });
 
   assert.equal(assessment.status, "aggressive");
-  assert.equal(assessment.label, "Aggressive constraints");
+  assert.equal(assessment.label, "Tight constraints");
   assert.equal(assessment.canPostExecution, true);
 });
 
@@ -60,13 +60,13 @@ test("accepts realistic budget and timeline ranges", () => {
   });
 
   assert.equal(assessment.status, "market_ready");
-  assert.equal(assessment.label, "Market-ready");
+  assert.equal(assessment.label, "Ready to draft");
   assert.equal(assessment.canPostExecution, true);
   assert.ok(assessment.reasons.some((reason) => /reasonable planning range/.test(reason)));
   assert.ok(assessment.nextSteps.some((step) => /Generate the SOW/.test(step)));
 });
 
-test("adds target complexity to market timeline when major deliverables are requested", () => {
+test("adds target complexity to internal planning timeline when major deliverables are requested", () => {
   const basic = assessScopeFeasibility({
     prompt: "Build a payroll application with employee records.",
     budgetAmount: 20000,
@@ -84,7 +84,7 @@ test("adds target complexity to market timeline when major deliverables are requ
   assert.ok(withDashboard.estimatedMarketBudget > basic.estimatedMarketBudget);
 });
 
-test("shows database migration as a market estimate driver", () => {
+test("shows database migration as a planning estimate driver", () => {
   const assessment = assessScopeFeasibility({
     prompt: "We need a database migration from MySQL to Postgres with source mapping, rollback plan, validation report, and cutover checklist.",
     budgetAmount: 15000,

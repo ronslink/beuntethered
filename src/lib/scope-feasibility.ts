@@ -14,7 +14,7 @@ export type ScopeFeasibilityEstimateDriver = {
 
 export type ScopeFeasibilityAssessment = {
   status: "missing" | "market_ready" | "aggressive" | "unrealistic";
-  label: "Budget Needed" | "Market-ready" | "Aggressive constraints" | "Unrealistic constraints";
+  label: "Budget Needed" | "Ready to draft" | "Tight constraints" | "Needs revision";
   canPostExecution: boolean;
   estimatedMarketBudget: number | null;
   estimatedMarketDays: number | null;
@@ -206,7 +206,7 @@ export function assessScopeFeasibility({
       budgetRatio: null,
       timelineRatio: null,
       reasons: ["Budget and timeline are required before scope generation."],
-      hints: ["Enter a target budget and delivery duration so the scope can be checked against realistic marketplace rates."],
+      hints: ["Enter the amount the buyer can fund and the delivery duration the team can actually support."],
       nextSteps: [
         "Enter the maximum budget the buyer can actually fund.",
         "Enter the latest acceptable launch or review date as a number of days.",
@@ -277,21 +277,21 @@ export function assessScopeFeasibility({
   const nextSteps: string[] = [];
 
   if (budgetRatio < 0.65) {
-    reasons.push(`Budget is materially below the rough market estimate of about $${estimatedMarketBudget.toLocaleString("en-US")}.`);
+    reasons.push("Budget appears materially below the planning range for the detected scope, components, and delivery risk.");
     hints.push(targets.length > 0 ? `Reduce or phase major targets such as ${targets.join(", ")}, or raise the budget.` : "Reduce the first release, move lower-priority components to later milestones, or raise the budget.");
-    nextSteps.push(`Raise the budget toward ${recommendedBudget.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}, or narrow the first release.`);
+    nextSteps.push("Increase the buyer budget or narrow the first release until each milestone can be funded and verified.");
   } else if (budgetRatio < 0.9) {
-    reasons.push(`Budget is tight against the rough market estimate of about $${estimatedMarketBudget.toLocaleString("en-US")}.`);
+    reasons.push("Budget is tight for the detected scope and should be treated as a constraint, not an automatic price.");
     hints.push("Keep the first milestone set lean and reserve advanced features for follow-on work.");
     nextSteps.push("Keep only the buyer-critical workflow in the first release and make optional items later milestones.");
   }
 
   if (timelineRatio < 0.65) {
-    reasons.push(`Timeline is materially shorter than the rough delivery estimate of about ${estimatedMarketDays} days.`);
+    reasons.push("Timeline appears materially shorter than the delivery effort implied by the detected scope.");
     hints.push(targets.length > 0 ? `Extend the timeline or phase added targets such as ${targets.join(", ")} after launch.` : "Extend the timeline, reduce market coverage, or phase complex components after launch.");
-    nextSteps.push(`Extend the timeline toward ${recommendedTimelineDays} days, or split the idea into discovery plus execution.`);
+    nextSteps.push("Extend the timeline or split the idea into discovery plus a smaller first delivery scope.");
   } else if (timelineRatio < 0.9) {
-    reasons.push(`Timeline is tight against the rough delivery estimate of about ${estimatedMarketDays} days.`);
+    reasons.push("Timeline is tight for the detected scope and should be protected with smaller review checkpoints.");
     hints.push("Use smaller milestones and define what can be deferred if delivery risk appears.");
     nextSteps.push("Ask for a smaller launch slice and require clear evidence on each milestone.");
   }
@@ -311,10 +311,10 @@ export function assessScopeFeasibility({
   return {
     status,
     label: status === "market_ready"
-      ? "Market-ready"
+      ? "Ready to draft"
       : status === "aggressive"
-        ? "Aggressive constraints"
-        : "Unrealistic constraints",
+        ? "Tight constraints"
+        : "Needs revision",
     canPostExecution: status !== "unrealistic",
     estimatedMarketBudget,
     estimatedMarketDays,

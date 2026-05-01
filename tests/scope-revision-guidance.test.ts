@@ -11,7 +11,7 @@ test("detects help requests that should not trigger SOW regeneration", () => {
   assert.equal(isScopeRevisionHelpRequest("Keep the budget but split compliance into its own milestone."), false);
 });
 
-test("builds actionable revision guidance from quality and market signals", () => {
+test("builds actionable revision guidance from quality and constraint signals", () => {
   const result = buildScopeRevisionGuidance({
     milestoneIssues: [
       {

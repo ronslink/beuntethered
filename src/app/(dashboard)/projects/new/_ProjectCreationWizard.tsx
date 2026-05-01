@@ -45,7 +45,7 @@ const SCOPE_PROCESS_STEPS = [
   {
     icon: "price_check",
     title: "Validate",
-    copy: "Untether checks whether the budget and timeline are market-ready, aggressive, or need recovery.",
+    copy: "Untether checks whether the stated budget and timeline support the requested scope or need tradeoffs.",
   },
   {
     icon: "verified",
@@ -221,6 +221,15 @@ export default function ProjectCreationWizard() {
     setEditableSoW({ ...editableSoW, milestones: newMilestones });
   };
 
+  const normalizeSowToBuyerConstraints = (
+    draft: any,
+    budgetAmount: number | null,
+    timelineDays: number | null
+  ) => alignMilestoneAmountsToBudget(
+    alignMilestoneDurationsToTimeline(normalizeGeneratedSow(draft), timelineDays),
+    budgetAmount
+  );
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || prompt.trim().length < 5) return;
@@ -244,7 +253,7 @@ export default function ProjectCreationWizard() {
 
       const intakeAssessment = assessScopeIntake(prompt);
       if (intakeAssessment.status === "needs_detail") {
-        setToastMessage("Add the missing scope details highlighted by the advisor.");
+        setToastMessage("Answer the advisor questions or use the guided rewrite before generating.");
         setTimeout(() => setToastMessage(""), 2400);
         setIsGenerating(false);
         return;
@@ -289,11 +298,12 @@ export default function ProjectCreationWizard() {
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
+      const constrainedData = normalizeSowToBuyerConstraints(data, requiredBudgetAmount, requiredTimelineDays);
 
-      setSowData(data);
+      setSowData(constrainedData);
       setScopeConversation([
         `Client rough draft: ${prompt}`,
-        `AI first SOW draft: ${JSON.stringify(data)}`,
+        `AI first SOW draft: ${JSON.stringify(constrainedData)}`,
       ]);
     } catch (err: any) {
       console.error(err);
@@ -348,13 +358,17 @@ export default function ProjectCreationWizard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
 
-      const normalized = normalizeGeneratedSow(data);
-      setSowData(data);
+      const normalized = normalizeSowToBuyerConstraints(
+        data,
+        requiredBudgetAmount || null,
+        requestedTimelineDays || null
+      );
+      setSowData(normalized);
       setEditableSoW(normalized);
       setScopeConversation([
         ...scopeConversation,
         `Client revision instruction: ${scopeRevisionNote.trim()}`,
-        `AI revised SOW draft: ${JSON.stringify(data)}`,
+        `AI revised SOW draft: ${JSON.stringify(normalized)}`,
       ]);
       setScopeRevisionNote("");
       setToastMessage("Scope refined with your latest instruction.");
@@ -395,18 +409,6 @@ export default function ProjectCreationWizard() {
     setTimelineInput("7");
     setDesiredTimeline("7 days");
     setToastMessage("Converted to a 7-day $1,000 discovery sprint.");
-    setTimeout(() => setToastMessage(""), 2400);
-  };
-
-  const applyMarketReadyConstraints = () => {
-    if (feasibilityAssessment.recommendedBudget) {
-      setBudgetInput(String(feasibilityAssessment.recommendedBudget));
-    }
-    if (feasibilityAssessment.recommendedTimelineDays) {
-      setTimelineInput(String(feasibilityAssessment.recommendedTimelineDays));
-      setDesiredTimeline(`${feasibilityAssessment.recommendedTimelineDays} days`);
-    }
-    setToastMessage("Applied market-ready budget and timeline guidance.");
     setTimeout(() => setToastMessage(""), 2400);
   };
 
@@ -539,10 +541,10 @@ export default function ProjectCreationWizard() {
   const feasibilityHeadline = feasibilityAssessment.status === "missing"
     ? "Budget and timeline are required."
     : feasibilityAssessment.status === "unrealistic"
-      ? "Unrealistic constraints need revision before posting."
+      ? "Constraints need revision before posting."
       : feasibilityAssessment.status === "aggressive"
-        ? "Aggressive constraints can be posted with clear warnings."
-        : "Market-ready for a first scope.";
+        ? "Tight constraints need clear tradeoffs."
+        : "Ready to draft a first scope.";
   const hasIntakeBlockers = prompt.trim().length >= 5 && (intakeBlockers.length > 0 || missingBudgetOrTimeline);
 
   const buildCurrentScopeRevisionGuidance = () => {
@@ -590,7 +592,11 @@ export default function ProjectCreationWizard() {
               </div>
               <div>
                  <p className="text-on-surface font-bold font-headline">{toastMessage}</p>
-                 <p className="text-xs text-on-surface-variant">{toastMessage.includes("Applied") ? "Review the highlighted scope details." : "Redirecting..."}</p>
+                 <p className="text-xs text-on-surface-variant">
+                   {toastMessage.includes("Creating") || toastMessage.includes("Successfully")
+                     ? "Redirecting..."
+                     : "Review the highlighted scope details."}
+                 </p>
               </div>
            </div>
         </div>
@@ -992,7 +998,7 @@ export default function ProjectCreationWizard() {
                               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                  <div>
                                     <p className={`text-[10px] font-black uppercase tracking-widest ${feasibilityTextClass}`}>
-                                      Market fit check: {feasibilityAssessment.label}
+                                      Constraint fit check: {feasibilityAssessment.label}
                                     </p>
                                     <h3 className="mt-1 text-sm font-black text-on-surface">
                                       {feasibilityHeadline}
@@ -1003,16 +1009,10 @@ export default function ProjectCreationWizard() {
                                       ))}
                                     </div>
                                  </div>
-                                 {feasibilityAssessment.estimatedMarketBudget && feasibilityAssessment.estimatedMarketDays && (
-                                    <div className="grid grid-cols-2 gap-2 text-right">
-                                      <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Budget</p>
-                                        <p className="text-sm font-black text-on-surface">{formatCurrency(feasibilityAssessment.estimatedMarketBudget)}</p>
-                                      </div>
-                                      <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Time</p>
-                                        <p className="text-sm font-black text-on-surface">{feasibilityAssessment.estimatedMarketDays} days</p>
-                                      </div>
+                                 {feasibilityAssessment.estimateBreakdown.length > 0 && (
+                                    <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2 text-right">
+                                      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Complexity Signals</p>
+                                      <p className="text-sm font-black text-on-surface">{feasibilityAssessment.estimateBreakdown.length}</p>
                                     </div>
                                  )}
                               </div>
@@ -1020,8 +1020,8 @@ export default function ProjectCreationWizard() {
                                  <div className="mt-4 rounded-lg border border-outline-variant/20 bg-surface p-3">
                                     <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                                        <div>
-                                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Estimate drivers</p>
-                                          <p className="mt-1 text-xs leading-5 text-on-surface-variant">These are the factors currently increasing price or timeline.</p>
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Complexity signals</p>
+                                          <p className="mt-1 text-xs leading-5 text-on-surface-variant">These are the factors currently adding delivery risk. They guide scope tradeoffs without publishing a generic project price.</p>
                                        </div>
                                     </div>
                                     <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -1031,10 +1031,6 @@ export default function ProjectCreationWizard() {
                                                 <div>
                                                    <p className="text-xs font-black text-on-surface">{driver.label}</p>
                                                    {driver.detail && <p className="mt-1 text-[11px] leading-5 text-on-surface-variant">{driver.detail}</p>}
-                                                </div>
-                                                <div className="shrink-0 text-right">
-                                                   <p className="text-[10px] font-black text-on-surface">{formatCurrency(driver.budget)}</p>
-                                                   <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{driver.days}d</p>
                                                 </div>
                                              </div>
                                           </div>
@@ -1075,16 +1071,6 @@ export default function ProjectCreationWizard() {
                                           )}
                                        </div>
                                        <div className="grid min-w-56 gap-2">
-                                          {feasibilityAssessment.recommendedBudget && feasibilityAssessment.recommendedTimelineDays && (
-                                             <button
-                                                type="button"
-                                                onClick={applyMarketReadyConstraints}
-                                                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary transition-colors hover:bg-primary/90"
-                                             >
-                                                <span className="material-symbols-outlined text-[14px]">tune</span>
-                                                Use Market Range
-                                             </button>
-                                          )}
                                           {feasibilityAssessment.phasedScopePrompt && (
                                              <button
                                                 type="button"
@@ -1114,8 +1100,8 @@ export default function ProjectCreationWizard() {
                         <div className="flex justify-end pt-4">
                            <button
                              type="submit"
-                             disabled={prompt.trim().length < 5 || isGenerating || hasIntakeBlockers}
-                             className={`px-8 py-3 rounded-md flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all ${prompt.trim().length < 5 || isGenerating || hasIntakeBlockers ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-70' : 'bg-primary text-on-primary hover:bg-primary/90'}`}
+                             disabled={prompt.trim().length < 5 || isGenerating}
+                             className={`px-8 py-3 rounded-md flex items-center gap-3 font-bold uppercase tracking-widest text-sm transition-all ${prompt.trim().length < 5 || isGenerating ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-70' : hasIntakeBlockers ? 'bg-primary/10 text-primary border border-primary/25 hover:bg-primary/15' : 'bg-primary text-on-primary hover:bg-primary/90'}`}
                            >
                               {prompt.trim().length < 5 ? "Describe Project First" : hasIntakeBlockers ? "Resolve Scope Details" : "Generate Statement of Work"}
                               <span className="material-symbols-outlined text-[18px]">{prompt.trim().length < 5 ? "edit_note" : "arrow_forward"}</span>
@@ -1241,16 +1227,10 @@ export default function ProjectCreationWizard() {
                            These are the buyer-entered constraints the SOW should preserve through edits, revisions, matching, and posting.
                         </p>
                      </div>
-                     {feasibilityAssessment.estimatedMarketBudget && feasibilityAssessment.estimatedMarketDays && (
-                        <div className="grid grid-cols-2 gap-2 text-right">
-                           <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Budget</p>
-                              <p className="text-sm font-black text-on-surface">{formatCurrency(feasibilityAssessment.estimatedMarketBudget)}</p>
-                           </div>
-                           <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Market Time</p>
-                              <p className="text-sm font-black text-on-surface">{feasibilityAssessment.estimatedMarketDays} days</p>
-                           </div>
+                     {feasibilityAssessment.estimateBreakdown.length > 0 && (
+                        <div className="rounded-md border border-outline-variant/20 bg-surface px-3 py-2 text-right">
+                           <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Complexity Signals</p>
+                           <p className="text-sm font-black text-on-surface">{feasibilityAssessment.estimateBreakdown.length}</p>
                         </div>
                      )}
                   </div>
@@ -1282,14 +1262,6 @@ export default function ProjectCreationWizard() {
                            </div>
                         </div>
                         <div className="grid shrink-0 gap-2">
-                           <button
-                              type="button"
-                              onClick={applyMarketReadyConstraints}
-                              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-black uppercase tracking-widest text-on-primary transition-colors hover:bg-primary/90"
-                           >
-                              <span className="material-symbols-outlined text-[15px]">tune</span>
-                              Use Market Range
-                           </button>
                            <button
                               type="button"
                               onClick={applyPhasedScopePrompt}
