@@ -7,8 +7,11 @@ import {
   getPendingMilestoneFundingBreakdown,
   getLatestLedgerPaymentRecord,
   summarizePendingClientFunding,
+  summarizeWalletEscrowStates,
   sumSucceededClientFundingFeesCents,
   sumSucceededFacilitatorPayoutCents,
+  type WalletEscrowStatusKey,
+  type WalletEscrowSummary,
   type WalletFundingForecast,
   type WalletFundingMilestone,
 } from "@/lib/wallet-ledger";
@@ -198,7 +201,7 @@ function ClientFundingForecastPanel({ forecast }: { forecast: WalletFundingForec
 
   return (
     <section className="relative z-10 px-4 lg:px-0 mb-6">
-      <div className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface shadow-sm">
+      <div data-testid="funding-forecast-panel" className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface shadow-sm">
         <div className="flex flex-col gap-3 border-b border-outline-variant/10 px-6 py-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
             <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">price_check</span>
@@ -237,6 +240,138 @@ function ClientFundingForecastPanel({ forecast }: { forecast: WalletFundingForec
   );
 }
 
+function EscrowStateMap({
+  role,
+  summary,
+}: {
+  role: "CLIENT" | "FACILITATOR";
+  summary: WalletEscrowSummary;
+}) {
+  const states: Array<{
+    key: WalletEscrowStatusKey;
+    label: string;
+    detail: string;
+    icon: string;
+    tone: string;
+  }> = role === "CLIENT"
+    ? [
+        {
+          key: "pendingFunding",
+          label: "Awaiting funding",
+          detail: "Needs escrow checkout before work should start.",
+          icon: "payments",
+          tone: "text-on-surface-variant bg-surface-container-high border-outline-variant/30",
+        },
+        {
+          key: "fundedEscrow",
+          label: "Funded escrow",
+          detail: "Funds are locked while delivery is underway.",
+          icon: "lock",
+          tone: "text-primary bg-primary/10 border-primary/20",
+        },
+        {
+          key: "submittedReview",
+          label: "Ready for review",
+          detail: "Submitted work needs approval or feedback.",
+          icon: "rate_review",
+          tone: "text-secondary bg-secondary/10 border-secondary/20",
+        },
+        {
+          key: "paidReleased",
+          label: "Released",
+          detail: "Approved milestone funds have been paid out.",
+          icon: "check_circle",
+          tone: "text-tertiary bg-tertiary/10 border-tertiary/20",
+        },
+        {
+          key: "disputed",
+          label: "Disputed",
+          detail: "Needs resolution before funds can move.",
+          icon: "gavel",
+          tone: "text-error bg-error/10 border-error/20",
+        },
+      ]
+    : [
+        {
+          key: "pendingFunding",
+          label: "Not funded yet",
+          detail: "Wait for escrow before starting delivery work.",
+          icon: "hourglass_empty",
+          tone: "text-on-surface-variant bg-surface-container-high border-outline-variant/30",
+        },
+        {
+          key: "fundedEscrow",
+          label: "Ready to deliver",
+          detail: "Escrow is funded; submit evidence when complete.",
+          icon: "lock",
+          tone: "text-primary bg-primary/10 border-primary/20",
+        },
+        {
+          key: "submittedReview",
+          label: "Awaiting approval",
+          detail: "Client is reviewing submitted delivery evidence.",
+          icon: "rate_review",
+          tone: "text-secondary bg-secondary/10 border-secondary/20",
+        },
+        {
+          key: "paidReleased",
+          label: "Paid out",
+          detail: "Approved milestone payout has been recorded.",
+          icon: "check_circle",
+          tone: "text-tertiary bg-tertiary/10 border-tertiary/20",
+        },
+        {
+          key: "disputed",
+          label: "Disputed",
+          detail: "Resolution is required before payout can proceed.",
+          icon: "gavel",
+          tone: "text-error bg-error/10 border-error/20",
+        },
+      ];
+
+  return (
+    <section className="relative z-10 px-4 lg:px-0 mb-6">
+      <div data-testid="escrow-state-map" className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-outline-variant/10 px-6 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">account_balance_wallet</span>
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Escrow State Map</h2>
+              <p className="mt-1 text-[11px] font-medium leading-5 text-on-surface-variant">
+                {role === "CLIENT"
+                  ? "A live view of which milestones need funding, review, release, or resolution."
+                  : "A live view of which milestones are funded, waiting on review, paid, or blocked."}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary">
+            Active escrow {centsToCurrency(summary.activeEscrowCents)}
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-5">
+          {states.map((state) => {
+            const bucket = summary[state.key];
+            return (
+              <div key={state.key} className={`rounded-xl border p-4 ${state.tone}`}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="material-symbols-outlined text-[18px]">{state.icon}</span>
+                  <span className="rounded-full bg-surface/70 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-on-surface">
+                    {bucket.count}
+                  </span>
+                </div>
+                <p className="text-sm font-black text-on-surface">{state.label}</p>
+                <p className="mt-2 text-2xl font-black tracking-tight text-on-surface">{centsToCurrency(bucket.amountCents)}</p>
+                <p className="mt-2 text-[10px] font-medium leading-4 text-on-surface-variant">{state.detail}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default async function WalletPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
@@ -261,6 +396,7 @@ export default async function WalletPage() {
     const paymentRecords = milestones.flatMap(m => m.payment_records);
     const totalPayoutCents = sumSucceededFacilitatorPayoutCents(paymentRecords);
     const isStripeConnected = !!user.stripe_account_id;
+    const escrowSummary = summarizeWalletEscrowStates(milestones);
 
     return (
       <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
@@ -346,6 +482,7 @@ export default async function WalletPage() {
         </header>
 
         <PaymentExplainer role="FACILITATOR" />
+        <EscrowStateMap role="FACILITATOR" summary={escrowSummary} />
         <PaymentActionQueue role="FACILITATOR" milestones={milestones} />
         <LedgerSection milestones={milestones} statusConfig={FACILITATOR_STATUS_CONFIG} role="FACILITATOR" />
       </main>
@@ -383,6 +520,7 @@ export default async function WalletPage() {
   const pendingFunding = allMilestones.filter(m => m.status === "PENDING").length;
   const reviewCount = allMilestones.filter(m => m.status === "SUBMITTED_FOR_REVIEW").length;
   const fundingForecast = summarizePendingClientFunding(allMilestones);
+  const escrowSummary = summarizeWalletEscrowStates(allMilestones);
 
   return (
     <main className="lg:p-6 relative overflow-hidden min-h-full pb-20">
@@ -435,6 +573,7 @@ export default async function WalletPage() {
       </header>
 
       <PaymentExplainer role="CLIENT" />
+      <EscrowStateMap role="CLIENT" summary={escrowSummary} />
       <ClientFundingForecastPanel forecast={fundingForecast} />
       <PaymentActionQueue role="CLIENT" milestones={allMilestones} />
       <LedgerSection milestones={allMilestones} statusConfig={CLIENT_STATUS_CONFIG} role="CLIENT" />

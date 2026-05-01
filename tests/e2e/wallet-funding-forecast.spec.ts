@@ -55,12 +55,13 @@ test("client wallet forecasts escrow funding totals before checkout", async ({ p
     await page.goto("/wallet");
 
     await expect(page.getByRole("heading", { name: /^payments$/i })).toBeVisible();
-    await expect(page.getByText("Funding Forecast")).toBeVisible();
-    await expect(page.getByText("Mixed 8% marketplace / 5% BYOC fee model")).toBeVisible();
-    await expect(page.getByText("1 marketplace / 1 BYOC")).toBeVisible();
-    await expect(page.getByText("$3,000")).toBeVisible();
-    await expect(page.getByText("$180")).toBeVisible();
-    await expect(page.getByText("$3,180")).toBeVisible();
+    const fundingForecast = page.getByTestId("funding-forecast-panel");
+    await expect(fundingForecast.getByText("Funding Forecast")).toBeVisible();
+    await expect(fundingForecast.getByText("Mixed 8% marketplace / 5% BYOC fee model")).toBeVisible();
+    await expect(fundingForecast.getByText("1 marketplace / 1 BYOC")).toBeVisible();
+    await expect(fundingForecast.getByText("$3,000")).toBeVisible();
+    await expect(fundingForecast.getByText("$180")).toBeVisible();
+    await expect(fundingForecast.getByText("$3,180")).toBeVisible();
     await expect(page.getByText("Total due $1,080 incl. $80 client fee")).toBeVisible();
     await expect(page.getByText("Total due $2,100 incl. $100 client fee")).toBeVisible();
   } finally {

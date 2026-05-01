@@ -25,6 +25,18 @@ export type WalletFundingForecast = {
   clientTotalCents: number;
 };
 
+export type WalletEscrowStatusKey = "pendingFunding" | "fundedEscrow" | "submittedReview" | "paidReleased" | "disputed";
+
+export type WalletEscrowBucket = {
+  count: number;
+  amountCents: number;
+};
+
+export type WalletEscrowSummary = Record<WalletEscrowStatusKey, WalletEscrowBucket> & {
+  activeEscrowCents: number;
+  totalTrackedCents: number;
+};
+
 export function getLatestLedgerPaymentRecord<T extends WalletLedgerPaymentRecord>(
   records: T[] | undefined,
   kind?: string
@@ -56,6 +68,10 @@ export function sumSucceededFacilitatorPayoutCents(records: WalletLedgerPaymentR
 function amountAsNumber(amount: WalletFundingMilestone["amount"]) {
   const parsed = Number(amount);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function amountAsCents(amount: WalletFundingMilestone["amount"]) {
+  return Math.round(amountAsNumber(amount) * 100);
 }
 
 export function getPendingMilestoneFundingBreakdown(milestone: WalletFundingMilestone): FeeBreakdown | null {
@@ -91,4 +107,42 @@ export function summarizePendingClientFunding(milestones: WalletFundingMilestone
       clientTotalCents: 0,
     }
   );
+}
+
+export function summarizeWalletEscrowStates(milestones: WalletFundingMilestone[]): WalletEscrowSummary {
+  const summary: WalletEscrowSummary = {
+    pendingFunding: { count: 0, amountCents: 0 },
+    fundedEscrow: { count: 0, amountCents: 0 },
+    submittedReview: { count: 0, amountCents: 0 },
+    paidReleased: { count: 0, amountCents: 0 },
+    disputed: { count: 0, amountCents: 0 },
+    activeEscrowCents: 0,
+    totalTrackedCents: 0,
+  };
+
+  for (const milestone of milestones) {
+    const amountCents = amountAsCents(milestone.amount);
+    const bucket =
+      milestone.status === "PENDING"
+        ? summary.pendingFunding
+        : milestone.status === "FUNDED_IN_ESCROW"
+        ? summary.fundedEscrow
+        : milestone.status === "SUBMITTED_FOR_REVIEW"
+        ? summary.submittedReview
+        : milestone.status === "APPROVED_AND_PAID"
+        ? summary.paidReleased
+        : milestone.status === "DISPUTED"
+        ? summary.disputed
+        : null;
+
+    if (!bucket) continue;
+
+    bucket.count += 1;
+    bucket.amountCents += amountCents;
+    summary.totalTrackedCents += amountCents;
+  }
+
+  summary.activeEscrowCents = summary.fundedEscrow.amountCents + summary.submittedReview.amountCents;
+
+  return summary;
 }

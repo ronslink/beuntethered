@@ -4,6 +4,7 @@ import {
   getPendingMilestoneFundingBreakdown,
   getLatestLedgerPaymentRecord,
   summarizePendingClientFunding,
+  summarizeWalletEscrowStates,
   sumSucceededClientFundingFeesCents,
   sumSucceededFacilitatorPayoutCents,
   type WalletLedgerPaymentRecord,
@@ -81,4 +82,25 @@ test("pending milestone funding breakdown uses the correct fee model", () => {
     getPendingMilestoneFundingBreakdown({ status: "FUNDED_IN_ESCROW", amount: 1000, project: { is_byoc: false } }),
     null
   );
+});
+
+test("wallet escrow summary buckets milestone states by operational meaning", () => {
+  const summary = summarizeWalletEscrowStates([
+    { status: "PENDING", amount: 1000 },
+    { status: "FUNDED_IN_ESCROW", amount: 2000 },
+    { status: "SUBMITTED_FOR_REVIEW", amount: 3000 },
+    { status: "APPROVED_AND_PAID", amount: 4000 },
+    { status: "DISPUTED", amount: 500 },
+    { status: "CANCELLED", amount: 999 },
+  ]);
+
+  assert.deepEqual(summary, {
+    pendingFunding: { count: 1, amountCents: 100000 },
+    fundedEscrow: { count: 1, amountCents: 200000 },
+    submittedReview: { count: 1, amountCents: 300000 },
+    paidReleased: { count: 1, amountCents: 400000 },
+    disputed: { count: 1, amountCents: 50000 },
+    activeEscrowCents: 500000,
+    totalTrackedCents: 1050000,
+  });
 });
