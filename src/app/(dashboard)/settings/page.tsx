@@ -86,24 +86,6 @@ function ReadinessCard({
   );
 }
 
-function ControlPlaneMetric({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
-      <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">{label}</p>
-      <p className="mt-2 text-xl font-black text-on-surface">{value}</p>
-      <p className="mt-1 text-[11px] font-bold text-on-surface-variant">{detail}</p>
-    </div>
-  );
-}
-
 function SectionJumpNav({ isFacilitator }: { isFacilitator: boolean }) {
   const items = [
     { href: "#profile", label: "Profile", icon: "person" },
@@ -377,6 +359,11 @@ export default async function SettingsPage() {
       <div className="relative z-10 px-4 lg:px-0 max-w-[1400px] space-y-5">
         <SectionJumpNav isFacilitator={isFacilitator} />
 
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Identity and trust</p>
+          <h2 className="mt-1 text-lg font-black text-on-surface">Account readiness</h2>
+        </div>
+
         {/* ── Readiness Overview ── */}
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <ReadinessCard
@@ -467,35 +454,44 @@ export default async function SettingsPage() {
 
         <section className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
-            <span className="material-symbols-outlined text-[18px] text-on-surface-variant">admin_panel_settings</span>
-            <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Account Operating Context</h2>
-            <span className="ml-auto rounded-md border border-outline-variant/20 bg-surface-container-high px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
-              {user.role === "FACILITATOR" ? "Delivery side" : "Buyer side"}
-            </span>
+            <span className="material-symbols-outlined text-[18px] text-on-surface-variant">history</span>
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Verification History</h2>
+              <p className="mt-1 text-[11px] font-medium text-on-surface-variant">Recent provider updates recorded from profile evidence and Stripe webhooks.</p>
+            </div>
           </div>
-          <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-4">
-            <ControlPlaneMetric
-              label="Workspace"
-              value={workspaceName || user.name || "Not named"}
-              detail={workspaceType || "Add workspace type"}
-            />
-            <ControlPlaneMetric
-              label="Payment mode"
-              value={user.role === "FACILITATOR" ? "Payouts" : "Escrow funding"}
-              detail={hasPaymentIdentity ? "Stripe identity present" : "Stripe identity pending"}
-            />
-            <ControlPlaneMetric
-              label="AI assistance"
-              value={byokReady ? "BYOK active" : "Platform fallback"}
-              detail={isFacilitator ? (agentReady ? "Automation key bound" : "Automation access optional") : "Scope and review assistance"}
-            />
-            <ControlPlaneMetric
-              label="Legal state"
-              value={legalReady ? "Accepted" : "Pending"}
-              detail="Used for trust and transaction eligibility"
-            />
+          <div className="divide-y divide-outline-variant/10">
+            {user.notifications.length > 0 ? user.notifications.map((notification) => (
+              <div key={notification.id} className="px-6 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-on-surface">{notification.message}</p>
+                    <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
+                      {typeof notification.metadata === "object" && notification.metadata && "provider" in notification.metadata
+                        ? `Source: ${String(notification.metadata.provider).replace(/_/g, " ")}`
+                        : "Source: verification lifecycle"}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    {formatHistoryDate(notification.created_at)}
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <div className="px-6 py-5">
+                <p className="text-sm font-bold text-on-surface">No verification lifecycle events recorded yet.</p>
+                <p className="mt-1 text-[11px] font-medium leading-relaxed text-on-surface-variant">
+                  This will populate when Stripe or profile evidence updates identity, payout, portfolio, or business verification status.
+                </p>
+              </div>
+            )}
           </div>
         </section>
+
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Profile and controls</p>
+          <h2 className="mt-1 text-lg font-black text-on-surface">Edit account details</h2>
+        </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-5 items-start">
           <div className="space-y-5 min-w-0">
@@ -708,44 +704,8 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section id="notifications" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
-            <span className="material-symbols-outlined text-[18px] text-on-surface-variant">history</span>
-            <div>
-              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Verification History</h2>
-              <p className="mt-1 text-[11px] font-medium text-on-surface-variant">Recent provider updates recorded from profile evidence and Stripe webhooks.</p>
-            </div>
-          </div>
-          <div className="divide-y divide-outline-variant/10">
-            {user.notifications.length > 0 ? user.notifications.map((notification) => (
-              <div key={notification.id} className="px-6 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-on-surface">{notification.message}</p>
-                    <p className="mt-1 text-[11px] font-medium text-on-surface-variant">
-                      {typeof notification.metadata === "object" && notification.metadata && "provider" in notification.metadata
-                        ? `Source: ${String(notification.metadata.provider).replace(/_/g, " ")}`
-                        : "Source: verification lifecycle"}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    {formatHistoryDate(notification.created_at)}
-                  </span>
-                </div>
-              </div>
-            )) : (
-              <div className="px-6 py-5">
-                <p className="text-sm font-bold text-on-surface">No verification lifecycle events recorded yet.</p>
-                <p className="mt-1 text-[11px] font-medium leading-relaxed text-on-surface-variant">
-                  This will populate when Stripe or profile evidence updates identity, payout, portfolio, or business verification status.
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-
         {/* ── Notifications ── */}
-        <section className="bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+        <section id="notifications" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
             <span className="material-symbols-outlined text-[18px] text-on-surface-variant">notifications</span>
             <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Email Notifications</h2>
