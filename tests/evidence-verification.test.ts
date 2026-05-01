@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildLinkedEvidenceVerificationSummary,
   evaluateEvidenceSourceVerification,
+  getEvidenceSystemCheckSummary,
   getEvidenceVerificationProfile,
 } from "../src/lib/evidence-verification.ts";
 
@@ -95,4 +96,59 @@ test("builds a milestone submission verification summary from linked sources", (
   assert.match(summary.auditContext, /Vercel/i);
   assert.equal(summary.items[0].id, "source_vercel");
   assert.ok(summary.buyerReview.length > 0);
+});
+
+test("folds automated source checks into verification confidence and blockers", () => {
+  const result = evaluateEvidenceSourceVerification({
+    type: "VERCEL",
+    label: "Unsafe preview",
+    url: "http://preview.vercel.app",
+    status: "PENDING_VERIFICATION",
+    metadata: {
+      verification_note: "Maps to Milestone 1 and proves the deployed workflow.",
+      provider_system_check: {
+        checkedAt: "2026-05-01T12:00:00.000Z",
+        providerLabel: "Vercel",
+        sourceType: "VERCEL",
+        checks: [
+          {
+            key: "https",
+            label: "HTTPS",
+            detail: "Use an HTTPS provider link before relying on this evidence for escrow release.",
+            status: "failed",
+            critical: true,
+          },
+        ],
+        signals: [],
+        nextActions: ["Use an HTTPS provider link before relying on this evidence for escrow release."],
+      },
+    },
+  });
+
+  assert.equal(result.stage, "needs_attention");
+  assert.ok(result.blockers.some((item) => item.includes("HTTPS")));
+  assert.equal(result.checks.find((check) => check.key === "system_https")?.status, "attention");
+});
+
+test("reads persisted automated source check summaries from metadata", () => {
+  const summary = getEvidenceSystemCheckSummary({
+    provider_system_check: {
+      checkedAt: "2026-05-01T12:00:00.000Z",
+      providerLabel: "Render",
+      sourceType: "RENDER",
+      checks: [
+        {
+          key: "url_reachable",
+          label: "URL reachable",
+          detail: "The provider URL responded with HTTP 200.",
+          status: "passed",
+        },
+      ],
+      signals: ["Provider link responded during automated source check."],
+      nextActions: [],
+    },
+  });
+
+  assert.equal(summary?.providerLabel, "Render");
+  assert.equal(summary?.checks[0].status, "passed");
 });

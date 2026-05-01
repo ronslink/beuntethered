@@ -38,6 +38,25 @@ export type EvidenceVerificationCheckResult = {
   status: "passed" | "pending" | "attention";
 };
 
+export type EvidenceSystemCheckStatus = "passed" | "pending" | "failed";
+
+export type EvidenceSystemCheckResult = {
+  key: string;
+  label: string;
+  detail: string;
+  status: EvidenceSystemCheckStatus;
+  critical?: boolean;
+};
+
+export type EvidenceSystemCheckSummary = {
+  checkedAt: string;
+  providerLabel: string;
+  sourceType: EvidenceSourceTypeValue;
+  checks: EvidenceSystemCheckResult[];
+  signals: string[];
+  nextActions: string[];
+};
+
 export type EvidenceSourceVerificationResult = {
   sourceType: EvidenceSourceTypeValue;
   providerLabel: string;
@@ -451,6 +470,46 @@ function metadataRecord(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
 }
 
+export function getEvidenceSystemCheckSummary(metadata: unknown): EvidenceSystemCheckSummary | null {
+  const value = metadataRecord(metadata).provider_system_check;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.checkedAt !== "string" ||
+    typeof record.providerLabel !== "string" ||
+    typeof record.sourceType !== "string" ||
+    !Array.isArray(record.checks)
+  ) {
+    return null;
+  }
+
+  const checks = record.checks
+    .filter((check): check is Record<string, unknown> => Boolean(check && typeof check === "object" && !Array.isArray(check)))
+    .map((check) => {
+      const status: EvidenceSystemCheckStatus =
+        check.status === "passed" || check.status === "pending" || check.status === "failed"
+          ? check.status
+          : "pending";
+
+      return {
+        key: typeof check.key === "string" ? check.key : "check",
+        label: typeof check.label === "string" ? check.label : "System check",
+        detail: typeof check.detail === "string" ? check.detail : "No detail recorded.",
+        status,
+        critical: check.critical === true,
+      };
+    });
+
+  return {
+    checkedAt: record.checkedAt,
+    providerLabel: record.providerLabel,
+    sourceType: record.sourceType as EvidenceSourceTypeValue,
+    checks,
+    signals: Array.isArray(record.signals) ? record.signals.filter((item): item is string => typeof item === "string") : [],
+    nextActions: Array.isArray(record.nextActions) ? record.nextActions.filter((item): item is string => typeof item === "string") : [],
+  };
+}
+
 function metadataText(metadata: unknown, key: string) {
   const value = metadataRecord(metadata)[key];
   return typeof value === "string" ? value.trim() : "";
@@ -488,12 +547,14 @@ export function evaluateEvidenceSourceVerification(source: EvidenceSourceVerific
   const note = metadataText(source.metadata, "verification_note");
   const access = metadataText(source.metadata, "access");
   const proofUse = metadataText(source.metadata, "proof_use");
+  const systemCheck = getEvidenceSystemCheckSummary(source.metadata);
   const hasUrl = Boolean(source.url);
   const urlRequired = source.type !== "OTHER";
   const hasContext = note.length >= 20 || Boolean(access) || Boolean(proofUse);
   const recognizedHost = hasRecognizedHost(profile, source.url);
   const hostCheckApplies = profile.recognizedHosts.length > 0;
   const blockers: string[] = [];
+  const failedCriticalSystemChecks = systemCheck?.checks.filter((check) => check.status === "failed" && check.critical) ?? [];
 
   if (urlRequired && !hasUrl) {
     blockers.push(`${profile.label} needs a reviewable URL or provider link before it can support milestone verification.`);
@@ -501,6 +562,9 @@ export function evaluateEvidenceSourceVerification(source: EvidenceSourceVerific
 
   if (!hasContext) {
     blockers.push("Add a verification note that maps this source to a milestone, commit, deployment, run, or acceptance check.");
+  }
+  for (const check of failedCriticalSystemChecks) {
+    blockers.push(`${check.label}: ${check.detail}`);
   }
 
   const checks: EvidenceVerificationCheckResult[] = [
@@ -538,6 +602,18 @@ export function evaluateEvidenceSourceVerification(source: EvidenceSourceVerific
             ? "pending" as const
             : checkStatus(hasUrl || source.type === "OTHER"),
     })),
+    ...(systemCheck?.checks.map((check) => ({
+      key: `system_${check.key}`,
+      label: check.label,
+      detail: check.detail,
+      mode: "system_check" as const,
+      status:
+        check.status === "passed"
+          ? "passed" as const
+          : check.status === "failed" && check.critical
+            ? "attention" as const
+            : "pending" as const,
+    })) ?? []),
   ];
 
   const passedCount = checks.filter((check) => check.status === "passed").length;
@@ -558,10 +634,13 @@ export function evaluateEvidenceSourceVerification(source: EvidenceSourceVerific
       (recognizedHost || !hostCheckApplies ? 15 : 5) +
       (hasContext ? 20 : 0) +
       (source.status === "CONNECTED" ? 10 : 0) +
+      (systemCheck?.checks.some((check) => check.key === "url_reachable" && check.status === "passed") ? 5 : 0) -
+      failedCriticalSystemChecks.length * 20 +
       Math.min(10, passedCount * 2),
   );
   const nextActions = [
     ...blockers,
+    ...(systemCheck?.nextActions ?? []),
     ...profile.checks
       .filter((check) => check.mode === "provider_api")
       .slice(0, 1)

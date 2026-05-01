@@ -70,6 +70,7 @@ test("facilitator adds project delivery evidence source", async ({ page }) => {
 
     await page.getByRole("button", { name: /run source check/i }).click();
     await expect(page.getByText("Source check recorded for milestone verification.")).toBeVisible();
+    await expect(page.getByText("Automated source check")).toBeVisible();
     await expect(page.getByText(/ready ·/i).first()).toBeVisible();
 
     await expect
@@ -81,6 +82,12 @@ test("facilitator adds project delivery evidence source", async ({ page }) => {
       )
       .toMatchObject({
         status: "CONNECTED",
+        metadata: {
+          provider_system_check: {
+            providerLabel: "Render",
+            sourceType: "RENDER",
+          },
+        },
       });
   } finally {
     await cleanupByEmailPrefix(prefix);

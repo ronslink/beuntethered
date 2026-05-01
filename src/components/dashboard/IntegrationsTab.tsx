@@ -11,8 +11,10 @@ import type {
 } from "@/lib/delivery-evidence";
 import {
   evaluateEvidenceSourceVerification,
+  getEvidenceSystemCheckSummary,
   getEvidenceVerificationProfile,
   getVerificationModeLabel,
+  type EvidenceSystemCheckResult,
   type EvidenceSourceVerificationResult,
   type EvidenceVerificationStage,
 } from "@/lib/evidence-verification";
@@ -242,6 +244,24 @@ function VerificationCheckRow({ check }: { check: EvidenceSourceVerificationResu
   );
 }
 
+function SystemCheckRow({ check }: { check: EvidenceSystemCheckResult }) {
+  const config =
+    check.status === "passed"
+      ? CHECK_STATUS_CONFIG.passed
+      : check.status === "failed"
+        ? CHECK_STATUS_CONFIG.attention
+        : CHECK_STATUS_CONFIG.pending;
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-outline-variant/15 bg-surface-container-low px-3 py-2">
+      <span className={`material-symbols-outlined mt-0.5 rounded-full border p-0.5 text-[13px] ${config.className}`}>{config.icon}</span>
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{check.label}</p>
+        <p className="mt-1 text-[11px] font-medium leading-4 text-on-surface-variant">{check.detail}</p>
+      </div>
+    </div>
+  );
+}
+
 function sourceLabel(type: EvidenceSourceTypeValue) {
   return SOURCE_OPTIONS.find((option) => option.type === type)?.label ?? "Evidence";
 }
@@ -281,6 +301,7 @@ export default function IntegrationsTab({
   const sourceVerificationSummaries = project.evidence_sources.map((source) => ({
     source,
     verification: evaluateEvidenceSourceVerification(source),
+    systemCheck: getEvidenceSystemCheckSummary(source.metadata),
   }));
   const readySourceCount = sourceVerificationSummaries.filter((item) => item.verification.stage === "ready").length;
   const readyPacketCount = project.milestone_evidence_packets.filter((packet) => packet.ready).length;
@@ -436,7 +457,7 @@ export default function IntegrationsTab({
               </div>
             </div>
             <div className="divide-y divide-outline-variant/10">
-              {sourceVerificationSummaries.length > 0 ? sourceVerificationSummaries.map(({ source, verification }) => (
+              {sourceVerificationSummaries.length > 0 ? sourceVerificationSummaries.map(({ source, verification, systemCheck }) => (
                 <div key={source.id} className="px-6 py-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="min-w-0 flex-1">
@@ -480,6 +501,31 @@ export default function IntegrationsTab({
                           <div className="mt-3 rounded-lg border border-secondary/20 bg-secondary/10 px-3 py-2">
                             <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Next proof step</p>
                             <p className="mt-1 text-[11px] font-medium leading-5 text-on-surface-variant">{verification.nextActions[0]}</p>
+                          </div>
+                        ) : null}
+                        {systemCheck ? (
+                          <div className="mt-3 rounded-xl border border-outline-variant/15 bg-surface p-4">
+                            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">Automated source check</p>
+                                <p className="mt-1 text-[11px] font-medium leading-5 text-on-surface-variant">
+                                  Last checked {new Date(systemCheck.checkedAt).toLocaleString()} · credential-light system checks only.
+                                </p>
+                              </div>
+                              <span className="rounded-full border border-outline-variant/20 bg-surface-container-low px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                                {systemCheck.checks.filter((check) => check.status === "passed").length}/{systemCheck.checks.length} passed
+                              </span>
+                            </div>
+                            <div className="grid gap-2 md:grid-cols-2">
+                              {systemCheck.checks.slice(0, 6).map((check) => (
+                                <SystemCheckRow key={check.key} check={check} />
+                              ))}
+                            </div>
+                            {systemCheck.nextActions.length > 0 ? (
+                              <p className="mt-3 rounded-lg border border-secondary/20 bg-secondary/10 px-3 py-2 text-[11px] font-medium leading-5 text-on-surface-variant">
+                                {systemCheck.nextActions[0]}
+                              </p>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>

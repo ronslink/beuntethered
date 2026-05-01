@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { encryptApiKey } from "@/lib/encryption";
 import { evaluateEvidenceSourceVerification } from "@/lib/evidence-verification";
+import { runEvidenceSourceSystemCheck } from "@/lib/evidence-system-checks";
 import { assertDurableRateLimit, isRateLimitError, rateLimitKey } from "@/lib/rate-limit";
 import {
   projectEvidenceSourceInputSchema,
@@ -287,7 +288,7 @@ export async function verifyProjectEvidenceSource(input: unknown) {
       throw new Error("You do not have permission to verify this evidence source.");
     }
 
-    const verification = evaluateEvidenceSourceVerification({
+    const systemCheck = await runEvidenceSourceSystemCheck({
       id: source.id,
       type: source.type,
       label: source.label,
@@ -296,13 +297,25 @@ export async function verifyProjectEvidenceSource(input: unknown) {
       metadata: source.metadata,
     });
     const existingMetadata = metadataRecord(source.metadata);
+    const metadataForVerification = {
+      ...existingMetadata,
+      provider_system_check: systemCheck,
+    };
+    const verification = evaluateEvidenceSourceVerification({
+      id: source.id,
+      type: source.type,
+      label: source.label,
+      url: source.url,
+      status: source.status,
+      metadata: metadataForVerification,
+    });
 
     await prisma.projectEvidenceSource.update({
       where: { id: source.id },
       data: {
         status: verification.recommendedStatus,
         metadata: {
-          ...existingMetadata,
+          ...metadataForVerification,
           verification_result: verification,
           verification_checked_at: new Date().toISOString(),
           verification_checked_by_role: user.role,
@@ -323,6 +336,8 @@ export async function verifyProjectEvidenceSource(input: unknown) {
           recommended_status: verification.recommendedStatus,
           confidence_score: verification.confidenceScore,
           stage: verification.stage,
+          system_check_passed_count: systemCheck.checks.filter((check) => check.status === "passed").length,
+          system_check_failed_count: systemCheck.checks.filter((check) => check.status === "failed").length,
         },
       },
     });
