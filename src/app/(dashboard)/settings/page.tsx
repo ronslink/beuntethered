@@ -547,102 +547,106 @@ export default async function SettingsPage() {
         </section>
 
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Profile and controls</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Profile details</p>
           <h2 className="mt-1 text-lg font-black text-on-surface">Edit account details</h2>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-5 items-start">
-          <div className="space-y-5 min-w-0">
-            {/* ── Profile ── */}
-            <section id="profile" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
-                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">person</span>
-                <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Profile</h2>
+        <div className="space-y-5 min-w-0">
+          {/* ── Profile ── */}
+          <section id="profile" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">person</span>
+              <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Profile</h2>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                  Email address
+                </label>
+                <input
+                  type="text" disabled value={user.email || ""}
+                  className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-sm text-on-surface font-medium cursor-not-allowed opacity-60"
+                />
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
-                    Email address
-                  </label>
-                  <input
-                    type="text" disabled value={user.email || ""}
-                    className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-sm text-on-surface font-medium cursor-not-allowed opacity-60"
-                  />
-                </div>
-                <DisplayNameInput initialName={user.name || ""} />
-              </div>
-            </section>
+              <DisplayNameInput initialName={user.name || ""} />
+            </div>
+          </section>
 
-            {/* ── Facilitator: Profile & Tooling ── */}
-            {user.role === "FACILITATOR" && (
-              <section id="professional-profile" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+          {/* ── Facilitator: Profile & Tooling ── */}
+          {user.role === "FACILITATOR" && (
+            <section id="professional-profile" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">badge</span>
+                <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Professional Profile</h2>
+                <span className="ml-auto text-[9px] font-bold uppercase tracking-widest text-primary px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">Visible to Clients</span>
+              </div>
+              <FacilitatorProfileSettings initial={{
+                bio: user.bio,
+                skills: user.skills,
+                aiAgentStack: user.ai_agent_stack,
+                portfolioUrl: user.portfolio_url,
+                availability: user.availability,
+                yearsExperience: user.years_experience,
+                preferredProjectSize: user.preferred_project_size,
+                hourlyRate: Number(user.hourly_rate),
+              }} />
+            </section>
+          )}
+
+          {/* ── Client: Preferences ── */}
+          {user.role === "CLIENT" && (
+            <div className="grid gap-5 xl:grid-cols-2">
+              <section id="workspace-billing" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
                 <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
-                  <span className="material-symbols-outlined text-[18px] text-on-surface-variant">badge</span>
-                  <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Professional Profile</h2>
-                  <span className="ml-auto text-[9px] font-bold uppercase tracking-widest text-primary px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">Visible to Clients</span>
+                  <span className="material-symbols-outlined text-[18px] text-on-surface-variant">domain</span>
+                  <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Workspace & Billing Identity</h2>
                 </div>
-                <FacilitatorProfileSettings initial={{
-                  bio: user.bio,
-                  skills: user.skills,
-                  aiAgentStack: user.ai_agent_stack,
-                  portfolioUrl: user.portfolio_url,
-                  availability: user.availability,
-                  yearsExperience: user.years_experience,
-                  preferredProjectSize: user.preferred_project_size,
-                  hourlyRate: Number(user.hourly_rate),
+                <OrganizationSettingsClient
+                  initial={{
+                    id: editableOrganization?.id ?? null,
+                    name: workspaceName,
+                    type: workspaceType,
+                    website: editableOrganization?.website ?? "",
+                    billingEmail: editableOrganization?.billing_email ?? user.email ?? "",
+                  }}
+                  members={(editableOrganization?.members ?? []).map(member => ({
+                    id: member.id,
+                    role: member.role,
+                    createdAt: member.created_at.toISOString(),
+                    user: member.user,
+                  }))}
+                  currentUserId={user.id}
+                  verificationStatus={businessVerification}
+                />
+              </section>
+
+              <section id="project-preferences" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
+                  <span className="material-symbols-outlined text-[18px] text-on-surface-variant">tune</span>
+                  <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Project Preferences</h2>
+                </div>
+                <ClientPreferencesSettings initial={{
+                  companyName: workspaceName,
+                  companyType: workspaceType,
+                  preferredBidType: user.preferred_bid_type,
+                  typicalProjectBudget: user.typical_project_budget,
+                  addressLine1: user.address_line1,
+                  addressCity: user.address_city,
+                  addressState: user.address_state,
+                  addressZip: user.address_zip,
+                  addressCountry: user.address_country,
                 }} />
               </section>
-            )}
+            </div>
+          )}
+        </div>
 
-            {/* ── Client: Preferences ── */}
-            {user.role === "CLIENT" && (
-              <>
-                <section id="workspace-billing" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
-                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant">domain</span>
-                    <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Workspace & Billing Identity</h2>
-                  </div>
-                  <OrganizationSettingsClient
-                    initial={{
-                      id: editableOrganization?.id ?? null,
-                      name: workspaceName,
-                      type: workspaceType,
-                      website: editableOrganization?.website ?? "",
-                      billingEmail: editableOrganization?.billing_email ?? user.email ?? "",
-                    }}
-                    members={(editableOrganization?.members ?? []).map(member => ({
-                      id: member.id,
-                      role: member.role,
-                      createdAt: member.created_at.toISOString(),
-                      user: member.user,
-                    }))}
-                    currentUserId={user.id}
-                    verificationStatus={businessVerification}
-                  />
-                </section>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Platform operations</p>
+          <h2 className="mt-1 text-lg font-black text-on-surface">Configure access, payments, and alerts</h2>
+        </div>
 
-                <section id="project-preferences" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
-                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant">tune</span>
-                    <h2 className="text-xs font-black uppercase tracking-widest text-on-surface">Project Preferences</h2>
-                  </div>
-                  <ClientPreferencesSettings initial={{
-                    companyName: workspaceName,
-                    companyType: workspaceType,
-                    preferredBidType: user.preferred_bid_type,
-                    typicalProjectBudget: user.typical_project_budget,
-                    addressLine1: user.address_line1,
-                    addressCity: user.address_city,
-                    addressState: user.address_state,
-                    addressZip: user.address_zip,
-                    addressCountry: user.address_country,
-                  }} />
-                </section>
-              </>
-            )}
-          </div>
-
-          <aside className="space-y-5 min-w-0">
+        <div className="grid gap-5 xl:grid-cols-2">
             {/* ── BYOK AI Keys ── */}
             <section id="ai-model-keys" className="scroll-mt-24 bg-surface border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-outline-variant/10">
@@ -727,7 +731,6 @@ export default async function SettingsPage() {
             notify_milestone_reviews: user.notify_milestone_reviews,
           }} />
         </section>
-          </aside>
         </div>
 
       </div>
