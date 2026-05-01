@@ -662,7 +662,8 @@ export default async function ProjectCommandCenter({
                     return (
                       <div
                         key={milestone.id}
-                        className={`flex gap-4 md:gap-6 items-start rounded-2xl border p-4 md:p-5 transition-all duration-300 ${
+                        id={`milestone-${milestone.id}`}
+                        className={`scroll-mt-28 flex gap-4 md:gap-6 items-start rounded-2xl border p-4 md:p-5 transition-all duration-300 ${
                           isDone
                             ? "bg-surface-container-low/30 border-outline-variant/10 opacity-60"
                             : isActive

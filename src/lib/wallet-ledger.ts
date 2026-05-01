@@ -37,6 +37,13 @@ export type WalletEscrowSummary = Record<WalletEscrowStatusKey, WalletEscrowBuck
   totalTrackedCents: number;
 };
 
+export type WalletMilestoneActionRole = "CLIENT" | "FACILITATOR";
+
+export type WalletMilestoneAction = {
+  label: string;
+  href: string;
+};
+
 export function getLatestLedgerPaymentRecord<T extends WalletLedgerPaymentRecord>(
   records: T[] | undefined,
   kind?: string
@@ -145,4 +152,30 @@ export function summarizeWalletEscrowStates(milestones: WalletFundingMilestone[]
   summary.activeEscrowCents = summary.fundedEscrow.amountCents + summary.submittedReview.amountCents;
 
   return summary;
+}
+
+export function getWalletMilestoneAction({
+  role,
+  projectId,
+  milestoneId,
+  status,
+}: {
+  role: WalletMilestoneActionRole;
+  projectId: string;
+  milestoneId: string;
+  status: string;
+}): WalletMilestoneAction | null {
+  const href = `/command-center/${projectId}?tab=war-room#milestone-${milestoneId}`;
+
+  if (role === "CLIENT") {
+    if (status === "PENDING") return { label: "Fund milestone", href };
+    if (status === "SUBMITTED_FOR_REVIEW") return { label: "Review submitted work", href };
+    if (status === "DISPUTED") return { label: "Resolve dispute", href };
+    return null;
+  }
+
+  if (status === "FUNDED_IN_ESCROW") return { label: "Submit delivery evidence", href };
+  if (status === "SUBMITTED_FOR_REVIEW") return { label: "Awaiting client review", href };
+  if (status === "DISPUTED") return { label: "Review dispute", href };
+  return null;
 }

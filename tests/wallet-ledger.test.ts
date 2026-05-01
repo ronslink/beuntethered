@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getWalletMilestoneAction,
   getPendingMilestoneFundingBreakdown,
   getLatestLedgerPaymentRecord,
   summarizePendingClientFunding,
@@ -67,6 +68,44 @@ test("wallet funding forecast separates escrow, client fee, and total due", () =
     platformFeeCents: 18000,
     clientTotalCents: 318000,
   });
+});
+
+test("wallet milestone actions deep link to the operational milestone", () => {
+  assert.deepEqual(
+    getWalletMilestoneAction({
+      role: "CLIENT",
+      projectId: "project-1",
+      milestoneId: "milestone-1",
+      status: "PENDING",
+    }),
+    {
+      label: "Fund milestone",
+      href: "/command-center/project-1?tab=war-room#milestone-milestone-1",
+    }
+  );
+
+  assert.deepEqual(
+    getWalletMilestoneAction({
+      role: "FACILITATOR",
+      projectId: "project-1",
+      milestoneId: "milestone-2",
+      status: "FUNDED_IN_ESCROW",
+    }),
+    {
+      label: "Submit delivery evidence",
+      href: "/command-center/project-1?tab=war-room#milestone-milestone-2",
+    }
+  );
+
+  assert.equal(
+    getWalletMilestoneAction({
+      role: "FACILITATOR",
+      projectId: "project-1",
+      milestoneId: "milestone-3",
+      status: "PENDING",
+    }),
+    null
+  );
 });
 
 test("pending milestone funding breakdown uses the correct fee model", () => {

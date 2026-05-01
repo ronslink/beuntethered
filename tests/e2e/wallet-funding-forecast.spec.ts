@@ -64,6 +64,10 @@ test("client wallet forecasts escrow funding totals before checkout", async ({ p
     await expect(fundingForecast.getByText("$3,180")).toBeVisible();
     await expect(page.getByText("Total due $1,080 incl. $80 client fee")).toBeVisible();
     await expect(page.getByText("Total due $2,100 incl. $100 client fee")).toBeVisible();
+
+    await page.getByRole("link", { name: /fund milestone/i }).first().click();
+    await expect(page).toHaveURL(/\/command-center\/.+\?tab=war-room#milestone-/);
+    await expect(page.getByRole("link", { name: /milestones/i })).toHaveClass(/border-primary/);
   } finally {
     await cleanupByEmailPrefix(prefix);
   }

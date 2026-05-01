@@ -8,6 +8,7 @@ import {
   getLatestLedgerPaymentRecord,
   summarizePendingClientFunding,
   summarizeWalletEscrowStates,
+  getWalletMilestoneAction,
   sumSucceededClientFundingFeesCents,
   sumSucceededFacilitatorPayoutCents,
   type WalletEscrowStatusKey,
@@ -125,10 +126,16 @@ function PaymentActionQueue({
   milestones: LedgerMilestone[];
 }) {
   const actionItems = milestones
-    .filter(milestone => {
-      if (role === "CLIENT") return ["PENDING", "SUBMITTED_FOR_REVIEW", "DISPUTED"].includes(milestone.status);
-      return ["FUNDED_IN_ESCROW", "SUBMITTED_FOR_REVIEW", "DISPUTED"].includes(milestone.status);
-    })
+    .map((milestone) => ({
+      milestone,
+      action: getWalletMilestoneAction({
+        role,
+        projectId: milestone.project_id,
+        milestoneId: milestone.id,
+        status: milestone.status,
+      }),
+    }))
+    .filter((item): item is { milestone: LedgerMilestone; action: NonNullable<ReturnType<typeof getWalletMilestoneAction>> } => Boolean(item.action))
     .slice(0, 4);
 
   return (
@@ -152,27 +159,18 @@ function PaymentActionQueue({
           </div>
         ) : (
           <div className="divide-y divide-outline-variant/10">
-            {actionItems.map(milestone => {
+            {actionItems.map(({ milestone, action }) => {
               const fundingBreakdown = role === "CLIENT" ? getPendingMilestoneFundingBreakdown(milestone) : null;
-              const label =
-                role === "CLIENT" && milestone.status === "PENDING"
-                  ? "Fund milestone"
-                  : role === "CLIENT" && milestone.status === "SUBMITTED_FOR_REVIEW"
-                  ? "Review submitted work"
-                  : milestone.status === "DISPUTED"
-                  ? "Resolve dispute"
-                  : role === "FACILITATOR" && milestone.status === "FUNDED_IN_ESCROW"
-                  ? "Submit delivery evidence"
-                  : "Awaiting client review";
               return (
                 <Link
                   key={milestone.id}
-                  href={`/command-center/${milestone.project_id}`}
+                  href={action.href}
+                  aria-label={`${action.label}: ${milestone.project.title} - ${milestone.title}`}
                   className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-container-low"
                 >
                   <span className="material-symbols-outlined text-[18px] text-primary">arrow_right_alt</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-black text-on-surface">{label}</p>
+                    <p className="truncate text-sm font-black text-on-surface">{action.label}</p>
                     <p className="truncate text-xs font-medium text-on-surface-variant">{milestone.project.title} - {milestone.title}</p>
                     {fundingBreakdown && (
                       <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -616,7 +614,7 @@ function LedgerSection({
             const latestFunding = getLatestLedgerPaymentRecord(milestone.payment_records, "MILESTONE_FUNDING");
             const latestRelease = getLatestLedgerPaymentRecord(milestone.payment_records, "ESCROW_RELEASE");
             const relevantPayment = latestRelease ?? latestFunding;
-            const href = `/command-center/${milestone.project_id}`;
+            const href = `/command-center/${milestone.project_id}?tab=war-room#milestone-${milestone.id}`;
 
             return (
               <Link
