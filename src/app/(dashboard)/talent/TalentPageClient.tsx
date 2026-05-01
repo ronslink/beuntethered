@@ -20,6 +20,13 @@ function tierClasses(tier: string) {
   return "border-outline-variant bg-surface-container-high text-on-surface-variant";
 }
 
+function proofLevelClasses(level: TalentProfile["proof_level"]) {
+  if (level === "enterprise_ready") return "border-primary/30 bg-primary/10 text-primary";
+  if (level === "trusted") return "border-tertiary/30 bg-tertiary/10 text-tertiary";
+  if (level === "verified") return "border-[#2563eb]/30 bg-[#2563eb]/10 text-[#2563eb]";
+  return "border-outline-variant/30 bg-surface-container-low text-on-surface-variant";
+}
+
 function availabilityLabel(value: string | null) {
   if (value === "AVAILABLE") return "Available now";
   if (value === "SOON") return "Available soon";
@@ -36,9 +43,10 @@ function inviteStatusLabel(status: TalentProfile["invite_status"]) {
   return null;
 }
 
-type SortKey = "trust" | "audit" | "completed" | "rate_asc" | "rate_desc";
+type SortKey = "proof" | "trust" | "audit" | "completed" | "rate_asc" | "rate_desc";
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "proof", label: "Proof readiness" },
   { value: "trust", label: "Trust score" },
   { value: "audit", label: "Audit score" },
   { value: "completed", label: "Completed milestones" },
@@ -56,7 +64,7 @@ export default function TalentPageClient({
   canInvite: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>("trust");
+  const [sortBy, setSortBy] = useState<SortKey>("proof");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedTier, setSelectedTier] = useState("ALL");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -74,11 +82,12 @@ export default function TalentPageClient({
 
   const marketplaceStats = useMemo(() => {
     const verified = talent.filter((profile) => profile.identity_verified || profile.stripe_verified).length;
+    const proofReady = talent.filter((profile) => profile.proof_level === "enterprise_ready" || profile.proof_level === "trusted").length;
     const completed = talent.reduce((sum, profile) => sum + profile.total_sprints_completed, 0);
     const avgAudit = talent.length
       ? Math.round(talent.reduce((sum, profile) => sum + profile.average_ai_audit_score, 0) / talent.length)
       : 0;
-    return { verified, completed, avgAudit };
+    return { verified, proofReady, completed, avgAudit };
   }, [talent]);
 
   const filtered = useMemo(() => {
@@ -93,8 +102,12 @@ export default function TalentPageClient({
           profile.availability,
           profile.platform_tier,
           profile.portfolio_url,
+          profile.proof_label,
           ...profile.skills,
           ...profile.ai_agent_stack,
+          ...profile.evidence_provider_labels,
+          ...profile.trust_highlights,
+          ...profile.trust_gaps,
         ]
           .filter(Boolean)
           .join(" ")
@@ -123,6 +136,7 @@ export default function TalentPageClient({
     }
 
     results.sort((a, b) => {
+      if (sortBy === "proof") return b.proof_score - a.proof_score;
       if (sortBy === "audit") return b.average_ai_audit_score - a.average_ai_audit_score;
       if (sortBy === "completed") return b.total_sprints_completed - a.total_sprints_completed;
       if (sortBy === "rate_asc") return a.hourly_rate - b.hourly_rate;
@@ -139,7 +153,7 @@ export default function TalentPageClient({
     setSelectedTier("ALL");
     setVerifiedOnly(false);
     setAvailableOnly(false);
-    setSortBy("trust");
+    setSortBy("proof");
   };
 
   const toggleSkill = (skill: string) => {
@@ -199,8 +213,9 @@ export default function TalentPageClient({
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:min-w-[420px]">
+          <div className="grid grid-cols-2 gap-2 sm:min-w-[520px] sm:grid-cols-4">
             <Stat label="Verified" value={String(marketplaceStats.verified)} />
+            <Stat label="Proof ready" value={String(marketplaceStats.proofReady)} />
             <Stat label="Milestones" value={String(marketplaceStats.completed)} />
             <Stat label="Avg audit" value={`${marketplaceStats.avgAudit}%`} />
           </div>
@@ -308,10 +323,10 @@ export default function TalentPageClient({
 
         {filtered.length > 0 ? (
           <section className="overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface shadow-sm">
-            <div className="grid grid-cols-[1.5fr_1.4fr_120px_120px_130px] gap-4 border-b border-outline-variant/30 bg-surface-container-low px-5 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface-variant max-lg:hidden">
+            <div className="grid grid-cols-[1.6fr_1.4fr_130px_120px_130px] gap-4 border-b border-outline-variant/30 bg-surface-container-low px-5 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface-variant max-lg:hidden">
               <span>Facilitator</span>
-              <span>Fit signals</span>
-              <span>Delivery</span>
+              <span>Proof signals</span>
+              <span>Delivery proof</span>
               <span>Economics</span>
               <span className="text-right">Action</span>
             </div>
@@ -417,17 +432,15 @@ function TalentRow({
   hasOpenProjects: boolean;
   onInvite: () => void;
 }) {
-  const verificationCount = [
-    profile.stripe_verified,
-    profile.identity_verified,
-    profile.profile_complete,
-    profile.portfolio_url,
-  ].filter(Boolean).length;
   const inviteLabel = inviteStatusLabel(inviteStatus);
   const canSendInvite = canInvite && hasOpenProjects && (!inviteStatus || inviteStatus === "DECLINED");
+  const visibleSignals = [
+    ...profile.buyer_signals.filter((signal) => signal.status === "attention"),
+    ...profile.buyer_signals.filter((signal) => signal.status !== "attention"),
+  ].slice(0, 4);
 
   return (
-    <article className="grid gap-4 px-5 py-5 transition-colors hover:bg-surface-container-low/60 lg:grid-cols-[1.5fr_1.4fr_120px_120px_130px] lg:items-center">
+    <article className="grid gap-4 px-5 py-5 transition-colors hover:bg-surface-container-low/60 lg:grid-cols-[1.6fr_1.4fr_130px_120px_130px] lg:items-center">
       <div className="flex min-w-0 gap-4">
         {profile.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -449,6 +462,9 @@ function TalentRow({
             <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${tierClasses(profile.platform_tier)}`}>
               {profile.platform_tier}
             </span>
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${proofLevelClasses(profile.proof_level)}`}>
+              {profile.proof_label}
+            </span>
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-relaxed text-on-surface-variant">
             {profile.bio || "No profile summary yet."}
@@ -464,26 +480,26 @@ function TalentRow({
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:grid-cols-2">
-        <Signal label="Stripe" active={profile.stripe_verified} />
-        <Signal label="Identity" active={profile.identity_verified} />
-        <Signal label="Profile" active={profile.profile_complete} />
-        <Signal label="No disputes" active={profile.dispute_count === 0} />
+        {visibleSignals.map((signal) => (
+          <Signal key={signal.key} label={signal.label} status={signal.status} />
+        ))}
         <div className="col-span-2 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2">
-          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">AI tools</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Evidence tools</p>
           <p className="mt-1 truncate text-xs font-bold text-on-surface">
-            {profile.ai_agent_stack.length ? profile.ai_agent_stack.slice(0, 3).join(", ") : "Not listed"}
+            {profile.evidence_provider_labels.length ? profile.evidence_provider_labels.slice(0, 3).join(", ") : "Not connected yet"}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 lg:block lg:space-y-2">
-        <Metric label="Trust" value={`${Math.round(profile.trust_score)}`} />
+        <Metric label="Proof" value={`${profile.proof_score}`} />
         <Metric label="Audit" value={`${Math.round(profile.average_ai_audit_score)}%`} />
         <Metric label="Done" value={`${profile.total_sprints_completed}`} />
       </div>
 
       <div className="grid grid-cols-2 gap-2 lg:block lg:space-y-2">
         <Metric label="Rate" value={`$${profile.hourly_rate}`} />
+        <Metric label="Views" value={`${profile.profile_view_count}`} />
         <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2">
           <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Readiness</p>
           <p className="mt-1 text-xs font-bold text-on-surface">{availabilityLabel(profile.availability)}</p>
@@ -518,7 +534,7 @@ function TalentRow({
       </div>
 
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant lg:hidden">
-        {verificationCount}/4 buyer trust signals complete
+        {profile.proof_score}/100 proof readiness
       </div>
     </article>
   );
@@ -533,12 +549,23 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Signal({ label, active }: { label: string; active: boolean }) {
+function Signal({ label, status }: { label: string; status: TalentProfile["buyer_signals"][number]["status"] }) {
+  const active = status === "ready";
+  const attention = status === "attention";
+
   return (
-    <div className={`rounded-xl border px-3 py-2 ${active ? "border-tertiary/30 bg-tertiary/10" : "border-outline-variant/30 bg-surface-container-low"}`}>
+    <div
+      className={`rounded-xl border px-3 py-2 ${
+        active
+          ? "border-tertiary/30 bg-tertiary/10"
+          : attention
+          ? "border-error/30 bg-error/10"
+          : "border-outline-variant/30 bg-surface-container-low"
+      }`}
+    >
       <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
-        <span className={`material-symbols-outlined text-[12px] ${active ? "text-tertiary" : "text-outline"}`}>
-          {active ? "check_circle" : "radio_button_unchecked"}
+        <span className={`material-symbols-outlined text-[12px] ${active ? "text-tertiary" : attention ? "text-error" : "text-outline"}`}>
+          {active ? "check_circle" : attention ? "warning" : "radio_button_unchecked"}
         </span>
         {label}
       </p>

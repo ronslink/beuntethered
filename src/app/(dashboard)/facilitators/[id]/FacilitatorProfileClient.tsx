@@ -3,6 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { inviteFacilitatorToProject } from "@/app/actions/project-invites";
+import type {
+  FacilitatorProofLevel,
+  FacilitatorProofSignal,
+} from "@/lib/facilitator-trust-profile";
 
 type PlatformTier = "STANDARD" | "PRO" | "ELITE";
 type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED";
@@ -32,6 +36,15 @@ export interface Facilitator {
   verifications?: { type: VerificationType; status: VerificationStatus }[];
   dispute_count?: number;
   bid_count?: number;
+  profile_view_count?: number;
+  connected_evidence_count?: number;
+  evidence_provider_labels?: string[];
+  proof_score?: number;
+  proof_level?: FacilitatorProofLevel;
+  proof_label?: string;
+  buyer_signals?: FacilitatorProofSignal[];
+  trust_highlights?: string[];
+  trust_gaps?: string[];
 }
 
 const VERIFICATION_TYPES: { type: VerificationType; label: string; icon: string }[] = [
@@ -61,6 +74,13 @@ function formatDate(date: Date | string): string {
 function tierClasses(tier: PlatformTier): string {
   if (tier === "ELITE") return "bg-primary/10 text-primary border-primary/30";
   if (tier === "PRO") return "bg-tertiary/10 text-tertiary border-tertiary/30";
+  return "bg-surface-container-high text-on-surface-variant border-outline-variant/30";
+}
+
+function proofLevelClasses(level: FacilitatorProofLevel): string {
+  if (level === "enterprise_ready") return "bg-primary/10 text-primary border-primary/30";
+  if (level === "trusted") return "bg-tertiary/10 text-tertiary border-tertiary/30";
+  if (level === "verified") return "bg-[#2563eb]/10 text-[#2563eb] border-[#2563eb]/30";
   return "bg-surface-container-high text-on-surface-variant border-outline-variant/30";
 }
 
@@ -166,13 +186,38 @@ export default function FacilitatorProfileClient({
   const initials = getInitials(facilitator.name);
   const skills = facilitator.skills ?? [];
   const agentStack = facilitator.ai_agent_stack ?? [];
-  const disputes = facilitator.dispute_count ?? 0;
   const verifiedCount = VERIFICATION_TYPES.filter(
     ({ type }) => verificationStatus(facilitator.verifications, type) === "VERIFIED"
   ).length;
   const profileComplete = Boolean(facilitator.bio && skills.length > 0 && facilitator.portfolio_url);
   const stripeVerified = verificationStatus(facilitator.verifications, "STRIPE") === "VERIFIED";
   const identityVerified = verificationStatus(facilitator.verifications, "IDENTITY") === "VERIFIED";
+  const proofScore = facilitator.proof_score ?? Math.round(facilitator.trust_score);
+  const proofLevel = facilitator.proof_level ?? "emerging";
+  const proofLabel = facilitator.proof_label ?? "Emerging profile";
+  const proofSignals = facilitator.buyer_signals ?? [
+    {
+      key: "identity",
+      label: "Identity",
+      status: identityVerified ? "ready" : "pending",
+      detail: identityVerified ? "Identity verification is recorded." : "Identity verification is pending.",
+    },
+    {
+      key: "payouts",
+      label: "Stripe payouts",
+      status: stripeVerified ? "ready" : "pending",
+      detail: stripeVerified ? "Stripe payout readiness is verified." : "Payout verification is pending.",
+    },
+    {
+      key: "profile",
+      label: "Profile",
+      status: profileComplete ? "ready" : "pending",
+      detail: profileComplete ? "Profile evidence is ready for review." : "Profile evidence is incomplete.",
+    },
+  ];
+  const trustHighlights = facilitator.trust_highlights ?? [];
+  const trustGaps = facilitator.trust_gaps ?? [];
+  const evidenceProviderLabels = facilitator.evidence_provider_labels ?? [];
 
   const inviteLabel = inviteStatusLabel(currentInviteStatus);
   const canSendInvite = canInvite && openProjects.length > 0 && (!currentInviteStatus || currentInviteStatus === "DECLINED");
@@ -230,6 +275,9 @@ export default function FacilitatorProfileClient({
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-widest ${tierClasses(facilitator.platform_tier)}`}>
                     {facilitator.platform_tier}
+                  </span>
+                  <span className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-widest ${proofLevelClasses(proofLevel)}`}>
+                    {proofLabel}
                   </span>
                   <span className="rounded-full border border-tertiary/20 bg-tertiary/10 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-tertiary">
                     {availabilityLabel(facilitator.availability)}
@@ -290,10 +338,10 @@ export default function FacilitatorProfileClient({
 
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
           {[
-            { label: "Trust Score", value: Math.round(facilitator.trust_score) },
+            { label: "Proof Readiness", value: `${proofScore}/100` },
             { label: "Completed Milestones", value: facilitator.total_sprints_completed },
             { label: "Average Audit", value: facilitator.average_ai_audit_score > 0 ? `${facilitator.average_ai_audit_score.toFixed(1)}%` : "-" },
-            { label: "Disputes", value: disputes },
+            { label: "Profile Views", value: facilitator.profile_view_count ?? 0 },
             { label: "Verifications", value: `${verifiedCount}/${VERIFICATION_TYPES.length}` },
           ].map((stat) => (
             <div key={stat.label} className="rounded-xl border border-outline-variant/20 bg-surface p-4">
@@ -335,13 +383,40 @@ export default function FacilitatorProfileClient({
 
             <div className="rounded-2xl border border-outline-variant/20 bg-surface p-6">
               <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-on-surface">
-                Buyer Confidence Signals
+                Buyer Trust Profile
               </h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                <EvidenceCard label="Stripe payout verified" active={stripeVerified} body="Facilitator can receive marketplace payouts through Stripe Connect." />
-                <EvidenceCard label="Identity verified" active={identityVerified} body="Profile has identity review evidence recorded in Untether." />
-                <EvidenceCard label="Profile complete" active={profileComplete} body="Bio, skills, AI tool workflow, and portfolio are ready for buyer review." />
-                <EvidenceCard label="Dispute history" active={disputes === 0} body={disputes === 0 ? "No disputes recorded for this facilitator." : `${disputes} dispute record(s) require review.`} />
+              <div className="grid gap-3 md:grid-cols-[180px_1fr]">
+                <div className={`rounded-2xl border p-5 ${proofLevelClasses(proofLevel)}`}>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Proof readiness</p>
+                  <p className="mt-2 text-3xl font-black text-on-surface">{proofScore}</p>
+                  <p className="mt-1 text-xs font-black uppercase tracking-widest">{proofLabel}</p>
+                </div>
+                <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                    Buyer review notes
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <TrustNoteList title="Strengths" items={trustHighlights} fallback="Verified strengths will appear as the facilitator completes delivery and proof setup." />
+                    <TrustNoteList title="Gaps to review" items={trustGaps} fallback="No major buyer-facing gaps are currently flagged." />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {proofSignals.map((signal) => (
+                  <ProofSignalCard key={signal.key} signal={signal} />
+                ))}
+                <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-primary">hub</span>
+                    <h3 className="text-sm font-black text-on-surface">Evidence providers</h3>
+                  </div>
+                  <p className="mt-2 text-xs font-medium leading-relaxed text-on-surface-variant">
+                    {evidenceProviderLabels.length
+                      ? evidenceProviderLabels.slice(0, 5).join(", ")
+                      : "No connected delivery evidence providers are recorded yet."}
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -452,16 +527,42 @@ export default function FacilitatorProfileClient({
   );
 }
 
-function EvidenceCard({ label, active, body }: { label: string; active: boolean; body: string }) {
+function TrustNoteList({ title, items, fallback }: { title: string; items: string[]; fallback: string }) {
+  const visibleItems = items.length > 0 ? items : [fallback];
+
   return (
-    <div className={`rounded-xl border p-4 ${active ? "border-tertiary/30 bg-tertiary/10" : "border-outline-variant/30 bg-surface-container-low"}`}>
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{title}</p>
+      <ul className="mt-2 space-y-2">
+        {visibleItems.map((item) => (
+          <li key={item} className="flex gap-2 text-xs font-medium leading-relaxed text-on-surface-variant">
+            <span className="material-symbols-outlined mt-0.5 text-[13px] text-primary">check_small</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ProofSignalCard({ signal }: { signal: FacilitatorProofSignal }) {
+  const ready = signal.status === "ready";
+  const attention = signal.status === "attention";
+  const icon = ready ? "check_circle" : attention ? "warning" : "radio_button_unchecked";
+  const classes = ready
+    ? "border-tertiary/30 bg-tertiary/10"
+    : attention
+    ? "border-error/30 bg-error/10"
+    : "border-outline-variant/30 bg-surface-container-low";
+  const iconClass = ready ? "text-tertiary" : attention ? "text-error" : "text-outline";
+
+  return (
+    <div className={`rounded-xl border p-4 ${classes}`}>
       <div className="flex items-center gap-2">
-        <span className={`material-symbols-outlined text-[18px] ${active ? "text-tertiary" : "text-outline"}`}>
-          {active ? "check_circle" : "radio_button_unchecked"}
-        </span>
-        <h3 className="text-sm font-black text-on-surface">{label}</h3>
+        <span className={`material-symbols-outlined text-[18px] ${iconClass}`}>{icon}</span>
+        <h3 className="text-sm font-black text-on-surface">{signal.label}</h3>
       </div>
-      <p className="mt-2 text-xs font-medium leading-relaxed text-on-surface-variant">{body}</p>
+      <p className="mt-2 text-xs font-medium leading-relaxed text-on-surface-variant">{signal.detail}</p>
     </div>
   );
 }

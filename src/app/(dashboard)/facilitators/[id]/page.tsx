@@ -4,6 +4,8 @@ import FacilitatorProfileClient from "./FacilitatorProfileClient";
 import { getCurrentUser } from "@/lib/session";
 import { buyerProjectManagerListWhere } from "@/lib/project-access";
 import { recordFacilitatorProfileView } from "@/lib/profile-views";
+import { getFacilitatorTrustProfile } from "@/lib/facilitator-trust-profile";
+import type { EvidenceSourceTypeValue } from "@/lib/delivery-evidence";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -80,16 +82,44 @@ export default async function FacilitatorProfilePage({ params }: Props) {
             status: true,
           },
         },
+        created_evidence_sources: {
+          select: { type: true, status: true },
+          orderBy: { updated_at: "desc" },
+          take: 20,
+        },
         _count: {
           select: {
             facilitator_disputes: true,
             bids: true,
+            profile_views_received: true,
           },
         },
       },
     });
 
     if (user && user.role === "FACILITATOR") {
+      const stripeVerified = user.verifications.some((verification) => verification.type === "STRIPE" && verification.status === "VERIFIED");
+      const identityVerified = user.verifications.some((verification) => verification.type === "IDENTITY" && verification.status === "VERIFIED");
+      const portfolioVerified = user.verifications.some((verification) => verification.type === "PORTFOLIO" && verification.status === "VERIFIED");
+      const profileComplete = Boolean(user.bio && user.skills.length > 0 && user.portfolio_url);
+      const connectedEvidenceSources = user.created_evidence_sources.filter((source) => source.status === "CONNECTED");
+      const trustProfile = getFacilitatorTrustProfile({
+        stripeVerified,
+        identityVerified,
+        portfolioVerified,
+        profileComplete,
+        completedMilestones: user.total_sprints_completed,
+        averageAuditScore: user.average_ai_audit_score,
+        disputeCount: user._count.facilitator_disputes,
+        aiAgentStackCount: user.ai_agent_stack.length,
+        skillsCount: user.skills.length,
+        availability: user.availability,
+        connectedEvidenceSourceCount: connectedEvidenceSources.length,
+        evidenceProviderTypes: connectedEvidenceSources.map((source) => source.type as EvidenceSourceTypeValue),
+        profileViewCount: user._count.profile_views_received,
+        bidCount: user._count.bids,
+      });
+
       facilitatorData = {
         id: user.id,
         name: user.name,
@@ -113,6 +143,15 @@ export default async function FacilitatorProfilePage({ params }: Props) {
         verifications: user.verifications,
         dispute_count: user._count.facilitator_disputes,
         bid_count: user._count.bids,
+        profile_view_count: user._count.profile_views_received,
+        connected_evidence_count: connectedEvidenceSources.length,
+        evidence_provider_labels: trustProfile.evidenceProviderLabels,
+        proof_score: trustProfile.proofScore,
+        proof_level: trustProfile.proofLevel,
+        proof_label: trustProfile.proofLabel,
+        buyer_signals: trustProfile.buyerSignals,
+        trust_highlights: trustProfile.highlights,
+        trust_gaps: trustProfile.gaps,
       };
 
       await recordFacilitatorProfileView({

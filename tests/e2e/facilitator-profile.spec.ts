@@ -31,6 +31,8 @@ test("client sees facilitator trust evidence profile", async ({ page }) => {
     await expect(page.getByRole("heading", { name: /trust evidence facilitator/i })).toBeVisible();
     await expect(page.getByText(/verification evidence/i)).toBeVisible();
     await expect(page.getByText(/skills and ai tools/i)).toBeVisible();
+    await expect(page.getByText(/buyer trust profile/i)).toBeVisible();
+    await expect(page.getByText("Proof readiness", { exact: true })).toBeVisible();
     await expect(page.getByText(/commercial readiness/i)).toBeVisible();
     await expect(page.getByText("3/3")).toBeVisible();
     await expect(page.getByRole("link", { name: /post project/i }).first()).toBeVisible();
